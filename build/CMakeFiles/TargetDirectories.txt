@@ -1,0 +1,4 @@
+C:/Lizeral Engine/build/CMakeFiles/LizeralParser.dir
+C:/Lizeral Engine/build/CMakeFiles/LIZERALPreCompile.dir
+C:/Lizeral Engine/build/CMakeFiles/edit_cache.dir
+C:/Lizeral Engine/build/CMakeFiles/rebuild_cache.dir

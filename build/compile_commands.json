@@ -1,0 +1,80 @@
+[
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\cursor\\cursor.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\cursor\\cursor.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/cursor/cursor.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/cursor/cursor.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\cursor\\cursor_type.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\cursor\\cursor_type.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/cursor/cursor_type.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/cursor/cursor_type.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\generator\\generator.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\generator\\generator.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/generator/generator.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/generator/generator.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\generator\\reflection_generator.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\generator\\reflection_generator.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/generator/reflection_generator.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/generator/reflection_generator.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\generator\\serializer_generator.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\generator\\serializer_generator.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/generator/serializer_generator.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/generator/serializer_generator.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\language_types\\class.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\language_types\\class.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/language_types/class.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/language_types/class.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\language_types\\field.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\language_types\\field.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/language_types/field.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/language_types/field.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\language_types\\type_info.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\language_types\\type_info.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/language_types/type_info.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/language_types/type_info.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\main.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\main.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/main.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/main.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\parser\\parser.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\parser\\parser.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/parser/parser.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/parser/parser.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\template_manager\\template_manager.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\template_manager\\template_manager.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/template_manager/template_manager.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/template_manager/template_manager.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\utils\\meta_info.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\utils\\meta_info.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/utils/meta_info.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/utils/meta_info.cpp.obj"
+},
+{
+  "directory": "C:/Lizeral Engine/build",
+  "command": "C:\\PROGRA~1\\mingw64\\bin\\G__~1.EXE -DTIXML_USE_STL @CMakeFiles/LizeralParser.dir/includes_CXX.rsp  -O2 -std=gnu++17 -o CMakeFiles\\LizeralParser.dir\\parser\\utils\\meta_utils.cpp.obj -c \"C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\meta_parser\\parser\\utils\\meta_utils.cpp\"",
+  "file": "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/meta_parser/parser/utils/meta_utils.cpp",
+  "output": "CMakeFiles/LizeralParser.dir/parser/utils/meta_utils.cpp.obj"
+}
+]

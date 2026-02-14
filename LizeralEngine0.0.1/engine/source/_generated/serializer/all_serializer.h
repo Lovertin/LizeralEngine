@@ -1,0 +1,16 @@
+#pragma once
+#include "runtime/core/meta/serializer/serializer.h"
+#include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
+#include "_generated\serializer\TransformComponent.serializer.gen.h"
+#include "_generated\serializer\ColliderComponent.serializer.gen.h"
+#include "_generated\serializer\transform.serializer.gen.h"
+#include "_generated\serializer\component.serializer.gen.h"
+#include "_generated\serializer\parser_test.serializer.gen.h"
+#include "_generated\serializer\matrix4.serializer.gen.h"
+#include "_generated\serializer\axis_aligned.serializer.gen.h"
+#include "_generated\serializer\vector4.serializer.gen.h"
+#include "_generated\serializer\color.serializer.gen.h"
+#include "_generated\serializer\vector2.serializer.gen.h"
+#include "_generated\serializer\vector3.serializer.gen.h"
+#include "_generated\serializer\quaternion.serializer.gen.h"
+

@@ -1,0 +1,14 @@
+{
+  "files": [
+    "engine/source/runtime/core/math/vector2.h",
+    "engine/source/runtime/core/math/vector3.h", 
+    "engine/source/runtime/core/math/vector4.h",
+    "engine/source/runtime/core/math/quaternion.h",
+    "engine/source/runtime/core/math/matrix3.h",
+    "engine/source/runtime/core/math/matrix4.h",
+    "engine/source/runtime/core/math/transform.h",
+    "engine/source/runtime/core/color/color.h"
+  ],
+  "output_dir": "engine/source/_generated",
+  "module_name": "LizeralEngine"
+}
