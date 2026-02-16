@@ -5,6 +5,7 @@
 const uint32_t PHYS_DIRTY_MASS = 1 << 1;
 const uint32_t PHYS_DIRTY_FRICTION = 1 << 2;
 const uint32_t PHYS_DIRTY_KINEMATIC = 1 << 3;
+const uint32_t PHYS_DIRTY_RESTITUTION = 1 << 4;
 
 namespace Lizeral{
     REFLECTION_TYPE(RigidBodyComponent)
@@ -18,6 +19,7 @@ namespace Lizeral{
             REFLECTION_BIND_DIRTY("m_mass",          PHYS_DIRTY_MASS)
             REFLECTION_BIND_DIRTY("m_friction",      PHYS_DIRTY_FRICTION)
             REFLECTION_BIND_DIRTY("m_is_kinematic",  PHYS_DIRTY_KINEMATIC)
+            REFLECTION_BIND_DIRTY("m_restitution", PHYS_DIRTY_RESTITUTION)
         END_REFLECTION_UPDATED()
         // ========================================================
 
@@ -34,10 +36,15 @@ namespace Lizeral{
             if (m_is_kinematic != k) { m_is_kinematic = k; setDirty(PHYS_DIRTY_KINEMATIC); }
         }
 
+        void setRestitution(float restutution){
+            if(m_restitution!=restutution) {m_restitution=restutution; setDirty(PHYS_DIRTY_RESTITUTION);}
+        }
+
         // Getter
         float getMass() const { return m_mass; }
         float getFriction() const { return m_friction; }
         bool isKinematic() const { return m_is_kinematic; }
+        float getRestitution() const{ return m_restitution; }
         
         // System 接口
         void setRuntimeBody(void* body) { m_runtime_body = body; }
@@ -52,6 +59,9 @@ namespace Lizeral{
         
         META(Enable)
         bool m_is_kinematic { false };
+
+        META(Enable)
+        float m_restitution {0.0f};
 
         void* m_runtime_body { nullptr }; 
     };

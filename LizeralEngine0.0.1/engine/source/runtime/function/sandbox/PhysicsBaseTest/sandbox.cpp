@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <vector>
 #include <cmath>
 
@@ -156,11 +156,12 @@ int main() {
         auto& rb = registry.emplace<RigidBodyComponent>(ground);
         rb.setMass(0.0f); // 质量0 = 静态
         rb.setFriction(0.8f);
+        rb.setRestitution(0.8f);//弹性系数
     }
 
     // B. 动态方块 (Dynamic)
     // 生成一个 3x3x3 的方块阵列
-    for (int y = 0; y < 6; y++) {
+    for (int y = 0; y < 1; y++) {
         for (int x = 0; x < 3; x++) {
             Entity cube = registry.create();
             
@@ -172,11 +173,12 @@ int main() {
 
             auto& c = registry.emplace<ColliderComponent>(cube);
             c.setType(ColliderType::Box);
-            c.setSize(Vector3(1.0f, 1.0f, 1.0f));
+            c.setSize(Vector3(1.0f,1.0f,1.0f));
 
             auto& rb = registry.emplace<RigidBodyComponent>(cube);
             rb.setMass(1.0f); // 质量1 = 动态
             rb.setFriction(0.1f);
+            rb.setRestitution(0.5f);
         }
     }
 

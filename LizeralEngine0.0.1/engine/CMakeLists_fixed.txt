@@ -1,0 +1,91 @@
+cmake_minimum_required(VERSION 3.16)
+project(LizeralEngine VERSION 0.0.1 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin)
+
+# =============================================================
+# 1. GLAD 静态库
+# =============================================================
+add_library(glad STATIC "3rdparty/glad/src/glad.c")
+target_include_directories(glad PUBLIC 
+    "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/glad/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/glad/include/KHR"
+)
+
+# =============================================================
+# 2. 第三方库
+# =============================================================
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(3rdparty/glfw)
+add_subdirectory(3rdparty/bullet)
+
+# =============================================================
+# 3. 收集源码 (修复链接错误 LNK2019)
+# =============================================================
+
+# A. 核心模块
+file(GLOB_RECURSE SRC_MATH "source/runtime/core/math/*.cpp")
+file(GLOB_RECURSE SRC_LOG "source/runtime/core/log/*.cpp")
+
+# 【关键修复 1】添加反射运行时 (Reflection Runtime)
+# 我们只包含 reflection.cpp，不包含 serializer 和 reflection_register.cpp，避免 static_assert 报错
+file(GLOB_RECURSE SRC_REFLECTION_ALL "source/runtime/core/meta/reflection/*.cpp")
+# 排除 serializer.cpp 和 reflection_register.cpp
+list(FILTER SRC_REFLECTION_ALL EXCLUDE REGEX ".*serializer\\.cpp$")
+list(FILTER SRC_REFLECTION_ALL EXCLUDE REGEX ".*reflection_register\\.cpp$")
+set(SRC_REFLECTION ${SRC_REFLECTION_ALL})
+
+# 【关键修复 2】添加 Json11 实现
+# 如果不编译这个，链接时会报 json11::Json 找不到
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json11/json11.cpp")
+    set(SRC_JSON11 "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json11/json11.cpp")
+else()
+    # 备选路径：有些项目把 json11.cpp 放在 core/meta 下
+    file(GLOB_RECURSE SRC_JSON11 "source/runtime/core/meta/json11.cpp")
+endif()
+
+# B. 功能模块
+file(GLOB_RECURSE SRC_ECS "source/runtime/function/ecs/*.cpp")
+file(GLOB_RECURSE SRC_PHYSICS "source/runtime/function/physics/*.cpp")
+
+# C. 聚合所有源码
+set(PHYSICS_SANDBOX_SOURCES 
+    ${SRC_MATH}
+    ${SRC_LOG}
+    ${SRC_REFLECTION}  # <--- 加入反射
+    ${SRC_JSON11}      # <--- 加入 Json
+    ${SRC_ECS}
+    ${SRC_PHYSICS}
+    "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
+)
+
+# =============================================================
+# 4. 构建可执行文件
+# =============================================================
+add_executable(LizeralPhysicsSandbox ${PHYSICS_SANDBOX_SOURCES})
+
+target_include_directories(LizeralPhysicsSandbox PRIVATE
+    source
+    source/runtime
+    3rdparty/glfw/include
+    3rdparty/json11           # 确保能找到 json11.hpp
+)
+
+target_link_libraries(LizeralPhysicsSandbox PUBLIC
+    glad
+    glfw
+    bullet
+)
+
+if(WIN32)
+    target_link_libraries(LizeralPhysicsSandbox PUBLIC opengl32)
+endif()

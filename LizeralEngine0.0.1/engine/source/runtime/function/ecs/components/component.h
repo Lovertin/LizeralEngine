@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 #include <cstring>
 #include "runtime/core/meta/reflection/reflection.h"

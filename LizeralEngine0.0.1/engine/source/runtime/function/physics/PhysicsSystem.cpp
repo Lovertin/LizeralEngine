@@ -186,6 +186,8 @@ namespace Lizeral {
         // 这里假设 Entity 是 uint32_t，强转存入
         // body->setUserPointer((void*)(uintptr_t)entity);
 
+        body->setRestitution(rb.getRestitution());
+
         // 8. 加入世界
         m_scene->getWorld()->addRigidBody(body);
         
@@ -230,6 +232,13 @@ namespace Lizeral {
                 body->activate(true);
             }
             rb.clearDirty(PHYS_DIRTY_KINEMATIC);
+        }
+
+        if (rb.isDirty(PHYS_DIRTY_RESTITUTION)) {
+            body->setRestitution(rb.getRestitution());
+            // 修改属性后通常不需要唤醒，但在某些临界状态下唤醒更保险
+            body->activate(true);
+            rb.clearDirty(PHYS_DIRTY_RESTITUTION);
         }
 
         // --- B. 处理 Transform (瞬移 / Teleport) ---

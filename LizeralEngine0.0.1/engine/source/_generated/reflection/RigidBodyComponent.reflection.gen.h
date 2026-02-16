@@ -53,6 +53,15 @@ namespace TypeFieldReflectionOparator{
         }
         static void* get_m_is_kinematic(void* instance){ return static_cast<void*>(&(static_cast<RigidBodyComponent*>(instance)->m_is_kinematic));}
         static bool isArray_m_is_kinematic(){ return false; }
+        static const char* getFieldName_m_restitution(){ return "m_restitution";}
+        static const char* getFieldTypeName_m_restitution(){ return "float";}
+        static void set_m_restitution(void* instance, void* field_value){ 
+            auto* typed_instance = static_cast<RigidBodyComponent*>(instance);
+            typed_instance->m_restitution = *static_cast<float*>(field_value);
+            Lizeral::Reflection::TryNotifyReflectionUpdated(typed_instance, "m_restitution");
+        }
+        static void* get_m_restitution(void* instance){ return static_cast<void*>(&(static_cast<RigidBodyComponent*>(instance)->m_restitution));}
+        static bool isArray_m_restitution(){ return false; }
     };
 }//namespace TypeFieldReflectionOparator
 
@@ -82,6 +91,14 @@ namespace TypeFieldReflectionOparator{
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldTypeName_m_is_kinematic,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_is_kinematic);
         REGISTER_FIELD_TO_MAP("RigidBodyComponent", f_field_function_tuple_m_is_kinematic);
+        FieldFunctionTuple* f_field_function_tuple_m_restitution=new FieldFunctionTuple(
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::set_m_restitution,
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::get_m_restitution,
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getClassName,
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldName_m_restitution,
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldTypeName_m_restitution,
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_restitution);
+        REGISTER_FIELD_TO_MAP("RigidBodyComponent", f_field_function_tuple_m_restitution);
         
         
         ClassFunctionTuple* f_class_function_tuple_RigidBodyComponent=new ClassFunctionTuple(
