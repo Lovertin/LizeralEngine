@@ -36,7 +36,8 @@ namespace Lizeral{
             setDirty(DIRTY_GENERAL); 
         }
 
-        bool isDirty(uint32_t flag = DIRTY_GENERAL) const { return (m_dirty_flags & flag) != 0; }
+        bool isDirty() const {return m_dirty_flags!=0;}
+        bool isDirty(uint32_t flag ) const { return (m_dirty_flags & flag) != 0; }
         void setDirty(uint32_t flag) { m_dirty_flags |= flag; }
         void clearDirty(uint32_t flag) { m_dirty_flags &= ~flag; }
     };

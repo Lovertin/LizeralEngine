@@ -20,6 +20,7 @@
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/core/test/parser_test.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/core/test/parser_test1.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Camera/CameraComponent.h"
+#include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Camera/CameraControlComponent.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Collider/ColliderComponent.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/component.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/RigidBody/RigidBodyComponent.h"
@@ -28,7 +29,9 @@
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/entity.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/registry.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/view.h"
-#include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/global/input.h"
+#include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/input/input.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/PhysicsScene.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/PhysicsSystem.h"
+#include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraControlSystem/CameraControlSystem.h"
+#include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraSystem/CameraSystem.h"
 #endif

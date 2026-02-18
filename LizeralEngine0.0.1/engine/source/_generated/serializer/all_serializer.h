@@ -1,7 +1,7 @@
 #pragma once
 #include "runtime/core/meta/serializer/serializer.h"
 #include "_generated\serializer\TransformComponent.serializer.gen.h"
-#include "_generated\serializer\quaternion.serializer.gen.h"
+#include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
 #include "_generated\serializer\vector3.serializer.gen.h"
 #include "_generated\serializer\color.serializer.gen.h"
 #include "_generated\serializer\vector4.serializer.gen.h"
@@ -13,5 +13,6 @@
 #include "_generated\serializer\transform.serializer.gen.h"
 #include "_generated\serializer\ColliderComponent.serializer.gen.h"
 #include "_generated\serializer\CameraComponent.serializer.gen.h"
-#include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
+#include "_generated\serializer\quaternion.serializer.gen.h"
+#include "_generated\serializer\CameraControlComponent.serializer.gen.h"
 

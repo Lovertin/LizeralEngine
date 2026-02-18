@@ -92,6 +92,15 @@ namespace Lizeral
         //// rotation of a vector by a quaternion
         Vector3 operator*(const Vector3& rhs) const;
 
+        // 获取右向量 (+X)
+        Vector3 getRightVector() const;
+
+        // 获取上向量 (+Y)
+        Vector3 getUpVector() const;
+
+        // 获取前向量 (-Z)
+        Vector3 getForwardVector() const;
+
         Quaternion operator/(float scalar) const
         {
             assert(scalar != 0.0f);

@@ -279,6 +279,20 @@ namespace Lizeral
         return v + uv + uuv;
     }
 
+    Vector3 Quaternion::getRightVector() const{
+        return xAxis();
+    }
+
+    // 获取上向量 (+Y)
+    Vector3 Quaternion::getUpVector() const{
+        return yAxis();
+    }
+
+    // 获取前向量 (-Z)
+    Vector3 Quaternion::getForwardVector() const{
+        return -zAxis();
+    }
+
     Radian Quaternion::getYaw(bool reproject_axis) const
     {
         if (reproject_axis)

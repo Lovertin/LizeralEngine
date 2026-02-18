@@ -52,12 +52,22 @@ file(GLOB_RECURSE SRC_PHYSICS "source/runtime/function/physics/*.cpp")
 # D. 必要的 Log 或其他 Core (根据你的项目结构调整，只选纯 cpp)
 file(GLOB_RECURSE SRC_LOG "source/runtime/core/log/*.cpp")
 
+# 1. 确保 Input 源文件被包含
+# 假设你的目录结构是 source/runtime/function/input/input.cpp
+file(GLOB_RECURSE SRC_INPUT "source/runtime/function/input/*.cpp") 
+
+# 2. 确保 Render (Camera) 源文件被包含
+# 假设你的目录结构是 source/runtime/function/render/CameraSystem.cpp 等
+file(GLOB_RECURSE SRC_RENDER "source/runtime/function/render/*.cpp")
+
 # E. 聚合
 set(PHYSICS_SANDBOX_SOURCES 
     ${SRC_MATH}
     ${SRC_ECS}
     ${SRC_PHYSICS}
     ${SRC_LOG}
+    ${SRC_INPUT}   # <--- 必须加这个
+    ${SRC_RENDER}  # <--- 必须加这个
     "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
 )
 

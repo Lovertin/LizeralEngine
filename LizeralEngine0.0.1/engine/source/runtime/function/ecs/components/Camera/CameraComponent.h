@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime/function/ecs/components/component.h"
 #include "runtime/core/math/matrix4.h"
+#include <math.h>
 
 // define dirty digits
 const uint32_t CAMERA_DIRTY_FOV   = 1 << 1; // fov change
@@ -61,6 +62,22 @@ namespace Lizeral{
         const Matrix4x4& getViewMatrix() const { return m_viewMatrix; }
 
         const Matrix4x4& getProjectionMatrix() const { return m_projMatrix; }
+
+        bool isMain() const {return isMainCamera;}
+
+        //build perspective
+        Matrix4x4 buildPerspective(float fov,float aspect,float zNear,float zFar){
+            float tanHalfFov = tan(fov * 0.5f);
+        
+            Matrix4x4 result = Matrix4x4::ZERO;
+            result.m_mat[0][0] = 1.0f / (aspect * tanHalfFov);
+            result.m_mat[1][1] = 1.0f / tanHalfFov;
+            result.m_mat[2][2] = zFar / (zFar - zNear);
+            result.m_mat[2][3] = -zFar * zNear / (zFar - zNear);
+            result.m_mat[3][2] = 1.0f;
+            
+            return result;
+        }
     
     private:
         META(Enable)

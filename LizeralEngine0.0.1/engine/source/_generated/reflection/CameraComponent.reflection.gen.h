@@ -62,6 +62,15 @@ namespace TypeFieldReflectionOparator{
         }
         static void* get_m_zFar(void* instance){ return static_cast<void*>(&(static_cast<CameraComponent*>(instance)->m_zFar));}
         static bool isArray_m_zFar(){ return false; }
+        static const char* getFieldName_isMainCamera(){ return "isMainCamera";}
+        static const char* getFieldTypeName_isMainCamera(){ return "bool";}
+        static void set_isMainCamera(void* instance, void* field_value){ 
+            auto* typed_instance = static_cast<CameraComponent*>(instance);
+            typed_instance->isMainCamera = *static_cast<bool*>(field_value);
+            Lizeral::Reflection::TryNotifyReflectionUpdated(typed_instance, "isMainCamera");
+        }
+        static void* get_isMainCamera(void* instance){ return static_cast<void*>(&(static_cast<CameraComponent*>(instance)->isMainCamera));}
+        static bool isArray_isMainCamera(){ return false; }
     };
 }//namespace TypeFieldReflectionOparator
 
@@ -99,6 +108,14 @@ namespace TypeFieldReflectionOparator{
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_m_zFar,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_zFar);
         REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_m_zFar);
+        FieldFunctionTuple* f_field_function_tuple_isMainCamera=new FieldFunctionTuple(
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::set_isMainCamera,
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::get_isMainCamera,
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::getClassName,
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldName_isMainCamera,
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_isMainCamera,
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_isMainCamera);
+        REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_isMainCamera);
         
         
         ClassFunctionTuple* f_class_function_tuple_CameraComponent=new ClassFunctionTuple(

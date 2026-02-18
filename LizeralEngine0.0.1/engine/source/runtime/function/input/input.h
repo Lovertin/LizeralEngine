@@ -8,9 +8,12 @@ namespace Lizeral{
         A=GLFW_KEY_A,
         S=GLFW_KEY_S,
         D=GLFW_KEY_D,
+        E=GLFW_KEY_E,
+        Q=GLFW_KEY_Q,
         ESC=GLFW_KEY_ESCAPE,
         SPACE=GLFW_KEY_SPACE,
-        R=GLFW_KEY_R
+        R=GLFW_KEY_R,
+        LEFT_SHIFT=GLFW_KEY_LEFT_SHIFT
     };
 
     enum class MouseButton {
@@ -21,30 +24,44 @@ namespace Lizeral{
 
     class Input{
     public:
+        // 删除拷贝构造和赋值操作
+        Input(const Input&) = delete;
+        Input& operator=(const Input&) = delete;
+
+        // 获取单例实例
+        static Input& GetInstance() {
+            static Input instance;
+            return instance;
+        }
+
         void Init(GLFWwindow* window);
-        static void Tick();
+        void Tick();
 
         // 键盘
-        static bool GetKey(Key key);
-        static bool GetKeyDown(Key key);
-        static bool GetKeyUp(Key key);
+        bool GetKey(Key key);
+        bool GetKeyDown(Key key);
+        bool GetKeyUp(Key key);
 
         // 鼠标
-        static bool GetMouseButton(MouseButton button);
-        static bool GetMouseButtonDown(MouseButton button);
-        static bool GetMouseButtonUp(MouseButton button);
+        bool GetMouseButton(MouseButton button);
+        bool GetMouseButtonDown(MouseButton button);
+        bool GetMouseButtonUp(MouseButton button);
         
-        static Vector2 GetMousePosition();
-        static float GetMouseScroll();
+        Vector2 GetMousePosition();
+        float GetMouseScroll();
 
         // 核心：这一帧鼠标移动了多少 (dx, dy)
-        static Vector2 GetMouseDelta();
+        Vector2 GetMouseDelta();
 
         //重置鼠标状态 
-        static void ResetMouse();
+        void ResetMouse();
 
 
     private:
+        //私有构造函数
+        Input();
+        ~Input() = default;
+
         // GLFW 回调函数 (必须是 static)
         static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
         static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
@@ -54,16 +71,16 @@ namespace Lizeral{
         static void WindowFocusCallback(GLFWwindow* window, int focused);
 
     private:
-        static bool m_keys[GLFW_KEY_LAST];      // 当前帧键盘
-        static bool m_lastKeys[GLFW_KEY_LAST];  // 上一帧键盘
+        bool m_keys[GLFW_KEY_LAST];      // 当前帧键盘
+        bool m_lastKeys[GLFW_KEY_LAST];  // 上一帧键盘
         
-        static bool m_mouseButtons[GLFW_MOUSE_BUTTON_LAST];
-        static bool m_lastMouseButtons[GLFW_MOUSE_BUTTON_LAST];
+        bool m_mouseButtons[GLFW_MOUSE_BUTTON_LAST];
+        bool m_lastMouseButtons[GLFW_MOUSE_BUTTON_LAST];
 
-        static Vector2 m_mousePos;
-        static Vector2 m_mouseDelta;
-        static float m_scrollDelta;
+        Vector2 m_mousePos;
+        Vector2 m_mouseDelta;
+        float m_scrollDelta;
 
-        static bool s_firstMouseInput;
+        bool s_firstMouseInput;
     };
 }

@@ -166,6 +166,7 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/core/test/parser_test1.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Camera/CameraComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/component.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Camera/CameraControlComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Collider/ColliderComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/component.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/RigidBody/RigidBodyComponent.h \
@@ -175,9 +176,12 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/registry.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/view.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\typeindex \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/global/input.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/input/input.h \
   GLFW/glfw3.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/PhysicsScene.h \
   btBulletDynamicsCommon.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/PhysicsSystem.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/registry.h
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/registry.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraControlSystem/CameraControlSystem.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/input/input.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraSystem/CameraSystem.h
