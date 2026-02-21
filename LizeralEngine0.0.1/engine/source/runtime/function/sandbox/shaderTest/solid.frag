@@ -3,6 +3,7 @@ out vec4 FragColor;
 
 in vec3 FragPos;
 in vec3 Normal;
+in vec2 TexCoords;
 
 // --- 摄像机与光照 ---
 uniform vec3 u_camPos;
@@ -14,6 +15,14 @@ uniform vec3  u_Albedo;
 uniform float u_Metallic;
 uniform float u_Roughness;
 uniform float u_AO;
+
+// 贴图采样器和开关宏
+uniform sampler2D u_AlbedoMap;
+uniform bool u_UseAlbedoMap;
+
+uniform samplerCube u_IrradianceMap; // 漫反射环境光
+uniform samplerCube u_PrefilterMap;  // 高光预滤波环境光
+uniform bool u_UseIBL;               // IBL 开关
 
 const float PI = 3.14159265359;
 
@@ -54,7 +63,20 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 void main() {
+
+    // 动态决定使用纯色还是贴图
+    vec3 albedoColor = u_Albedo;
+    if (u_UseAlbedoMap) {
+        // 从贴图中采样颜色。注意：PBR 要求 Albedo 必须在真实的线性空间中运算
+        // 所以我们要用 pow 2.2 把 sRGB 的图片转换回线性空间
+        albedoColor = pow(texture(u_AlbedoMap, TexCoords).rgb, vec3(2.2));
+    }
+
     vec3 N = normalize(Normal);
     vec3 V = normalize(u_camPos - FragPos);
 
@@ -83,10 +105,39 @@ void main() {
 
     // 最终的输出光照
     float NdotL = max(dot(N, L), 0.0);        
-    vec3 Lo = (kD * u_Albedo / PI + specular) * radiance * NdotL;
+    vec3 Lo = (kD * albedoColor / PI + specular) * radiance * NdotL;
 
     // 加上一点点环境光，防止完全死黑
-    vec3 ambient = vec3(0.03) * u_Albedo * u_AO;
+    vec3 ambient;
+    
+    if (u_UseIBL) {
+        // 1. 漫反射 IBL：根据法线 N 采样 Irradiance Map
+        vec3 irradiance = texture(u_IrradianceMap, N).rgb;
+        vec3 diffuse    = irradiance * albedoColor;
+
+        // 2. 高光 IBL：根据反射向量 R 采样 Prefilter Map
+        vec3 R = reflect(-V, N); // 视线打在表面后的反射方向
+        // 假设预滤波贴图有 5 个 Mipmap 层级 (0.0 到 4.0)，根据粗糙度去查对应的模糊层级
+        const float MAX_REFLECTION_LOD = 4.0;
+        vec3 prefilteredColor = textureLod(u_PrefilterMap, R, u_Roughness * MAX_REFLECTION_LOD).rgb;
+
+        // 环境光菲涅尔
+        vec3 F_ambient = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, u_Roughness);
+        
+        vec3 kS_ambient = F_ambient;
+        vec3 kD_ambient = 1.0 - kS_ambient;
+        kD_ambient *= 1.0 - u_Metallic;
+
+        // (注意：这里用 F_ambient 粗略近似了 BRDF 积分，为了快速出效果)
+        vec3 specular_ambient = prefilteredColor * F_ambient;
+
+        // 最终的 IBL 环境光
+        ambient = (kD_ambient * diffuse + specular_ambient) * u_AO;
+    } else {
+        // 降级方案：如果没有 IBL 贴图，就给一点点固定的死光
+        ambient = vec3(0.03) * albedoColor * u_AO;
+    }
+    
     vec3 color = ambient + Lo;
 
     // HDR 色调映射 (Tone Mapping) 和 Gamma 校正

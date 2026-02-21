@@ -2,7 +2,7 @@
 #pragma once
 
 #include <memory>
-#include "runtime/function/pipeline/shader/shader.h"
+#include "runtime/function/res_type/shader/shader.h"
 
 namespace Lizeral {
 

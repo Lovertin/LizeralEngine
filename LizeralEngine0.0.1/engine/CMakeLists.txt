@@ -60,13 +60,16 @@ file(GLOB_RECURSE SRC_INPUT "source/runtime/function/input/*.cpp")
 # 假设你的目录结构是 source/runtime/function/render/CameraSystem.cpp 等
 file(GLOB_RECURSE SRC_RENDER "source/runtime/function/render/*.cpp")
 
-# 3. Pipeline 系统 (用于渲染测试)
-file(GLOB_RECURSE SRC_PIPELINE "source/runtime/function/pipeline/*.cpp")
+# 3. res_type 系统 (用于资源管理)
+file(GLOB_RECURSE SRC_TYPE "source/runtime/function/res_type/*.cpp")
 
 # 4. Resource 系统 (用于资源管理)
 file(GLOB_RECURSE SRC_RESOURCE "source/runtime/resource/*.cpp")
 
-file(GLOB_RECURSE SRC_MATERIAL "source/runtime/function/pipeline/Material/*.h")
+# 5. Vendor包
+file(GLOB_RECURSE SRC_VENFOR "source/runtime/core/vendor/stb_image/*.cpp")
+
+# file(GLOB_RECURSE SRC_MATERIAL "source/runtime/function/pipeline/Material/*.h")
 
 
 # E. 聚合物理沙盒源文件
@@ -77,9 +80,10 @@ set(PHYSICS_SANDBOX_SOURCES
     ${SRC_LOG}
     ${SRC_INPUT}   # <--- 必须加这个
     ${SRC_RENDER}  # <--- 必须加这个
-    ${SRC_PIPELINE}
+    ${SRC_TYPE}
     ${SRC_RESOURCE}
-    ${SRC_MATERIAL}
+    ${SRC_VENFOR}
+    # ${SRC_MATERIAL}
     "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
 )
 
@@ -90,8 +94,10 @@ set(RENDERING_TEST_SOURCES
     ${SRC_LOG}
     ${SRC_INPUT}
     ${SRC_RENDER}
-    ${SRC_PIPELINE}
+    ${SRC_TYPE}
     ${SRC_RESOURCE}
+    ${SRC_VENFOR}
+
     "source/runtime/function/sandbox/renderingWorld.cpp"
 )
 

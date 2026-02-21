@@ -1,6 +1,6 @@
 // runtime/core/mesh.cpp
 #include "mesh.h"
-#include "runtime/function/pipeline/utils/ImportModel.h"
+#include "runtime/function/res_type/utils/ImportModel.h"
 #include <iostream>
 #include <limits>
 

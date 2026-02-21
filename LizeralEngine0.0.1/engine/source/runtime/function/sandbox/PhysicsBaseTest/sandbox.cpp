@@ -28,10 +28,11 @@
 #include "runtime/function/render/CameraControlSystem/CameraControlSystem.h"
 #include "runtime/function/render/CameraSystem/CameraSystem.h"
 #include "runtime/resource/resourceManager/resourceManager.h"
-#include "runtime/function/pipeline/mesh/mesh.h"
-#include "runtime/function/pipeline/shader/shader.h"
-#include "runtime/function/pipeline/Material/Material.h"
-#include "runtime/function/pipeline/Material/PBRMaterial.h"
+#include "runtime/function/res_type/mesh/mesh.h"
+#include "runtime/function/res_type/shader/shader.h"
+#include "runtime/function/res_type/Material/Material.h"
+#include "runtime/function/res_type/Material/PBRMaterial.h"
+#include "runtime/function/res_type/texture/TextureCube.h"
 
 using namespace Lizeral;
 
@@ -199,7 +200,8 @@ int main() {
     std::cout << "[Controls] Click Left Mouse Button to select a cube." << std::endl;
 
     ResourceManager::GetInstance().SetRootPath("");
-    auto testDolphinMesh = ResourceManager::GetInstance().Load<Mesh>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\model\\dolphinLowPoly.model");
+    auto testDolphinMesh = ResourceManager::GetInstance().Load<Mesh>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\model\\shuttle.model");
+    auto testTexture = ResourceManager::GetInstance().Load<Texture2D>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\spstob_1.jpg");
 
     TransformComponent dolphinTrans;
     dolphinTrans.setPosition(Vector3(0.0f, 15.0f, 0.0f)); // 悬浮在方块上方 15 米处
@@ -210,12 +212,70 @@ int main() {
             "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.frag"
         );
 
-    auto dolphinPBR = std::make_shared<PBRMaterial>(pbrShader);
+    auto skyboxShader = std::make_shared<Shader>(
+        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\skybox.vert",
+        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\skybox.frag"
+    );
 
-    dolphinPBR->m_Albedo = Vector3(1.0f, 0.86f, 0.57f); // 黄金的物理反照率
-    dolphinPBR->m_Metallic = 1.0f;                      // 100% 纯金属
-    dolphinPBR->m_Roughness = 0.2f;                     // 表面非常光滑，只有微小划痕
-    dolphinPBR->m_AO = 1.0f;
+    float skyboxVertices[] = {
+        // positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
+    
+        // 1. 加载漫反射环境光贴图 (Irradiance Map)
+    auto irradianceMap = ResourceManager::GetInstance().Load<TextureCube>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\skyCube\\skybox_irradiance");
+
+    // 2. 加载高光预滤波环境贴图 (Specular / Pre-filtered Map)
+    auto specularMap = ResourceManager::GetInstance().Load<TextureCube>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\skyCube\\skybox_specular");
+
+    auto shuttlePBR = std::make_shared<PBRMaterial>(pbrShader);
+    shuttlePBR->m_AlbedoMap = testTexture;
+    shuttlePBR->m_IrradianceMap = irradianceMap;  // 注入漫反射环境光！
+    shuttlePBR->m_PrefilterMap = specularMap;     // 注入高光反射环境光！
+    // 把飞机的金属度调高一点，粗糙度调低一点，用来测试环境反射的威力
+    shuttlePBR->m_Metallic = 0.8f;  
+    shuttlePBR->m_Roughness = 0.15f;
+    // dolphinPBR->m_AO = 1.0f;
 
 
     // --------------------------------------------------------
@@ -277,6 +337,16 @@ int main() {
             rb.setRestitution(0.2f);
         }
     }
+
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glBindVertexArray(0);
 
     // --------------------------------------------------------
     // 4. 主循环
@@ -354,12 +424,45 @@ int main() {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // ==========================================
+        // 【新增】：绘制天空盒 (Skybox Rendering)
+        // ==========================================
+        // 1. 修改深度测试规则：允许深度等于 1.0 的像素通过测试 (配合 skybox.vert 里的 xyww 技巧)
+        glDepthFunc(GL_LEQUAL); 
+        skyboxShader->Bind();
+
+        // 2. 处理 View 矩阵：移除位移部分，只保留旋转！
+        // (将 Matrix4x4 转为 mat3 再转回 mat4，即可去除平移分量)
+
         // 绑定相机矩阵
         auto& mainCam = registry.get<CameraComponent>(cameraEntity);
         auto& camTrans = registry.get<TransformComponent>(cameraEntity);
 
         LoadEngineMatrixToOpenGL(GL_PROJECTION, mainCam.getProjectionMatrix());
         LoadEngineMatrixToOpenGL(GL_MODELVIEW, mainCam.getViewMatrix());
+
+        Matrix4x4 viewMatrix = mainCam.getViewMatrix();
+        Matrix4x4 viewNoTranslation = Matrix4x4::IDENTITY;
+        for(int i=0; i<3; ++i)
+            for(int j=0; j<3; ++j)
+                viewNoTranslation[i][j] = viewMatrix[i][j];
+
+        skyboxShader->SetUniformMat4f("view", viewNoTranslation);
+        skyboxShader->SetUniformMat4f("projection", mainCam.getProjectionMatrix());
+
+        // 3. 绑定 Cubemap 贴图 (这里用 specularMap 作为背景)
+        glBindVertexArray(skyboxVAO);
+        specularMap->Bind(0); // 绑定到 0 号槽
+        skyboxShader->SetUniform1i("skybox", 0);
+
+        // 4. 绘制立方体
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // 5. 恢复状态：解绑 VAO，恢复深度测试规则为默认的 LESS
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); 
+        glUseProgram(0);
+
 
         // 绘制物理实体
         auto view = registry.view<TransformComponent, ColliderComponent>();
@@ -391,11 +494,6 @@ int main() {
             if (Input::GetInstance().GetKey(Key::UP)) dolphinTrans.setScale(dolphinTrans.getScale() * 1.05f);
             if (Input::GetInstance().GetKey(Key::DOWN)) dolphinTrans.setScale(dolphinTrans.getScale() * 0.95f);
 
-            // 让海豚自转
-            // static float rotationAngle = 0.0f;
-            // rotationAngle += deltaTime * 50.0f; 
-            // dolphinTrans.setRotation(Quaternion(Vector3(0, 1, 0), rotationAngle * (3.14159f / 180.0f)));
-
             // ==========================================
             // 现代管线接管开始！
             // ==========================================
@@ -416,7 +514,7 @@ int main() {
             pbrShader->SetUniformVector3f("u_lightColor", Vector3(3.0f, 3.0f, 3.0f)); // 稍微加强光强，体现 HDR
 
             // 3. 材质数据：直接调用接口！引擎不管它是 PBR 还是普通的
-            dolphinPBR->BindAndApply();
+            shuttlePBR->BindAndApply();
 
             glDisable(GL_CULL_FACE);
             testDolphinMesh->Draw();

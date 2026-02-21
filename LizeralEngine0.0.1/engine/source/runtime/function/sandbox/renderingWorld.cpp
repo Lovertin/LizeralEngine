@@ -8,8 +8,8 @@
 #include "runtime/function/ecs/components/Transform/TransformComponent.h"
 #include "runtime/function/ecs/components/Camera/CameraComponent.h"
 #include "runtime/resource/resourceManager/resourceManager.h"
-#include "runtime/function/pipeline/mesh/mesh.h"
-#include "runtime/function/pipeline/shader/shader.h"
+#include "runtime/function/res_type/mesh/mesh.h"
+#include "runtime/function/res_type/shader/shader.h"
 
 using namespace Lizeral;
 
