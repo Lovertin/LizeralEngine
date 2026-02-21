@@ -13,7 +13,9 @@ namespace Lizeral{
         ESC=GLFW_KEY_ESCAPE,
         SPACE=GLFW_KEY_SPACE,
         R=GLFW_KEY_R,
-        LEFT_SHIFT=GLFW_KEY_LEFT_SHIFT
+        LEFT_SHIFT=GLFW_KEY_LEFT_SHIFT,
+        DOWN=GLFW_KEY_DOWN,
+        UP=GLFW_KEY_UP
     };
 
     enum class MouseButton {

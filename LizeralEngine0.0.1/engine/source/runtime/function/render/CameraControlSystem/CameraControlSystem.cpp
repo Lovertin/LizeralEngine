@@ -2,6 +2,8 @@
 #include "runtime/function/ecs/components/Camera/CameraControlComponent.h"
 #include "runtime/function/ecs/components/Camera/CameraComponent.h"
 #include "runtime/function/ecs/components/Transform/TransformComponent.h"
+#include "runtime/function/input/input.h"
+#include <GLFW/glfw3.h> // 必须包含 GLFW 以使用 glfwSetInputMode
 
 #include "runtime/core/math/vector2.h"
 
@@ -11,18 +13,35 @@ namespace Lizeral{
 
     CameraControlSystem::~CameraControlSystem(){}
 
-    void CameraControlSystem::Tick(Registry& registry){
-        auto view=registry.view<TransformComponent,CameraControlComponent>();
+    void CameraControlSystem::Tick(Registry& registry, GLFWwindow* window) {
+        auto& input = Input::GetInstance();
 
-        for(auto entity:view){
-            auto& input=Input::GetInstance();
-            auto& trans=view.get<TransformComponent>(entity);
-            auto& cameraControl=view.get<CameraControlComponent>(entity);
+        // 1. 处理状态切换 (按下和松开的瞬间)
+        if (input.GetMouseButtonDown(MouseButton::Right)) {
+            // 刚按下的第一帧：隐藏光标并锁定
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            
+            // 【关键】重置鼠标第一帧标记，防止出现巨大的镜头跳跃
+            // （如果你的 Input 类没公开这个函数，也可以用现有的 ResetMouse）
+            input.ResetMouse(); 
+        }
+        else if (input.GetMouseButtonUp(MouseButton::Right)) {
+            // 松开的瞬间：恢复显示光标
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
 
-            //每一帧更新方向和位置
-            UpdateCameraDir(input,trans,cameraControl);
+        // 2. 处理持续的逻辑 (按住的过程中)
+        // 只有按住右键，才允许更新相机的视角和位置
+        if (input.GetMouseButton(MouseButton::Right)) {
+            auto view = registry.view<TransformComponent, CameraControlComponent>();
 
-            UpdateCameraPosForFree(input,trans,cameraControl);
+            for (auto entity : view) {
+                auto& trans = view.get<TransformComponent>(entity);
+                auto& cameraControl = view.get<CameraControlComponent>(entity);
+
+                UpdateCameraDir(input, trans, cameraControl);
+                UpdateCameraPosForFree(input, trans, cameraControl);
+            }
         }
     }
 
@@ -37,7 +56,7 @@ namespace Lizeral{
         cameraController.setYaw(newYaw);
         cameraController.setPitch(newPitch);
 
-        Quaternion qPitch = Quaternion::getQuaternionFromAngleAxis(Radian(Math::degreesToRadians(cameraController.getPitch())),Vector3(-1.0f,0.0f,0.0f));
+        Quaternion qPitch = Quaternion::getQuaternionFromAngleAxis(Radian(Math::degreesToRadians(cameraController.getPitch())),Vector3(1.0f,0.0f,0.0f));
         Quaternion qYaw   = Quaternion::getQuaternionFromAngleAxis(Radian(Math::degreesToRadians(cameraController.getYaw())),Vector3(0.0f,1.0f,0.0f));
 
         trans.setRotation(qYaw * qPitch);
@@ -58,8 +77,8 @@ namespace Lizeral{
         Vector3 moveDir(0, 0, 0);
 
         // WASD - 沿着相机的局部坐标系移动
-        if (input.GetKey(Key::W)) moveDir -= forward; //虽然反直觉，但是opengl中z的负半轴才是正方向
-        if (input.GetKey(Key::S)) moveDir += forward;
+        if (input.GetKey(Key::W)) moveDir += forward; //虽然反直觉，但是opengl中z的负半轴才是正方向
+        if (input.GetKey(Key::S)) moveDir -= forward;
         if (input.GetKey(Key::D)) moveDir += right;
         if (input.GetKey(Key::A)) moveDir -= right;
 

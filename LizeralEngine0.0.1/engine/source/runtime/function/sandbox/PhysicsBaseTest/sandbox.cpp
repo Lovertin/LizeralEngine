@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <vector>
 #include <cmath>
+#include <memory>
 
 // 1. OpenGL Headers
 #include <glad/glad.h>
@@ -17,12 +18,20 @@
 #include "runtime/core/math/quaternion.h"
 #include "runtime/core/math/matrix4.h"
 
-// --- 新增：相机与输入系统头文件 ---
+// 3. 射线与命中数据结构 (确保你已经创建了这两个文件)
+#include "runtime/function/physics/phsicsEntityheaders.h"
+
+// 4. 相机与输入系统头文件
 #include "runtime/function/input/input.h"
 #include "runtime/function/ecs/components/Camera/CameraComponent.h"
 #include "runtime/function/ecs/components/Camera/CameraControlComponent.h"
 #include "runtime/function/render/CameraControlSystem/CameraControlSystem.h"
 #include "runtime/function/render/CameraSystem/CameraSystem.h"
+#include "runtime/resource/resourceManager/resourceManager.h"
+#include "runtime/function/pipeline/mesh/mesh.h"
+#include "runtime/function/pipeline/shader/shader.h"
+#include "runtime/function/pipeline/Material/Material.h"
+#include "runtime/function/pipeline/Material/PBRMaterial.h"
 
 using namespace Lizeral;
 
@@ -31,14 +40,8 @@ const int WIN_WIDTH = 1280;
 const int WIN_HEIGHT = 720;
 
 // --- 辅助：将 Lizeral Matrix4x4 转换为 OpenGL 格式并加载 ---
-// OpenGL 使用列主序 (Column-Major)，C++ 数学库通常是行主序 (Row-Major)
-// 如果你的矩阵类内存布局是行主序，这里需要转置
 void LoadEngineMatrixToOpenGL(GLenum mode, const Matrix4x4& m) {
     float glMat[16];
-
-    // 假设 Matrix4x4 提供了按 (row, col) 访问或 flat 数组
-    // 这里进行手动转置以确保万无一失： m[row][col] -> glMat[col * 4 + row]
-    
     // Column 0
     glMat[0] = m[0][0]; glMat[1] = m[1][0]; glMat[2] = m[2][0]; glMat[3] = m[3][0];
     // Column 1
@@ -50,6 +53,37 @@ void LoadEngineMatrixToOpenGL(GLenum mode, const Matrix4x4& m) {
 
     glMatrixMode(mode);
     glLoadMatrixf(glMat);
+}
+
+void DrawMeshLegacy(const std::shared_ptr<Mesh>& mesh, const Vector3& color) {
+    if (!mesh) return;
+
+    const auto& verts = mesh->GetVertices();
+    const auto& indices = mesh->GetIndices();
+
+    glColor3f(color.x, color.y, color.z);
+    
+    // 禁用剔除，保证正反面都能看到
+    glDisable(GL_CULL_FACE); 
+
+    glBegin(GL_TRIANGLES);
+    if (!indices.empty()) {
+        // 如果有索引数据
+        for (unsigned int idx : indices) {
+            const auto& v = verts[idx];
+            glNormal3f(v.Normal.x, v.Normal.y, v.Normal.z);
+            glVertex3f(v.Position.x, v.Position.y, v.Position.z);
+        }
+    } else {
+        // 如果没有索引（直接平铺的顶点）
+        for (const auto& v : verts) {
+            glNormal3f(v.Normal.x, v.Normal.y, v.Normal.z);
+            glVertex3f(v.Position.x, v.Position.y, v.Position.z);
+        }
+    }
+    glEnd();
+    
+    glEnable(GL_CULL_FACE); // 恢复状态
 }
 
 // --- 辅助：将 Lizeral Transform 转换为 OpenGL 矩阵 ---
@@ -71,15 +105,19 @@ void ApplyTransform(const TransformComponent& t) {
     glScalef(t.getScale().x, t.getScale().y, t.getScale().z);
 }
 
-// --- 辅助：画一个简单的立方体 ---
-void DrawCube(const Vector3& color, const Vector3& size) {
-    glColor3f(color.x, color.y, color.z);
+// --- 辅助：画一个简单的立方体 (新增边缘高亮) ---
+void DrawCube(const Vector3& color, const Vector3& size, bool drawEdges = false) {
     float hx = size.x * 0.5f;
     float hy = size.y * 0.5f;
     float hz = size.z * 0.5f;
 
+    // 1. 开启 Polygon Offset，防止线框和实心面深度冲突 (Z-fighting)
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+
+    // 画实心面
+    glColor3f(color.x, color.y, color.z);
     glBegin(GL_QUADS);
-    // ... (保持原有的顶点绘制代码不变) ...
     // Front face
     glVertex3f(-hx, -hy,  hz); glVertex3f( hx, -hy,  hz); glVertex3f( hx,  hy,  hz); glVertex3f(-hx,  hy,  hz);
     // Back face
@@ -93,6 +131,26 @@ void DrawCube(const Vector3& color, const Vector3& size) {
     // Left face
     glVertex3f(-hx, -hy, -hz); glVertex3f(-hx, -hy,  hz); glVertex3f(-hx,  hy,  hz); glVertex3f(-hx,  hy, -hz);
     glEnd();
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
+
+    // 2. 画黑色的边缘线
+    if (drawEdges) {
+        glColor3f(0.0f, 0.0f, 0.0f); // 黑色边框
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // 切换为线框模式
+        glLineWidth(2.0f); // 加粗一点线条
+
+        glBegin(GL_QUADS);
+        glVertex3f(-hx, -hy,  hz); glVertex3f( hx, -hy,  hz); glVertex3f( hx,  hy,  hz); glVertex3f(-hx,  hy,  hz);
+        glVertex3f(-hx, -hy, -hz); glVertex3f(-hx,  hy, -hz); glVertex3f( hx,  hy, -hz); glVertex3f( hx, -hy, -hz);
+        glVertex3f(-hx,  hy, -hz); glVertex3f(-hx,  hy,  hz); glVertex3f( hx,  hy,  hz); glVertex3f( hx,  hy, -hz);
+        glVertex3f(-hx, -hy, -hz); glVertex3f( hx, -hy, -hz); glVertex3f( hx, -hy,  hz); glVertex3f(-hx, -hy,  hz);
+        glVertex3f( hx, -hy, -hz); glVertex3f( hx,  hy, -hz); glVertex3f( hx,  hy,  hz); glVertex3f( hx, -hy,  hz);
+        glVertex3f(-hx, -hy, -hz); glVertex3f(-hx, -hy,  hz); glVertex3f(-hx,  hy,  hz); glVertex3f(-hx,  hy, -hz);
+        glEnd();
+
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // 恢复为填充模式
+    }
 }
 
 // 窗口 Resize 回调
@@ -106,7 +164,7 @@ int main() {
     // --------------------------------------------------------
     if (!glfwInit()) return -1;
     
-    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Lizeral Engine - Roaming Camera", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Lizeral Engine - Raycast Sandbox", NULL, NULL);
     if (!window) { glfwTerminate(); return -1; }
     
     glfwMakeContextCurrent(window);
@@ -122,34 +180,54 @@ int main() {
     // --------------------------------------------------------
     Registry registry;
     
-    // A. 物理系统
     PhysicsScene physicsScene;
     PhysicsSystem physicsSystem;
     physicsScene.Initialize();
     physicsSystem.Initialize(&physicsScene);
 
-    // B. 输入系统 (这一步会隐藏光标并锁定)
     Input::GetInstance().Init(window);
+    
+    // 【建议】：为了实现“右键按下才漫游”，请确保你在 Input::Init() 里
+    // 暂时注释掉 `glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);`
+    // 让初始状态是普通光标显示，否则你看不见鼠标点哪里。
 
-    // C. 相机系统
     CameraSystem cameraSystem;
     CameraControlSystem cameraControlSystem;
 
-    std::cout << "All Systems Initialized. Press WASD to move, Mouse to look, ESC to exit." << std::endl;
+    std::cout << "All Systems Initialized." << std::endl;
+    std::cout << "[Controls] Hold Right Mouse Button + WASD/QE to Roam." << std::endl;
+    std::cout << "[Controls] Click Left Mouse Button to select a cube." << std::endl;
+
+    ResourceManager::GetInstance().SetRootPath("");
+    auto testDolphinMesh = ResourceManager::GetInstance().Load<Mesh>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\model\\dolphinLowPoly.model");
+
+    TransformComponent dolphinTrans;
+    dolphinTrans.setPosition(Vector3(0.0f, 15.0f, 0.0f)); // 悬浮在方块上方 15 米处
+    dolphinTrans.setScale(Vector3(1.0f, 1.0f, 1.0f));
+
+    auto pbrShader = std::make_shared<Shader>(
+            "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.vert", 
+            "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.frag"
+        );
+
+    auto dolphinPBR = std::make_shared<PBRMaterial>(pbrShader);
+
+    dolphinPBR->m_Albedo = Vector3(1.0f, 0.86f, 0.57f); // 黄金的物理反照率
+    dolphinPBR->m_Metallic = 1.0f;                      // 100% 纯金属
+    dolphinPBR->m_Roughness = 0.2f;                     // 表面非常光滑，只有微小划痕
+    dolphinPBR->m_AO = 1.0f;
+
 
     // --------------------------------------------------------
     // 3. 创建场景实体
     // --------------------------------------------------------
 
-    // --- A. 创建主相机 (New!) ---
+    // --- A. 创建主相机 ---
     Entity cameraEntity = registry.create();
     {
-        // 1. Transform: 放在 (0, 10, 20) 
         auto& t = registry.emplace<TransformComponent>(cameraEntity);
         t.setPosition(Vector3(0.0f, 10.0f, 20.0f)); 
-        // 初始朝向：默认看向 -Z，所以这里是看向屏幕内。如果不放心，可以先设个初始 Pitch/Yaw
         
-        // 2. Camera: 光学属性
         auto& cam = registry.emplace<CameraComponent>(cameraEntity);
         cam.setFov(45.0f);
         cam.setAspect((float)WIN_WIDTH / (float)WIN_HEIGHT);
@@ -157,12 +235,11 @@ int main() {
         cam.setzFar(1000.0f);
         cam.setMain(true);
 
-        // 3. Control: 漫游控制
         auto& ctrl = registry.emplace<CameraControlComponent>(cameraEntity);
-        ctrl.setMoveSpeed(1.0f);     // 移动速度
-        ctrl.setSensitivityX(0.02f);   // 鼠标灵敏度
+        ctrl.setMoveSpeed(2.0f);
+        ctrl.setSensitivityX(0.1f); 
         ctrl.setSensitivityY(0.1f);
-        ctrl.setYaw(-90.0f);          // 初始 Yaw (-90 指向 -Z)
+        ctrl.setYaw(-90.0f);
     }
 
     // --- B. 地面 ---
@@ -174,7 +251,7 @@ int main() {
         
         auto& c = registry.emplace<ColliderComponent>(ground);
         c.setType(ColliderType::Box);
-        c.setSize(Vector3(100.0f, 2.0f, 100.0f)); // 加大一点地面
+        c.setSize(Vector3(100.0f, 2.0f, 100.0f));
 
         auto& rb = registry.emplace<RigidBodyComponent>(ground);
         rb.setMass(0.0f); 
@@ -212,44 +289,79 @@ int main() {
         float deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
-        // --- 逻辑更新 ---
-        
-        // 1. 输入处理
+        // --- 1. 输入处理 ---
         Input::GetInstance().Tick();
         if (Input::GetInstance().GetKey(Key::ESC)) glfwSetWindowShouldClose(window, true);
 
-        // 2. 物理模拟
+        // --- 2. 射线检测 (Raycast) 核心逻辑 ---
+        if (Input::GetInstance().GetMouseButtonDown(MouseButton::Left)) {
+            // 获取相机组件数据
+            auto& mainCam = registry.get<CameraComponent>(cameraEntity);
+            auto& camTrans = registry.get<TransformComponent>(cameraEntity);
+
+            Vector2 mousePos = Input::GetInstance().GetMousePosition();
+            
+            // a) 将屏幕坐标转换为 NDC 坐标 [-1, 1]
+            float ndcX = (2.0f * mousePos.x) / WIN_WIDTH - 1.0f;
+            float ndcY = 1.0f - (2.0f * mousePos.y) / WIN_HEIGHT; // Y轴向下，需要翻转
+
+            // b) 准备矩阵求逆 (假设你的数学库支持 Matrix4x4 inverse)
+            Matrix4x4 invProj = mainCam.getProjectionMatrix().inverse();
+            Matrix4x4 invView = mainCam.getViewMatrix().inverse();
+
+            // c) 计算射线在 View 空间的坐标
+            // 这里我们用一种无需 Vector4 类的方法，直接利用矩阵乘法解算远近两个点
+            // 点1：近平面
+            Vector3 nearPointNDC(ndcX, ndcY, -1.0f);
+            Vector3 nearPointView = invProj * nearPointNDC; // 假设重载了 operator*(Vector3) 做齐次除法
+            Vector3 nearPointWorld = invView * nearPointView;
+
+            // 点2：远平面
+            Vector3 farPointNDC(ndcX, ndcY, 1.0f);
+            Vector3 farPointView = invProj * farPointNDC;
+            Vector3 farPointWorld = invView * farPointView;
+
+            // 计算方向
+            Vector3 rayDir = farPointWorld - nearPointWorld;
+            rayDir.normalise();
+
+            // 发射射线！
+            Vector3 rayOrigin = camTrans.getPosition(); // 相机位置作为起点
+            Ray ray(rayOrigin, rayDir);
+            RaycastHit hitInfo;
+
+            // 调用物理引擎进行检测
+            if (physicsSystem.Raycast(ray, hitInfo)) {
+                std::cout << "\n===============================" << std::endl;
+                std::cout << "[Raycast Hit!] Target Entity ID : " << hitInfo.entity << std::endl;
+                std::cout << "   Hit Position : (" << hitInfo.point.x << ", " << hitInfo.point.y << ", " << hitInfo.point.z << ")" << std::endl;
+                std::cout << "   Hit Normal   : (" << hitInfo.normal.x << ", " << hitInfo.normal.y << ", " << hitInfo.normal.z << ")" << std::endl;
+                std::cout << "===============================\n" << std::endl;
+            } else {
+                std::cout << "[Raycast] Missed!" << std::endl;
+            }
+        }
+
+        // --- 3. 物理与系统模拟 ---
         physicsSystem.Tick(deltaTime, registry);
 
-        // 3. 相机控制 (读取 Input -> 修改 Transform)
-        // 你的 CameraControlSystem 可能需要 delta time 来计算速度，建议加上
-        // cameraControlSystem.Tick(registry, deltaTime); 
-        // 暂时使用你目前的无参版本，但在内部记得处理 dt
-        cameraControlSystem.Tick(registry); 
-
-        // 4. 相机矩阵计算 (读取 Transform -> 更新 CameraComponent 矩阵)
+        // 相机控制 (右键漫游)
+        cameraControlSystem.Tick(registry, window); 
+        // 重新计算相机 View/Proj 矩阵
         cameraSystem.Tick(registry);
 
-
-        // --- 渲染 ---
+        // --- 4. 渲染 ---
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // --- 应用相机矩阵 (核心修改点) ---
-        // 我们不再使用 gluPerspective 或 glTranslate/Rotate 手动推导
-        // 而是直接从 CameraComponent 拿算好的矩阵
-        
-        // 为了方便，这里直接获取刚才创建的 cameraEntity 的组件
-        // 在完整的引擎中，RenderSystem 会去查找 isMain() 的相机
+        // 绑定相机矩阵
         auto& mainCam = registry.get<CameraComponent>(cameraEntity);
+        auto& camTrans = registry.get<TransformComponent>(cameraEntity);
 
-        // 1. 设置投影矩阵 (Projection)
         LoadEngineMatrixToOpenGL(GL_PROJECTION, mainCam.getProjectionMatrix());
-
-        // 2. 设置视图矩阵 (View)
         LoadEngineMatrixToOpenGL(GL_MODELVIEW, mainCam.getViewMatrix());
 
-        // --- 绘制物体 ---
+        // 绘制物理实体
         auto view = registry.view<TransformComponent, ColliderComponent>();
         
         for (auto entity : view) {
@@ -258,23 +370,62 @@ int main() {
 
             glPushMatrix();
             
-            // 应用物体变换
             ApplyTransform(t);
             glTranslatef(c.getOffset().x, c.getOffset().y, c.getOffset().z);
 
-            // 绘制
+            // 绘制区分：大物体(地面)不画边框，小方块画黑色线框
             if (c.getType() == ColliderType::Box) {
-                if (c.getSize().x > 10.0f) 
-                    DrawCube(Vector3(0.2f, 0.8f, 0.2f), c.getSize());
-                else 
-                    DrawCube(Vector3(1.0f, 0.5f, 0.2f), c.getSize());
+                if (c.getSize().x > 10.0f) {
+                    DrawCube(Vector3(0.2f, 0.8f, 0.2f), c.getSize(), false);
+                } else {
+                    // 动态小方块画上黑边，更方便视觉定位
+                    DrawCube(Vector3(1.0f, 0.5f, 0.2f), c.getSize(), true);
+                }
             }
             
             glPopMatrix();
         }
 
+        if (testDolphinMesh && pbrShader) {
+            // 让你在沙盒里也能用上下键动态缩放海豚
+            if (Input::GetInstance().GetKey(Key::UP)) dolphinTrans.setScale(dolphinTrans.getScale() * 1.05f);
+            if (Input::GetInstance().GetKey(Key::DOWN)) dolphinTrans.setScale(dolphinTrans.getScale() * 0.95f);
+
+            // 让海豚自转
+            // static float rotationAngle = 0.0f;
+            // rotationAngle += deltaTime * 50.0f; 
+            // dolphinTrans.setRotation(Quaternion(Vector3(0, 1, 0), rotationAngle * (3.14159f / 180.0f)));
+
+            // ==========================================
+            // 现代管线接管开始！
+            // ==========================================
+            pbrShader->Bind();
+
+            // 1. 系统级矩阵与相机数据
+            pbrShader->SetUniformMat4f("model", dolphinTrans.getMatrix());
+            pbrShader->SetUniformMat4f("view", mainCam.getViewMatrix());
+            pbrShader->SetUniformMat4f("projection", mainCam.getProjectionMatrix());
+            
+            // 【关键】：PBR 极度依赖观察视角，必须把相机的世界坐标传进去！
+            pbrShader->SetUniformVector3f("u_camPos", camTrans.getPosition());
+
+            // 2. 光源数据
+            Vector3 lightDir(1.0f, 1.0f, 1.0f); 
+            lightDir.normalise();
+            pbrShader->SetUniformVector3f("u_lightDir", lightDir);
+            pbrShader->SetUniformVector3f("u_lightColor", Vector3(3.0f, 3.0f, 3.0f)); // 稍微加强光强，体现 HDR
+
+            // 3. 材质数据：直接调用接口！引擎不管它是 PBR 还是普通的
+            dolphinPBR->BindAndApply();
+
+            glDisable(GL_CULL_FACE);
+            testDolphinMesh->Draw();
+            glEnable(GL_CULL_FACE);
+
+            glUseProgram(0);
+        }
+
         glfwSwapBuffers(window);
-        // glfwPollEvents() 已经被 Input::Tick() 内部调用了，这里可以不需要
     }
 
     // 5. 清理

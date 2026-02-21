@@ -189,6 +189,8 @@ namespace Lizeral
         /// Check whether this vector contains valid values
         bool isNaN() const { return Math::isNan(x) || Math::isNan(y) || Math::isNan(z) || Math::isNan(w); }
 
+        Vector3 toVector3() const{ return Vector3(x,y,z); }
+
         // special
         static const Vector4 ZERO;
         static const Vector4 UNIT_SCALE;

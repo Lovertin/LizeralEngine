@@ -6,6 +6,7 @@
 // ECS & Components Headers
 #include "runtime/function/ecs/registry.h"
 #include "runtime/function/ecs/components/component.h" // 包含脏标记定义
+#include "runtime/function/physics/phsicsEntityheaders.h"
 
 // 前置声明，减少编译依赖
 namespace Lizeral {
@@ -31,6 +32,8 @@ namespace Lizeral {
         // 清理
         void Shutdown();
 
+        bool Raycast(const Ray& ray, RaycastHit& outHit, float maxDistance = 1000.0f);
+
     private:
         PhysicsScene* m_scene { nullptr };
 
@@ -47,7 +50,7 @@ namespace Lizeral {
         void SyncDirtyData(RigidBodyComponent& rb, const TransformComponent& t, ColliderComponent& c);
 
         // 4. 结果回写 (Physics -> Game)：将模拟结果写回组件
-        void SyncTransformBack(const RigidBodyComponent& rb, TransformComponent& t);
+        void SyncTransformBack(const RigidBodyComponent& rb, TransformComponent& t,const ColliderComponent& c);
 
         // --- 数学辅助转换 ---
         btVector3 ToBtVector3(const class Vector3& v);

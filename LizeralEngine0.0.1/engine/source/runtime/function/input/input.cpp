@@ -19,8 +19,8 @@ namespace Lizeral {
         glfwSetCursorPosCallback(window, CursorPosCallback);
         glfwSetWindowFocusCallback(window, WindowFocusCallback);
         
-        // 禁用系统光标，开启 FPS 模式
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        // // 禁用系统光标，开启 FPS 模式
+        // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
     void Input::Tick() {

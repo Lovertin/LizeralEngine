@@ -20,6 +20,16 @@ namespace Lizeral {
 
     void PhysicsSystem::Initialize(PhysicsScene* scene) {
         m_scene = scene;
+        if (m_scene && m_scene->getWorld()) {
+            // 获取物理世界的求解器配置
+            btContactSolverInfo& info = m_scene->getWorld()->getSolverInfo();
+            
+            // 1. 增加迭代次数 (默认10) - 解决多个方块堆叠时的挤压穿模
+            info.m_numIterations = 20; 
+            
+            // 2. 提高错误修正系数 ERP (默认0.2，最大1.0) - 让引擎更“用力”地把穿模物体推出来
+            info.m_erp = 0.6f; 
+        }
     }
 
     void PhysicsSystem::Shutdown() {
@@ -90,9 +100,41 @@ namespace Lizeral {
             // 静态物体(Mass=0) 和 Kinematic 物体的位置是由 Transform 组件控制的，不接受物理反馈
             if (rb.getRuntimeBody() && rb.getMass() > 0.0f && !rb.isKinematic()) {
                 auto& trans = view.get<TransformComponent>(entity);
-                SyncTransformBack(rb, trans);
+                auto& col = view.get<ColliderComponent>(entity);
+                SyncTransformBack(rb,trans,col);
             }
         }
+    }
+
+    bool PhysicsSystem::Raycast(const Ray& ray, RaycastHit& outHit, float maxDistance){
+        if (!m_scene->getWorld()) return false;
+
+        Vector3 start=ray.origin;
+        Vector3 end=ray.GetPoint(maxDistance);
+
+        btVector3 btStart(start.x, start.y, start.z);
+        btVector3 btEnd(end.x, end.y, end.z);
+
+        btCollisionWorld::ClosestRayResultCallback callback(btStart, btEnd);
+
+        m_scene->getWorld()->rayTest(btStart, btEnd, callback);
+
+        if (callback.hasHit()) {
+            outHit.hasHit = true;
+            outHit.point = Vector3(callback.m_hitPointWorld.x(), callback.m_hitPointWorld.y(), callback.m_hitPointWorld.z());
+            outHit.normal = Vector3(callback.m_hitNormalWorld.x(), callback.m_hitNormalWorld.y(), callback.m_hitNormalWorld.z());
+            outHit.distance = (outHit.point - start).length();
+
+            // 【关键难点】如何从 Bullet 的 collisionObject 拿到 ECS 的 Entity？
+            // 通常在创建 RigidBody 时，我们需要把 EntityID 存到 UserPointer 里
+            const btCollisionObject* obj = callback.m_collisionObject;
+            outHit.entity = static_cast<uint32_t>((uintptr_t)obj->getUserPointer()); 
+            
+            return true;
+        }
+
+        outHit.hasHit = false;
+        return false;
     }
 
     // =====================================================================================
@@ -107,6 +149,7 @@ namespace Lizeral {
                 // 组件里存的是全长 (Size)，所以除以 2
                 Vector3 halfSize = col.getSize() * 0.5f;
                 shape = new btBoxShape(ToBtVector3(halfSize));
+                shape->setMargin(0.001f);
                 break;
             }
             case ColliderType::Sphere: {
@@ -147,9 +190,9 @@ namespace Lizeral {
         // 注意：这只在创建时生效，如果运行时改 Offset，需要更复杂的 CompoundShape
         Vector3 finalPos = t.getPosition(); 
         // TODO: 如果需要精确的旋转偏移，这里需要用 Quaternion 旋转 offset 向量
-        // finalPos = finalPos + (t.getRotation() * c.getOffset()); 
+        finalPos = finalPos + (t.getRotation() * c.getOffset()); 
         // 暂时简化处理：直接叠加
-        finalPos = finalPos + c.getOffset();
+        // finalPos = finalPos + c.getOffset();
 
         startTrans.setOrigin(ToBtVector3(finalPos));
         startTrans.setRotation(ToBtQuaternion(t.getRotation()));
@@ -171,6 +214,8 @@ namespace Lizeral {
         btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, shape, localInertia);
         
         btRigidBody* body = new btRigidBody(rbInfo);
+
+        body->setUserPointer((void*)(uintptr_t)entity);
 
         // 6. 设置额外属性
         body->setFriction(rb.getFriction());
@@ -289,7 +334,7 @@ namespace Lizeral {
     // =====================================================================================
     // 结果回写 Physics -> Game
     // =====================================================================================
-    void PhysicsSystem::SyncTransformBack(const RigidBodyComponent& rb, TransformComponent& t) {
+    void PhysicsSystem::SyncTransformBack(const RigidBodyComponent& rb, TransformComponent& t,const ColliderComponent& c) {
         btRigidBody* body = static_cast<btRigidBody*>(rb.getRuntimeBody());
         
         btTransform trans;
@@ -317,7 +362,9 @@ namespace Lizeral {
         // 注意：这里需要考虑旋转，Offset 是局部坐标
         // 暂时的简单回写：
 
-        t.m_position = newPos;
+        Vector3 rotatedOffset = newRot * c.getOffset(); // 假设你的四元数重载了与 Vector3 的乘法
+    
+        t.m_position = newPos - rotatedOffset;
         t.m_rotation = newRot;
 
         // 注意：这里绝对不能调用 t.setPosition(...)，因为那会触发 setDirty，导致死循环

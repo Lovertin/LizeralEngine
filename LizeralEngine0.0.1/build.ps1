@@ -18,7 +18,7 @@ if ($currentDir.Path -ne $expectedDir) {
 }
 
 # Step 1: Build the project
-Write-Host "`n[1/3] Building project..." -ForegroundColor Green
+Write-Host "`n[1/4] Building project..." -ForegroundColor Green
 cd "engine\build"
 cmake --build . --config Release
 
@@ -30,32 +30,62 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# Step 2: Check executable
-Write-Host "`n[2/3] Checking executable..." -ForegroundColor Green
-$exePath = "..\bin\LizeralPhysicsSandbox.exe"
-if (Test-Path $exePath) {
-    $fileInfo = Get-Item $exePath
-    Write-Host "Executable created: $exePath" -ForegroundColor Green
-    Write-Host "File size: $([math]::Round($fileInfo.Length/1KB, 2)) KB" -ForegroundColor Gray
+# Step 2: Check executables
+Write-Host "`n[2/4] Checking executables..." -ForegroundColor Green
+
+# Check Physics Sandbox
+$physicsExePath = "..\bin\LizeralPhysicsSandbox.exe"
+if (Test-Path $physicsExePath) {
+    $physicsFileInfo = Get-Item $physicsExePath
+    Write-Host "✓ Physics Sandbox created: $physicsExePath" -ForegroundColor Green
+    Write-Host "  File size: $([math]::Round($physicsFileInfo.Length/1KB, 2)) KB" -ForegroundColor Gray
 } else {
-    Write-Host "Executable not found: $exePath" -ForegroundColor Red
+    Write-Host "✗ Physics Sandbox not found: $physicsExePath" -ForegroundColor Red
     exit 1
 }
 
-# Step 3: Run the program
-Write-Host "`n[3/3] Running program..." -ForegroundColor Green
+# Check Rendering Test
+$renderingExePath = "..\bin\LizeralRenderingTest.exe"
+if (Test-Path $renderingExePath) {
+    $renderingFileInfo = Get-Item $renderingExePath
+    Write-Host "✓ Rendering Test created: $renderingExePath" -ForegroundColor Green
+    Write-Host "  File size: $([math]::Round($renderingFileInfo.Length/1KB, 2)) KB" -ForegroundColor Gray
+} else {
+    Write-Host "✗ Rendering Test not found: $renderingExePath" -ForegroundColor Red
+    exit 1
+}
+
+# Step 3: Run Physics Sandbox
+Write-Host "`n[3/4] Running Physics Sandbox..." -ForegroundColor Green
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 cd "..\bin"
+Write-Host "Starting Physics Sandbox..." -ForegroundColor Cyan
 .\LizeralPhysicsSandbox.exe
-$runExitCode = $LASTEXITCODE
+$physicsExitCode = $LASTEXITCODE
+Write-Host "----------------------------------------" -ForegroundColor DarkGray
+
+# Step 4: Run Rendering Test
+Write-Host "`n[4/4] Running Rendering Test..." -ForegroundColor Green
+Write-Host "----------------------------------------" -ForegroundColor DarkGray
+Write-Host "Starting Rendering Test..." -ForegroundColor Cyan
+.\LizeralRenderingTest.exe
+$renderingExitCode = $LASTEXITCODE
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 
 # Summary
 Write-Host "`n========================================" -ForegroundColor Cyan
-if ($runExitCode -eq 0) {
-    Write-Host "Build and run completed!" -ForegroundColor Green
+Write-Host "Build Summary:" -ForegroundColor Cyan
+Write-Host "  Physics Sandbox exit code: $physicsExitCode" -ForegroundColor Gray
+Write-Host "  Rendering Test exit code: $renderingExitCode" -ForegroundColor Gray
+
+if ($physicsExitCode -eq 0 -and $renderingExitCode -eq 0) {
+    Write-Host "Both programs completed successfully!" -ForegroundColor Green
+} elseif ($physicsExitCode -eq 0) {
+    Write-Host "Physics Sandbox completed, Rendering Test had issues" -ForegroundColor Yellow
+} elseif ($renderingExitCode -eq 0) {
+    Write-Host "Rendering Test completed, Physics Sandbox had issues" -ForegroundColor Yellow
 } else {
-    Write-Host "Program exited with code: $runExitCode" -ForegroundColor Yellow
+    Write-Host "Both programs had issues" -ForegroundColor Red
 }
 Write-Host "========================================" -ForegroundColor Cyan
 
