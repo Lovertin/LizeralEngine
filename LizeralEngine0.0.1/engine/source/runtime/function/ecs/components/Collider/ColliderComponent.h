@@ -13,7 +13,8 @@ namespace Lizeral {
     enum class ColliderType {
         Box,
         Sphere,
-        Capsule
+        Capsule,
+        ConvexHull
         // 以后可以加 Cylinder, Mesh, Convex 等
     };
 

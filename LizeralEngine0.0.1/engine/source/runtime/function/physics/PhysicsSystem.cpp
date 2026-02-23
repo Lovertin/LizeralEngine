@@ -2,9 +2,11 @@
 
 // 引入具体的实现头文件
 #include "runtime/function/physics/PhysicsScene.h"
+#include "runtime/function/physics/physicsDebug/PhysicsDebugDrawer.h" 
 #include "runtime/function/ecs/components/RigidBody/RigidBodyComponent.h"
 #include "runtime/function/ecs/components/Transform/TransformComponent.h"
 #include "runtime/function/ecs/components/Collider/ColliderComponent.h"
+#include "runtime/function/ecs/components/Model/ModelComponent.h"
 
 // 引入数学库 (假设路径)
 #include "runtime/core/math/vector3.h"
@@ -28,12 +30,21 @@ namespace Lizeral {
             info.m_numIterations = 20; 
             
             // 2. 提高错误修正系数 ERP (默认0.2，最大1.0) - 让引擎更“用力”地把穿模物体推出来
-            info.m_erp = 0.6f; 
+            // info.m_erp = 0.2f; 
+
+            m_debugDrawer = new PhysicsDebugDrawer();
+            // 你可以通过位运算叠加你想看的调试信息：线框 + 包围盒 + 接触点
+            m_debugDrawer->setDebugMode(btIDebugDraw::DBG_DrawWireframe | btIDebugDraw::DBG_DrawAabb);
+            m_scene->getWorld()->setDebugDrawer(m_debugDrawer);
         }
     }
 
     void PhysicsSystem::Shutdown() {
         m_scene = nullptr;
+        if (m_debugDrawer) {
+            delete m_debugDrawer;
+            m_debugDrawer = nullptr;
+        }
     }
 
     // --- 数学转换辅助函数 ---
@@ -68,7 +79,7 @@ namespace Lizeral {
 
             // case 1: 刚体未创建
             if (!rb.getRuntimeBody()) {
-                CreateBody(entity, rb, trans, col);
+                CreateBody(registry,entity, rb, trans, col);
                 
                 // 创建完成后，清除所有脏标记（视为已同步）
                 // 使用 Component 基类的 clearDirty 清除所有位
@@ -103,6 +114,12 @@ namespace Lizeral {
                 auto& col = view.get<ColliderComponent>(entity);
                 SyncTransformBack(rb,trans,col);
             }
+        }
+    }
+
+    void PhysicsSystem::DebugDrawWorld() {
+        if (m_scene && m_scene->getWorld() && m_debugDrawer) {
+            m_scene->getWorld()->debugDrawWorld();
         }
     }
 
@@ -149,7 +166,7 @@ namespace Lizeral {
                 // 组件里存的是全长 (Size)，所以除以 2
                 Vector3 halfSize = col.getSize() * 0.5f;
                 shape = new btBoxShape(ToBtVector3(halfSize));
-                shape->setMargin(0.001f);
+                // shape->setMargin(0.001f);
                 break;
             }
             case ColliderType::Sphere: {
@@ -170,14 +187,85 @@ namespace Lizeral {
         return shape;
     }
 
+    btCollisionShape* PhysicsSystem::CreateShape(Entity entity, Registry& registry, const ColliderComponent& col) {
+        btCollisionShape* shape = nullptr;
+
+        switch (col.getType()) {
+            case ColliderType::Box: {
+                Vector3 halfSize = col.getSize() * 0.5f;
+                shape = new btBoxShape(btVector3(halfSize.x, halfSize.y, halfSize.z));
+                // shape->setMargin(0.001f);
+                break;
+            }
+            case ColliderType::Sphere: {
+                shape = new btSphereShape(col.getRadius());
+                break;
+            }
+            case ColliderType::Capsule: {
+                shape = new btCapsuleShape(col.getRadius(), col.getHeight());
+                break;
+            }
+            case ColliderType::ConvexHull: {
+            // 在商业引擎中，我们用复合碰撞体(CompoundShape)加包围盒(AABB)来完美替代高面数凸包
+                auto* compoundShape = new btCompoundShape();
+
+                if (registry.has<ModelComponent>(entity)) {
+                    auto& modelComp = registry.get<ModelComponent>(entity);
+                    if (modelComp.m_Model) {
+                        // 1. 准备计算模型的 AABB (轴向包围盒)
+                        Vector3 minAABB( FLT_MAX,  FLT_MAX,  FLT_MAX);
+                        Vector3 maxAABB(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+                        // 2. 遍历所有顶点，找出模型的极值边界
+                        for (const auto& mesh : modelComp.m_Model->GetMeshes()) {
+                            for (const auto& v : mesh.m_Vertices) {
+                                minAABB.x = std::min(minAABB.x, v.Position.x);
+                                minAABB.y = std::min(minAABB.y, v.Position.y);
+                                minAABB.z = std::min(minAABB.z, v.Position.z);
+
+                                maxAABB.x = std::max(maxAABB.x, v.Position.x);
+                                maxAABB.y = std::max(maxAABB.y, v.Position.y);
+                                maxAABB.z = std::max(maxAABB.z, v.Position.z);
+                            }
+                        }
+
+                        // 3. 计算模型真正的几何中心点和长宽高的一半
+                        Vector3 center = (minAABB + maxAABB) * 0.5f;
+                        Vector3 halfExtents = (maxAABB - minAABB) * 0.5f;
+
+                        // 4. 创建一个完美包裹车身的轻量级 Box
+                        auto* proxyBox = new btBoxShape(btVector3(halfExtents.x, halfExtents.y, halfExtents.z));
+
+                        // 5. 【核心魔法】：将 Box 偏移到模型的真正中心处！
+                        // 建模师往往把坐标原点放在车底，这会导致 Box 下半截埋进地里。
+                        // 通过局部偏移，物理外壳将精准对齐渲染网格！
+                        btTransform localTransform;
+                        localTransform.setIdentity();
+                        localTransform.setOrigin(btVector3(center.x, center.y, center.z));
+
+                        // 把偏移后的 Box 装入复合形状
+                        compoundShape->addChildShape(localTransform, proxyBox);
+                    }
+                }
+                shape = compoundShape;
+                break;
+            }
+            default:
+                shape = new btBoxShape(btVector3(0.5f, 0.5f, 0.5f));
+                break;
+        }
+
+        return shape;
+    }
+
     // =====================================================================================
     // 创建刚体
     // =====================================================================================
-    void PhysicsSystem::CreateBody(Entity entity, RigidBodyComponent& rb, const TransformComponent& t, const ColliderComponent& c) {
+    void PhysicsSystem::CreateBody(Registry& registry,Entity entity, RigidBodyComponent& rb, const TransformComponent& t, const ColliderComponent& c) {
         if (!m_scene) return;
 
         // 1. 创建形状
-        btCollisionShape* shape = CreateShape(c);
+        btCollisionShape* shape = CreateShape(entity,registry,c);
         // 把形状交给 Scene 托管
         m_scene->trackShape(shape);
 
@@ -227,9 +315,21 @@ namespace Lizeral {
             body->setActivationState(DISABLE_DEACTIVATION); // 永远不休眠
         }
 
+        // if (c.getType() == ColliderType::ConvexHull) {
+        //     // 参数 btVector3(x, y, z) 中，0代表锁死，1代表允许。
+        //     // 设定 (0, 1, 0) 意味着：车子只能像陀螺一样绕 Y 轴转，永远不会侧翻或底朝天！
+        //     body->setAngularFactor(btVector3(0.0f, 1.0f, 0.0f));
+        // }
+
         // 7. 保存 Entity ID 到 UserPointer (非常重要，碰撞回调时反查 Entity)
         // 这里假设 Entity 是 uint32_t，强转存入
         // body->setUserPointer((void*)(uintptr_t)entity);
+        // if (c.getType() == ColliderType::ConvexHull) {
+        //     // body->setAngularFactor(btVector3(0.0f, 1.0f, 0.0f));
+            
+        //     // 【新增】：禁止这辆车进入休眠状态！
+        //     body->setActivationState(DISABLE_DEACTIVATION);
+        // }
 
         body->setRestitution(rb.getRestitution());
 

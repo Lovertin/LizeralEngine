@@ -4,6 +4,7 @@ out vec4 FragColor;
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
+in vec4 FragPosLightSpace; // 【新增】：从顶点着色器接收光源空间坐标
 
 // --- 摄像机与光照 ---
 uniform vec3 u_camPos;
@@ -23,6 +24,8 @@ uniform bool u_UseAlbedoMap;
 uniform samplerCube u_IrradianceMap; // 漫反射环境光
 uniform samplerCube u_PrefilterMap;  // 高光预滤波环境光
 uniform bool u_UseIBL;               // IBL 开关
+
+uniform sampler2D shadowMap;
 
 const float PI = 3.14159265359;
 
@@ -67,6 +70,41 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 N, vec3 L) {
+    // 执行透视除法 (即使是正交投影，这也是标准操作)
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    
+    // 将 NDC 坐标从 [-1, 1] 映射到 [0, 1] 以匹配纹理坐标范围
+    projCoords = projCoords * 0.5 + 0.5;
+
+    // 如果片元超出了光源视锥体的远平面，强制让它不在阴影中 (防止远处出现大片黑块)
+    if(projCoords.z > 1.0)
+        return 0.0;
+
+    // 获取当前片元在光源视角下的深度
+    float currentDepth = projCoords.z;
+
+    // 【极其重要】：动态 Shadow Bias 算法
+    // 根据光线和法线的夹角动态调整 bias，夹角越大 bias 越大。
+    // 这能完美解决物体表面出现一根根黑色斑马线的 Shadow Acne 问题！
+    float bias = max(0.005 * (1.0 - dot(N, L)), 0.005);
+
+    // 【PCF 软阴影】：采样周围 3x3 区域的像素，求平均值，实现边缘柔化
+    float shadow = 0.0;
+    // 获取阴影贴图单像素的尺寸 (textureSize 返回纹理长宽)
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    
+    for(int x = -1; x <= 1; ++x) {
+        for(int y = -1; y <= 1; ++y) {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= 9.0;
+    
+    return shadow;
+}
+
 void main() {
 
     // 动态决定使用纯色还是贴图
@@ -82,7 +120,7 @@ void main() {
 
     // 基础反射率：非金属固定为 0.04，金属则使用反照率颜色
     vec3 F0 = vec3(0.04); 
-    F0 = mix(F0, u_Albedo, u_Metallic);
+    F0 = mix(F0, albedoColor, u_Metallic);
 
     // 计算光照辐射率 (目前假设是平行光)
     vec3 L = normalize(u_lightDir);
@@ -103,9 +141,12 @@ void main() {
     vec3 kD = vec3(1.0) - kS;
     kD *= 1.0 - u_Metallic; // 金属没有漫反射，全被吸收或反射了
 
+    // 获取阴影遮蔽率 (0.0 表示在光照下，1.0 表示完全在阴影里)
+    float shadow = ShadowCalculation(FragPosLightSpace, N, L);
+
     // 最终的输出光照
     float NdotL = max(dot(N, L), 0.0);        
-    vec3 Lo = (kD * albedoColor / PI + specular) * radiance * NdotL;
+    vec3 Lo = (1.0 - shadow) * (kD * albedoColor / PI + specular) * radiance * NdotL;
 
     // 加上一点点环境光，防止完全死黑
     vec3 ambient;

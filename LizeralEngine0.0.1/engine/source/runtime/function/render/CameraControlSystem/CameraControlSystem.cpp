@@ -77,7 +77,7 @@ namespace Lizeral{
         Vector3 moveDir(0, 0, 0);
 
         // WASD - 沿着相机的局部坐标系移动
-        if (input.GetKey(Key::W)) moveDir += forward; //虽然反直觉，但是opengl中z的负半轴才是正方向
+        if (input.GetKey(Key::W)) moveDir += forward; 
         if (input.GetKey(Key::S)) moveDir -= forward;
         if (input.GetKey(Key::D)) moveDir += right;
         if (input.GetKey(Key::A)) moveDir -= right;

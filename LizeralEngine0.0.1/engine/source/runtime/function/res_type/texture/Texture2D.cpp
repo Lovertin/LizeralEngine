@@ -74,6 +74,35 @@ namespace Lizeral {
         return true;
     }
 
+    bool Texture2D::LoadFromMemory(const unsigned char* buffer, int length) {
+        glGenTextures(1, &m_RendererID);
+        glBindTexture(GL_TEXTURE_2D, m_RendererID);
+
+        // 对于 glTF/glb，通常不需要翻转 Y 轴，因为 Assimp 的 aiProcess_FlipUVs 已经处理好了
+        stbi_set_flip_vertically_on_load(false); 
+
+        int width, height, channels;
+        // 【核心魔法】：直接从内存里的二进制字节流解码 PNG/JPG！
+        unsigned char* data = stbi_load_from_memory(buffer, length, &width, &height, &channels, 0);
+
+        if (data) {
+            GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
+            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            stbi_image_free(data);
+            return true;
+        } else {
+            std::cerr << "[Texture2D] ERROR: Failed to load texture from memory!" << std::endl;
+            return false;
+        }
+    }
+
     void Texture2D::Bind(uint32_t slot) const {
         // 激活特定的纹理插槽 (OpenGL 至少支持 16 个插槽，GL_TEXTURE0, GL_TEXTURE1...)
         glActiveTexture(GL_TEXTURE0 + slot);

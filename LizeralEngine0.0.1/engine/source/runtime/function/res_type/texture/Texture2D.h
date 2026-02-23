@@ -25,6 +25,8 @@ namespace Lizeral {
 
         // 核心：供给 ResourceManager 调用的加载接口
         virtual bool LoadFromFile(const std::string& path) override;
+        
+        bool LoadFromMemory(const unsigned char* buffer, int length);
 
         // 绑定该贴图到显卡的指定纹理槽位 (Slot)，PBR 通常需要同时绑定多张贴图
         void Bind(uint32_t slot = 0) const;

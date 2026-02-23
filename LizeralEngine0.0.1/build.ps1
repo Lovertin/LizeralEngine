@@ -68,7 +68,7 @@ Write-Host "----------------------------------------" -ForegroundColor DarkGray
 Write-Host "`n[4/4] Running Rendering Test..." -ForegroundColor Green
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 Write-Host "Starting Rendering Test..." -ForegroundColor Cyan
-.\LizeralRenderingTest.exe
+#.\LizeralRenderingTest.exe
 $renderingExitCode = $LASTEXITCODE
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 

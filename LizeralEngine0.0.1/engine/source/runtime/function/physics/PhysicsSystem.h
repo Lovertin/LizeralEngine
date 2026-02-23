@@ -14,6 +14,7 @@ namespace Lizeral {
     class RigidBodyComponent;
     class TransformComponent;
     class ColliderComponent;
+    class PhysicsDebugDrawer;
 }
 
 namespace Lizeral {
@@ -34,8 +35,12 @@ namespace Lizeral {
 
         bool Raycast(const Ray& ray, RaycastHit& outHit, float maxDistance = 1000.0f);
 
+        void DebugDrawWorld();
+
     private:
         PhysicsScene* m_scene { nullptr };
+
+        PhysicsDebugDrawer* m_debugDrawer = nullptr;
 
     private:
         // --- 内部核心逻辑 ---
@@ -43,8 +48,10 @@ namespace Lizeral {
         // 1. 工厂方法：根据 ColliderComponent 创建 Bullet 形状
         btCollisionShape* CreateShape(const ColliderComponent& col);
 
+        btCollisionShape* CreateShape(Entity entity, Registry& registry, const ColliderComponent& col);
+
         // 2. 创建刚体：将 ECS 组件转换为 Bullet 刚体并加入世界
-        void CreateBody(Entity entity, RigidBodyComponent& rb, const TransformComponent& t, const ColliderComponent& c);
+        void CreateBody(Registry& registry,Entity entity, RigidBodyComponent& rb, const TransformComponent& t, const ColliderComponent& c);
 
         // 3. 数据同步 (Game -> Physics)：处理脏标记
         void SyncDirtyData(RigidBodyComponent& rb, const TransformComponent& t, ColliderComponent& c);

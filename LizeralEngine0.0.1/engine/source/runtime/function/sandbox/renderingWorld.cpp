@@ -8,8 +8,9 @@
 #include "runtime/function/ecs/components/Transform/TransformComponent.h"
 #include "runtime/function/ecs/components/Camera/CameraComponent.h"
 #include "runtime/resource/resourceManager/resourceManager.h"
-#include "runtime/function/res_type/mesh/mesh.h"
 #include "runtime/function/res_type/shader/shader.h"
+#include "runtime/function/res_type/Model/Mesh.h"
+#include "runtime/function/res_type/Model/Model.h"
 
 using namespace Lizeral;
 
@@ -158,7 +159,7 @@ public:
     void BindAndApply() {
         if (!shader) return;
         shader->Bind();
-        shader->SetUniformVector3f("u_albedo", albedo);
+        shader->SetUniformVector3f("u_Albedo", albedo);
         shader->SetUniformVector3f("u_lightDir", lightDir);
         shader->SetUniformVector3f("u_lightColor", lightColor);
     }
@@ -199,7 +200,7 @@ int main() {
 
     std::cout << "Loading resources..." << std::endl;
     // 替换为你电脑上的绝对路径
-    auto dolphinMesh = ResourceManager::GetInstance().Load<Mesh>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\model\\dolphinLowPoly.model");
+    auto dolphinMesh = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\model\\dolphinLowPoly.model");
     
     auto solidShader = std::make_shared<Shader>(
         "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.vert", 

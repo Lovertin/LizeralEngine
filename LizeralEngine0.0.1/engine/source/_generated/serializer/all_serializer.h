@@ -1,5 +1,10 @@
 #pragma once
 #include "runtime/core/meta/serializer/serializer.h"
+#include "_generated\serializer\mesh.serializer.gen.h"
+#include "_generated\serializer\PBRMaterial.serializer.gen.h"
+#include "_generated\serializer\TextureCube.serializer.gen.h"
+#include "_generated\serializer\Texture2D.serializer.gen.h"
+#include "_generated\serializer\resource.serializer.gen.h"
 #include "_generated\serializer\TransformComponent.serializer.gen.h"
 #include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
 #include "_generated\serializer\vector3.serializer.gen.h"

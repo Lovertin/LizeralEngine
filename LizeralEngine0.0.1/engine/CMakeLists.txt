@@ -53,11 +53,9 @@ file(GLOB_RECURSE SRC_PHYSICS "source/runtime/function/physics/*.cpp")
 file(GLOB_RECURSE SRC_LOG "source/runtime/core/log/*.cpp")
 
 # 1. 确保 Input 源文件被包含
-# 假设你的目录结构是 source/runtime/function/input/input.cpp
 file(GLOB_RECURSE SRC_INPUT "source/runtime/function/input/*.cpp") 
 
 # 2. 确保 Render (Camera) 源文件被包含
-# 假设你的目录结构是 source/runtime/function/render/CameraSystem.cpp 等
 file(GLOB_RECURSE SRC_RENDER "source/runtime/function/render/*.cpp")
 
 # 3. res_type 系统 (用于资源管理)
@@ -68,9 +66,6 @@ file(GLOB_RECURSE SRC_RESOURCE "source/runtime/resource/*.cpp")
 
 # 5. Vendor包
 file(GLOB_RECURSE SRC_VENFOR "source/runtime/core/vendor/stb_image/*.cpp")
-
-# file(GLOB_RECURSE SRC_MATERIAL "source/runtime/function/pipeline/Material/*.h")
-
 
 # E. 聚合物理沙盒源文件
 set(PHYSICS_SANDBOX_SOURCES 
@@ -83,7 +78,6 @@ set(PHYSICS_SANDBOX_SOURCES
     ${SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
-    # ${SRC_MATERIAL}
     "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
 )
 
@@ -97,9 +91,24 @@ set(RENDERING_TEST_SOURCES
     ${SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
-
     "source/runtime/function/sandbox/renderingWorld.cpp"
 )
+
+# =============================================================
+# ★ 本地引入工业级模型加载库：Assimp
+# =============================================================
+# 关闭 Assimp 那些我们不需要的附属工具和测试，极大加快编译速度
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE) # 确保开启 zlib 支持
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE) # 静态链接，免去处理 DLL 的烦恼
+
+# 直接将本地的 assimp 文件夹加入编译树
+add_subdirectory(source/runtime/core/vendor/assimp)
+
+# 包含 Assimp 的全局头文件路径，这样你在代码里才能 #include <assimp/Importer.hpp>
+include_directories(source/runtime/core/vendor/assimp/include)
+
 
 # =============================================================
 # 4. 构建物理沙盒
@@ -112,7 +121,6 @@ target_include_directories(LizeralPhysicsSandbox PRIVATE
     source/runtime              # 允许 #include "core/..."
     3rdparty/glfw/include       # GLFW
     3rdparty/json11             # json11.hpp
-    # 注意：GLAD 的路径不需要在这里写，因为下面链接 glad 库时会自动带过来
 )
 
 # 链接库
@@ -120,6 +128,7 @@ target_link_libraries(LizeralPhysicsSandbox PUBLIC
     glad        # 【关键】链接 glad 库，自动修复 glad.h 和 khrplatform.h 问题
     glfw
     bullet
+    assimp      # 【关键】链接本地编译好的 Assimp
 )
 
 if(WIN32)
@@ -129,23 +138,23 @@ endif()
 # =============================================================
 # 5. 构建渲染测试程序
 # =============================================================
-add_executable(LizeralRenderingTest ${RENDERING_TEST_SOURCES})
+# add_executable(LizeralRenderingTest ${RENDERING_TEST_SOURCES})
 
-# 设置包含路径 (Header Search Paths)
-target_include_directories(LizeralRenderingTest PRIVATE
-    source                      # 允许 #include "runtime/..."
-    source/runtime              # 允许 #include "core/..."
-    3rdparty/glfw/include       # GLFW
-    3rdparty/json11             # json11.hpp
-    # 注意：GLAD 的路径不需要在这里写，因为下面链接 glad 库时会自动带过来
-)
+# # 设置包含路径 (Header Search Paths)
+# target_include_directories(LizeralRenderingTest PRIVATE
+#     source                      # 允许 #include "runtime/..."
+#     source/runtime              # 允许 #include "core/..."
+#     3rdparty/glfw/include       # GLFW
+#     3rdparty/json11             # json11.hpp
+# )
 
-# 链接库
-target_link_libraries(LizeralRenderingTest PUBLIC
-    glad        # 【关键】链接 glad 库，自动修复 glad.h 和 khrplatform.h 问题
-    glfw
-)
+# # 链接库
+# target_link_libraries(LizeralRenderingTest PUBLIC
+#     glad        
+#     glfw
+#     assimp      # 【关键】为渲染测试也链接上 Assimp，方便后续测试模型
+# )
 
-if(WIN32)
-    target_link_libraries(LizeralRenderingTest PUBLIC opengl32)
-endif()
+# if(WIN32)
+#     target_link_libraries(LizeralRenderingTest PUBLIC opengl32)
+# endif()

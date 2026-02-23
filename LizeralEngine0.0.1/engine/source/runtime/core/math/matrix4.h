@@ -759,6 +759,40 @@ namespace Lizeral
             out_z.normalise();
         }
 
+        // 在 Matrix4x4 类中添加
+        static Matrix4x4 lookAt(const Vector3& eye, const Vector3& center, const Vector3& up) {
+            Vector3 f = (center - eye).normalisedCopy();  // 前向向量
+            Vector3 s = f.crossProduct(up).normalisedCopy();  // 右向量
+            Vector3 u = s.crossProduct(f);  // 上向量（重算以确保正交）
+            
+            return Matrix4x4(
+                s.x, s.y, s.z, -s.dotProduct(eye),
+                u.x, u.y, u.z, -u.dotProduct(eye),
+                -f.x, -f.y, -f.z, f.dotProduct(eye),
+                0, 0, 0, 1
+            );
+        }
+
+        // 在 Matrix4x4 类中添加
+        static Matrix4x4 ortho(float left, float right, float bottom, float top, float near, float far) {
+            float rl = right - left;
+            float tb = top - bottom;
+            float fn = far - near;
+            
+            return Matrix4x4(
+                2.0f / rl, 0, 0, -(right + left) / rl,
+                0, 2.0f / tb, 0, -(top + bottom) / tb,
+                0, 0, -2.0f / fn, -(far + near) / fn,
+                0, 0, 0, 1
+            );
+        }
+
+        // 或者更常用的对称版本
+        static Matrix4x4 ortho(float width, float height, float near, float far) {
+            return ortho(-width * 0.5f, width * 0.5f, 
+                        -height * 0.5f, height * 0.5f, near, far);
+        }
+
         /** Determines if this matrix involves a scaling. */
         bool hasScale() const
         {

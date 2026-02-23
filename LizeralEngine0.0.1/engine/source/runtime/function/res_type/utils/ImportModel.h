@@ -2,7 +2,8 @@
 #include <vector>
 #include "runtime/core/math/vector2.h"
 #include "runtime/core/math/vector3.h"
-#include "runtime/function/res_type/mesh/mesh.h"
+// #include "runtime/function/res_type/mesh/mesh.h"
+#include "runtime/function/res_type/Model/Mesh.h"
 
 using vec2 = Lizeral::Vector2;
 using vec3 = Lizeral::Vector3;

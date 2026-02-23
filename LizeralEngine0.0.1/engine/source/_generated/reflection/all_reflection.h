@@ -1,6 +1,11 @@
 #pragma once
 #include "runtime/core/meta/reflection/reflection.h"
 #include "_generated/serializer/all_serializer.h"
+#include "_generated\reflection\mesh.reflection.gen.h"
+#include "_generated\reflection\PBRMaterial.reflection.gen.h"
+#include "_generated\reflection\TextureCube.reflection.gen.h"
+#include "_generated\reflection\Texture2D.reflection.gen.h"
+#include "_generated\reflection\resource.reflection.gen.h"
 #include "_generated\reflection\TransformComponent.reflection.gen.h"
 #include "_generated\reflection\RigidBodyComponent.reflection.gen.h"
 #include "_generated\reflection\vector3.reflection.gen.h"
@@ -20,6 +25,11 @@
 namespace Lizeral{
 namespace Reflection{
     void TypeMetaRegister::Register(){
+    TypeWrappersRegister::Mesh();
+    TypeWrappersRegister::PBRMaterial();
+    TypeWrappersRegister::TextureCube();
+    TypeWrappersRegister::Texture2D();
+    TypeWrappersRegister::Resource();
     TypeWrappersRegister::TransformComponent();
     TypeWrappersRegister::RigidBodyComponent();
     TypeWrappersRegister::Vector3();
