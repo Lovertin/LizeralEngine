@@ -29,6 +29,8 @@ namespace Lizeral {
         // 【关键】：每个子网格持有自己特有的材质实例
         std::shared_ptr<Material> m_Material;
 
+        Mesh() = default;
+
         // 构造函数：接收数据并立刻传给显卡
         Mesh(std::vector<Vertex> vertices, 
              std::vector<unsigned int> indices, 

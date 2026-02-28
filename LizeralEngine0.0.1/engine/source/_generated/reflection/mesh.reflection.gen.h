@@ -1,5 +1,5 @@
 #pragma once
-#include "runtime\function\res_type\mesh\mesh.h"
+#include "runtime\function\res_type\Model\Mesh.h"
 
 namespace Lizeral{
     class Mesh;
@@ -18,11 +18,8 @@ namespace TypeFieldReflectionOparator{
         }
         // base class
         static int getMeshBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Resource,static_cast<Mesh*>(instance));
-            }
+            int count = 0;
+            
             return count;
         }
         // fields

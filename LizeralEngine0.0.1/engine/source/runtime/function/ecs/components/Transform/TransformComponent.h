@@ -46,6 +46,48 @@ namespace Lizeral{
              return mat;
         }
 
+        Vector3 getForward() const{
+            float x = 2.0f * (m_rotation.x * m_rotation.z + m_rotation.w * m_rotation.y);
+            float y = 2.0f * (m_rotation.y * m_rotation.z - m_rotation.w * m_rotation.x);
+            float z = 1.0f - 2.0f * (m_rotation.x * m_rotation.x + m_rotation.y * m_rotation.y);
+            return Vector3(-x, -y, -z).normalisedCopy();
+        }
+
+        Vector3 getUp() const {
+            return m_rotation * Vector3(0.0f, 1.0f, 0.0f);
+        }
+
+        Vector3 getRight() const {
+            return m_rotation * Vector3(1.0f, 0.0f, 0.0f);
+        }
+
+        void setForward(const Vector3& forwardDir, const Vector3& upDir = Vector3(0.0f, 1.0f, 0.0f)) {
+            // 1. 获取标准化的前向向量
+            Vector3 forward = forwardDir.normalisedCopy();
+            Vector3 up = upDir;
+
+            // 2. 防止万向节死锁：如果光线是垂直往下（或往上）打的，
+            // 此时 forward 和 up 几乎平行，会导致叉乘结果为 0。我们需要临时换一个 up 向量。
+            // (假设你的 Vector3 有 dotProduct 方法，如果没有可以写成 x*x + y*y + z*z)
+            if (std::abs(forward.dotProduct(up)) > 0.999f) {
+                up = Vector3(0.0f, 0.0f, 1.0f);
+            }
+
+            // 3. 叉乘构建正交基底 (右向量和真·上向量)
+            Vector3 right = forward.crossProduct(up).normalisedCopy();
+            Vector3 trueUp = right.crossProduct(forward).normalisedCopy();
+
+            // 4. 构建四元数
+            // 根据你 getForward 的实现，你的局部 Forward 对应的是 -Z 轴
+            Quaternion newRot;
+            newRot.fromAxes(right, trueUp, -forward);
+            newRot.normalise();
+
+            // 5. 调用已有的 setRotation
+            // 【极其关键】：这里复用了 setRotation，所以它会自动为你打上 TRANS_DIRTY_ROTATION 的脏标记！
+            setRotation(newRot);
+        }
+
     private:
         META(Enable)
         Vector3 m_position { Vector3::ZERO };

@@ -5,3 +5,4 @@
 #include "Model/ModelComponent.h"
 #include "Rigidbody/RigidBodyComponent.h"
 #include "Transform/TransformComponent.h"
+#include "Light/DirectionalLightComponent.h"

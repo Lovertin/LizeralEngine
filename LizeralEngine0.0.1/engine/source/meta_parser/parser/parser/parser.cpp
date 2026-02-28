@@ -130,10 +130,22 @@ bool MetaParser::parseProject()
         if (dir_entry.is_regular_file())
         {
             auto path = dir_entry.path();
+            std::string temp_string = path.string();
+            Utils::replace(temp_string, '\\', '/');
+
+            // ==========================================================
+            // 【关键修复】：黑名单过滤逻辑
+            // 如果文件路径中包含 "/vendor/" 或 "/3rdparty/"，直接跳过不处理！
+            // 这样 libclang 就永远不会知道 Assimp 的存在，彻底杜绝命名空间污染
+            // ==========================================================
+            if (temp_string.find("/vendor/") != std::string::npos || 
+                temp_string.find("/3rdparty/") != std::string::npos)
+            {
+                continue; 
+            }
+
             if (path.extension() == ".h")
             {
-                std::string temp_string = path.string();
-                Utils::replace(temp_string, '\\', '/');
                 // 写入 include
                 include_file << "#include  \"" << temp_string << "\"" << std::endl;
             }

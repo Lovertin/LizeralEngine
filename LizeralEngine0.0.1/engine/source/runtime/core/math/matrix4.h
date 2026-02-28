@@ -529,6 +529,32 @@ namespace Lizeral
                              1.0f);
         }
 
+        /** Builds a perspective projection matrix.
+        @param fovY Field of view in the y direction (in degrees)
+        @param aspect Aspect ratio (width / height)
+        @param zNear Distance to the near clipping plane (must be > 0)
+        @param zFar Distance to the far clipping plane (must be > 0)
+        */
+        static Matrix4x4 perspective(float fovY, float aspect, float zNear, float zFar)
+        {
+            float rad = fovY * Math_PI / 180.0f;  // 假设 Math::PI 可用
+            float tanHalfFov = tan(rad * 0.5f);
+            
+            float range = zNear - zFar;  // 注意是负值，因为 OpenGL 风格的 NDC z 范围是 [-1, 1]
+            
+            Matrix4x4 result = Matrix4x4::ZERO;
+            
+            result[0][0] = 1.0f / (tanHalfFov * aspect);
+            result[1][1] = 1.0f / tanHalfFov;
+            result[2][2] = (-zNear - zFar) / range;
+            result[2][3] = 2.0f * zFar * zNear / range;
+            result[3][2] = 1.0f;  // 设置 w 分量的系数
+            result[3][3] = 0.0f;
+            
+            return result;
+        }
+
+
         static Matrix4x4 mirrorMatrix(Vector4 mirror_plane)
         {
             Matrix4x4 result;
@@ -925,6 +951,15 @@ namespace Lizeral
                            v.w);
         }
 
+        void print() const
+        {
+            printf("Matrix4x4:\n");
+            for (int i = 0; i < 4; ++i) {
+                printf("  [ %8.4f, %8.4f, %8.4f, %8.4f ]\n", 
+                    m_mat[i][0], m_mat[i][1], m_mat[i][2], m_mat[i][3]);
+            }
+        }
+
         Matrix4x4 inverse() const
         {
             float m00 = m_mat[0][0], m01 = m_mat[0][1], m02 = m_mat[0][2], m03 = m_mat[0][3];
@@ -1006,4 +1041,6 @@ namespace Lizeral
     };
 
     Vector4 operator*(const Vector4& v, const Matrix4x4& mat);
+
+    
 } // namespace Lizeral

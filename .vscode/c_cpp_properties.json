@@ -11,8 +11,9 @@
       "intelliSenseMode": "windows-gcc-x64",
       "compilerArgs": [
         ""
-      ]
+      ],
+      "compileCommands": "${workspaceFolder}/LizeralEngine0.0.1/engine/build/compile_commands.json"
     }
   ],
   "version": 4
-}
+} 

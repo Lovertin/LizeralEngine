@@ -164,7 +164,6 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/core/meta/serializer/serializer.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/core/test/parser_test.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/core/test/parser_test1.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/core/vendor/stb_image/stb_image.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Camera/CameraComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/component.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/physics/phsicsEntityheaders.h \
@@ -174,7 +173,23 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Camera/CameraControlComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Collider/ColliderComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/component.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Mesh/MeshRendererComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/componentAll.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Camera/CameraComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Camera/CameraControlComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Collider/ColliderComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Model/ModelComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Model/Model.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/resource/resource.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/model/Mesh.h \
+  glad/glad.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Material/Material.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/shader/shader.h \
+  assimp/Importer.hpp assimp/scene.h assimp/postprocess.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Rigidbody/RigidBodyComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Transform/TransformComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Light/DirectionalLightComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Light/DirectionalLightComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Model/ModelComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/RigidBody/RigidBodyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Transform/TransformComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/component_pool.h \
@@ -187,6 +202,8 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/input/input.h \
   GLFW/glfw3.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/phsicsEntityheaders.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/physicsDebug/PhysicsDebugDrawer.h \
+  LinearMath/btIDebugDraw.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/physicsEntity/ray/ray.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/physicsEntity/ray/raycast_hit.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/PhysicsScene.h \
@@ -195,19 +212,22 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/registry.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraControlSystem/CameraControlSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraSystem/CameraSystem.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/RenderingSystem/RenderingSystem.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\iostream \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\istream \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\ostream \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/Material.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/shader/shader.h \
-  glad/glad.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/PBRMaterial.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/Texture2D.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/resource/resource.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/TextureCube.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/mesh/mesh.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Model/Mesh.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Model/Model.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/shader/shader.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/texture/Texture2D.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/texture/TextureCube.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/utils/ImportModel.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/mesh/mesh.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Model/Mesh.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/resource/resource.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/resource/resourceManager/resourceManager.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\mutex \
@@ -218,6 +238,4 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:\Program\ Files\ (x86)\Windows\ Kits\10\Include\10.0.26100.0\ucrt\corecrt_startup.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\vcruntime_startup.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\fstream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_filebuf.hpp \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\istream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_filebuf.hpp

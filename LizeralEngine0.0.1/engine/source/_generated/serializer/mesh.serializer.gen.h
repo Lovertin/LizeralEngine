@@ -1,6 +1,5 @@
 #pragma once
-#include "runtime\function\res_type\mesh\mesh.h"
-#include "_generated\serializer\resource.serializer.gen.h"
+#include "runtime\function\res_type\Model\Mesh.h"
 
 namespace Lizeral{
     template<>

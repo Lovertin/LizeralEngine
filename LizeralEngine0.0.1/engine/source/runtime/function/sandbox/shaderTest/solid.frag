@@ -4,12 +4,12 @@ out vec4 FragColor;
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
-in vec4 FragPosLightSpace; // 【新增】：从顶点着色器接收光源空间坐标
+in vec4 FragPosViewSpace; // 【新增】：接收观察空间坐标
 
 // --- 摄像机与光照 ---
 uniform vec3 u_camPos;
-uniform vec3 u_lightDir;   // 指向光源的方向
-uniform vec3 u_lightColor; // 光源颜色和强度
+uniform vec3 u_lightDir;
+uniform vec3 u_lightColor;
 
 // --- PBR 材质参数 ---
 uniform vec3  u_Albedo;
@@ -17,42 +17,55 @@ uniform float u_Metallic;
 uniform float u_Roughness;
 uniform float u_AO;
 
-// 贴图采样器和开关宏
 uniform sampler2D u_AlbedoMap;
 uniform bool u_UseAlbedoMap;
 
-uniform samplerCube u_IrradianceMap; // 漫反射环境光
-uniform samplerCube u_PrefilterMap;  // 高光预滤波环境光
-uniform bool u_UseIBL;               // IBL 开关
+uniform samplerCube u_IrradianceMap;
+uniform samplerCube u_PrefilterMap; 
+uniform bool u_UseIBL;
 
-uniform sampler2D shadowMap;
+// ==========================================
+// 【新增】：CSM 级联阴影专用 Uniform
+// ==========================================
+uniform mat4 u_lightSpaceMatrices[4];     // 级联矩阵数组
+uniform float u_cascadePlaneDistances[4]; // 级联分割深度
+uniform int u_cascadeCount;               // 级联层数
+uniform sampler2DArray shadowMap;         // 【注意】：变成了 2DArray 采样器！
+uniform mat4 view;                        // 相机视图矩阵
 
 const float PI = 3.14159265359;
 
-// 1. D: 法线分布函数 (GGX)
+const vec2 poissonDisk[16] = vec2[](
+    vec2( -0.94201624, -0.39906216 ), vec2(  0.94558609, -0.76890725 ),
+    vec2( -0.094184101, -0.92938870), vec2(  0.34495938,  0.29387760 ),
+    vec2( -0.91588401,  0.45771432 ), vec2( -0.81544232, -0.87912464 ),
+    vec2( -0.38277543,  0.27676845 ), vec2(  0.97484398,  0.75648379 ),
+    vec2(  0.44323325, -0.97511554 ), vec2(  0.53742981, -0.47373420 ),
+    vec2( -0.26496911, -0.41893023 ), vec2(  0.79197514,  0.19090188 ),
+    vec2( -0.24188840,  0.99706507 ), vec2( -0.81409955,  0.91437590 ),
+    vec2(  0.19984126,  0.78641367 ), vec2(  0.14383161, -0.14100790 )
+);
+
+// ... (DistributionGGX, GeometrySmith, fresnelSchlick 等函数保持不变) ...
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
-    float a = roughness * roughness; // 采用迪士尼原则，粗糙度平方视觉上更线性
+    float a = roughness * roughness;
     float a2 = a * a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH * NdotH;
-
     float num = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
-
     return num / denom;
 }
 
-// 2. G: 几何函数 (Schlick-GGX)
 float GeometrySchlickGGX(float NdotV, float roughness) {
     float r = (roughness + 1.0);
     float k = (r * r) / 8.0;
-
     float num = NdotV;
     float denom = NdotV * (1.0 - k) + k;
-
     return num / denom;
 }
+
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
@@ -61,7 +74,6 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
     return ggx1 * ggx2;
 }
 
-// 3. F: 菲涅尔方程 (Fresnel-Schlick)
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
@@ -70,118 +82,121 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace, vec3 N, vec3 L) {
-    // 执行透视除法 (即使是正交投影，这也是标准操作)
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+// 【彻底重写】：CSM 阴影计算核心
+float ShadowCalculation(vec3 fragPosWorld, vec3 N, vec3 L) {
+    // 1. 获取像素离摄像机的距离 (OpenGL 观察空间 Z 是负数，取绝对值)
+    float depthValue = abs(FragPosViewSpace.z);
+
+    // 2. 智能选层：看看像素落在哪个级联区间
+    int layer = -1;
+    for (int i = 0; i < u_cascadeCount; ++i) {
+        if (depthValue < u_cascadePlaneDistances[i]) {
+            layer = i;
+            break;
+        }
+    }
+    // 如果比最远的一层还要远，就用最后一层
+    if (layer == -1) {
+        layer = u_cascadeCount - 1;
+    }
+
+    // 3. 拿到该层对应的太阳矩阵，计算裁剪空间坐标
+    vec4 fragPosLightSpace = u_lightSpaceMatrices[layer] * vec4(fragPosWorld, 1.0);
     
-    // 将 NDC 坐标从 [-1, 1] 映射到 [0, 1] 以匹配纹理坐标范围
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
-    // 如果片元超出了光源视锥体的远平面，强制让它不在阴影中 (防止远处出现大片黑块)
+    // 超出该视锥体外围，默认没有阴影
     if(projCoords.z > 1.0)
         return 0.0;
 
-    // 获取当前片元在光源视角下的深度
     float currentDepth = projCoords.z;
-
-    // 【极其重要】：动态 Shadow Bias 算法
-    // 根据光线和法线的夹角动态调整 bias，夹角越大 bias 越大。
-    // 这能完美解决物体表面出现一根根黑色斑马线的 Shadow Acne 问题！
-    float bias = max(0.005 * (1.0 - dot(N, L)), 0.005);
-
-    // 【PCF 软阴影】：采样周围 3x3 区域的像素，求平均值，实现边缘柔化
-    float shadow = 0.0;
-    // 获取阴影贴图单像素的尺寸 (textureSize 返回纹理长宽)
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     
-    for(int x = -1; x <= 1; ++x) {
-        for(int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
+    // 动态 Bias (越远的层级，矩阵包围盒越大，需要的 bias 容错率也该适度变大)
+    float baseBias = max(0.002 * (1.0 - dot(N, L)), 0.0005);
+    
+    // 随着级联层数(layer)变大，矩阵范围变大，bias也需要适度翻倍
+    float bias = baseBias;
+    if (layer == 1) bias *= 1.2;
+    else if (layer == 2) bias *= 1.5;
+    else if (layer == 3) bias *= 2.0;
+
+    // 4. 泊松圆盘 PCF (注意 texture() 从 Array 中采样的语法：第三个参数是 layer)
+    float shadow = 0.0;
+    // textureSize 获取 2DArray 会返回 ivec3(width, height, layers)，所以取 xy
+    vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0).xy); 
+    
+    float filterRadius = 2.0; 
+    if (layer == 1) filterRadius *= 0.5;  // 第 1 层面积大，偏移量减半
+    else if (layer == 2) filterRadius *= 0.25; 
+    else if (layer == 3) filterRadius *= 0.1;
+
+    for(int i = 0; i < 16; i++) {
+        // vec3(uv.x, uv.y, layerIndex)
+        float pcfDepth = texture(shadowMap, vec3(projCoords.xy + poissonDisk[i] * texelSize * filterRadius, float(layer))).r; 
+        shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
     }
-    shadow /= 9.0;
+    shadow /= 16.0;
     
     return shadow;
 }
 
 void main() {
-
-    // 动态决定使用纯色还是贴图
     vec3 albedoColor = u_Albedo;
     if (u_UseAlbedoMap) {
-        // 从贴图中采样颜色。注意：PBR 要求 Albedo 必须在真实的线性空间中运算
-        // 所以我们要用 pow 2.2 把 sRGB 的图片转换回线性空间
         albedoColor = pow(texture(u_AlbedoMap, TexCoords).rgb, vec3(2.2));
     }
 
     vec3 N = normalize(Normal);
     vec3 V = normalize(u_camPos - FragPos);
 
-    // 基础反射率：非金属固定为 0.04，金属则使用反照率颜色
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedoColor, u_Metallic);
 
-    // 计算光照辐射率 (目前假设是平行光)
     vec3 L = normalize(u_lightDir);
-    vec3 H = normalize(V + L); // 半程向量
+    vec3 H = normalize(V + L); 
     vec3 radiance = u_lightColor;
 
-    // --- Cook-Torrance BRDF ---
     float NDF = DistributionGGX(N, H, u_Roughness);        
     float G   = GeometrySmith(N, V, L, u_Roughness);      
     vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
 
     vec3 numerator    = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // 防止除以0
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; 
     vec3 specular     = numerator / denominator;
 
-    // 能量守恒：反射的光 (kS) 和折射的光 (kD) 之和不能超过 1
     vec3 kS = F;
     vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - u_Metallic; // 金属没有漫反射，全被吸收或反射了
+    kD *= 1.0 - u_Metallic; 
 
-    // 获取阴影遮蔽率 (0.0 表示在光照下，1.0 表示完全在阴影里)
-    float shadow = ShadowCalculation(FragPosLightSpace, N, L);
+    // 【修改】：只需传入世界坐标 FragPos
+    float shadow = ShadowCalculation(FragPos, N, L);
 
-    // 最终的输出光照
     float NdotL = max(dot(N, L), 0.0);        
     vec3 Lo = (1.0 - shadow) * (kD * albedoColor / PI + specular) * radiance * NdotL;
 
-    // 加上一点点环境光，防止完全死黑
     vec3 ambient;
-    
     if (u_UseIBL) {
-        // 1. 漫反射 IBL：根据法线 N 采样 Irradiance Map
         vec3 irradiance = texture(u_IrradianceMap, N).rgb;
         vec3 diffuse    = irradiance * albedoColor;
 
-        // 2. 高光 IBL：根据反射向量 R 采样 Prefilter Map
-        vec3 R = reflect(-V, N); // 视线打在表面后的反射方向
-        // 假设预滤波贴图有 5 个 Mipmap 层级 (0.0 到 4.0)，根据粗糙度去查对应的模糊层级
+        vec3 R = reflect(-V, N); 
         const float MAX_REFLECTION_LOD = 4.0;
         vec3 prefilteredColor = textureLod(u_PrefilterMap, R, u_Roughness * MAX_REFLECTION_LOD).rgb;
 
-        // 环境光菲涅尔
         vec3 F_ambient = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, u_Roughness);
         
         vec3 kS_ambient = F_ambient;
         vec3 kD_ambient = 1.0 - kS_ambient;
         kD_ambient *= 1.0 - u_Metallic;
 
-        // (注意：这里用 F_ambient 粗略近似了 BRDF 积分，为了快速出效果)
         vec3 specular_ambient = prefilteredColor * F_ambient;
-
-        // 最终的 IBL 环境光
         ambient = (kD_ambient * diffuse + specular_ambient) * u_AO;
     } else {
-        // 降级方案：如果没有 IBL 贴图，就给一点点固定的死光
         ambient = vec3(0.03) * albedoColor * u_AO;
     }
     
     vec3 color = ambient + Lo;
-
-    // HDR 色调映射 (Tone Mapping) 和 Gamma 校正
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2)); 
 

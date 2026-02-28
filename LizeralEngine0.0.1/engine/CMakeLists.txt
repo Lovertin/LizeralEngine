@@ -3,6 +3,12 @@ project(LizeralEngine VERSION 0.0.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+#导入qt6本地文件地址
+set(CMAKE_PREFIX_PATH "C:/Qt/6.10.0/mingw_64" ${CMAKE_PREFIX_PATH})
+
+find_package(Qt6 COMPONENTS Core Gui Widgets OpenGLWidgets REQUIRED)
 
 # 二进制输出目录
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
@@ -67,6 +73,7 @@ file(GLOB_RECURSE SRC_RESOURCE "source/runtime/resource/*.cpp")
 # 5. Vendor包
 file(GLOB_RECURSE SRC_VENFOR "source/runtime/core/vendor/stb_image/*.cpp")
 
+
 # E. 聚合物理沙盒源文件
 set(PHYSICS_SANDBOX_SOURCES 
     ${SRC_MATH}
@@ -110,6 +117,36 @@ add_subdirectory(source/runtime/core/vendor/assimp)
 include_directories(source/runtime/core/vendor/assimp/include)
 
 
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+#构建qt6平台
+add_executable(LizeralEditor ${PHYSICS_SANDBOX_SOURCES})
+target_include_directories(LizeralEditor PRIVATE
+    source                      
+    source/runtime              
+    3rdparty/glfw/include       
+    3rdparty/json11             
+)
+
+target_link_libraries(LizeralEditor PUBLIC
+    glad        
+    glfw
+    bullet
+    assimp      
+    # ★ 新增：链接 Qt 模块
+    Qt6::Core 
+    Qt6::Gui 
+    Qt6::Widgets 
+    Qt6::OpenGLWidgets
+)
+
+if(WIN32)
+    target_link_libraries(LizeralEditor PUBLIC opengl32)
+endif()
+
+
 # =============================================================
 # 4. 构建物理沙盒
 # =============================================================
@@ -129,6 +166,11 @@ target_link_libraries(LizeralPhysicsSandbox PUBLIC
     glfw
     bullet
     assimp      # 【关键】链接本地编译好的 Assimp
+
+    Qt6::Core 
+    Qt6::Gui 
+    Qt6::Widgets 
+    Qt6::OpenGLWidgets
 )
 
 if(WIN32)

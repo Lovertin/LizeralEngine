@@ -1,42 +1,27 @@
 #pragma once
-#include "_generated\serializer\mesh.serializer.gen.h"
 #include "_generated\serializer\PBRMaterial.serializer.gen.h"
-#include "_generated\serializer\TextureCube.serializer.gen.h"
 #include "_generated\serializer\Texture2D.serializer.gen.h"
-#include "_generated\serializer\resource.serializer.gen.h"
 #include "_generated\serializer\TransformComponent.serializer.gen.h"
 #include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
+#include "_generated\serializer\TextureCube.serializer.gen.h"
+#include "_generated\serializer\ModelComponent.serializer.gen.h"
+#include "_generated\serializer\resource.serializer.gen.h"
+#include "_generated\serializer\Mesh.serializer.gen.h"
+#include "_generated\serializer\quaternion.serializer.gen.h"
+#include "_generated\serializer\DirectionalLightComponent.serializer.gen.h"
 #include "_generated\serializer\vector3.serializer.gen.h"
 #include "_generated\serializer\color.serializer.gen.h"
 #include "_generated\serializer\vector4.serializer.gen.h"
 #include "_generated\serializer\axis_aligned.serializer.gen.h"
+#include "_generated\serializer\CameraControlComponent.serializer.gen.h"
 #include "_generated\serializer\matrix4.serializer.gen.h"
 #include "_generated\serializer\vector2.serializer.gen.h"
 #include "_generated\serializer\parser_test.serializer.gen.h"
 #include "_generated\serializer\component.serializer.gen.h"
 #include "_generated\serializer\transform.serializer.gen.h"
-#include "_generated\serializer\ColliderComponent.serializer.gen.h"
 #include "_generated\serializer\CameraComponent.serializer.gen.h"
-#include "_generated\serializer\quaternion.serializer.gen.h"
-#include "_generated\serializer\CameraControlComponent.serializer.gen.h"
+#include "_generated\serializer\ColliderComponent.serializer.gen.h"
 namespace Lizeral{
-    template<>
-    PJson PSerializer::write(const Mesh& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        
-        return  PJson(ret_context);
-    }
-    template<>
-    Mesh& PSerializer::read(const PJson& json_context, Mesh& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
-        
-        return instance;
-    }
     template<>
     PJson PSerializer::write(const PBRMaterial& instance){
         PJson::object  ret_context;
@@ -55,23 +40,6 @@ namespace Lizeral{
         return instance;
     }
     template<>
-    PJson PSerializer::write(const TextureCube& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        
-        return  PJson(ret_context);
-    }
-    template<>
-    TextureCube& PSerializer::read(const PJson& json_context, TextureCube& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
-        
-        return instance;
-    }
-    template<>
     PJson PSerializer::write(const Texture2D& instance){
         PJson::object  ret_context;
         auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
@@ -86,22 +54,6 @@ namespace Lizeral{
         assert(json_context.is_object());
         PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
         
-        return instance;
-    }
-    template<>
-    PJson PSerializer::write(const Resource& instance){
-        PJson::object  ret_context;
-        
-        ret_context.insert_or_assign("path", PSerializer::write(instance.m_path));
-        return  PJson(ret_context);
-    }
-    template<>
-    Resource& PSerializer::read(const PJson& json_context, Resource& instance){
-        assert(json_context.is_object());
-        
-        if(!json_context["path"].is_null()){
-            PSerializer::read(json_context["path"], instance.m_path);
-        }
         return instance;
     }
     template<>
@@ -159,6 +111,125 @@ namespace Lizeral{
         }
         if(!json_context["restitution"].is_null()){
             PSerializer::read(json_context["restitution"], instance.m_restitution);
+        }
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const TextureCube& instance){
+        PJson::object  ret_context;
+        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
+        assert(json_context_0.is_object());
+        auto&& json_context_map_0 = json_context_0.object_items();
+        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
+        
+        return  PJson(ret_context);
+    }
+    template<>
+    TextureCube& PSerializer::read(const PJson& json_context, TextureCube& instance){
+        assert(json_context.is_object());
+        PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
+        
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const ModelComponent& instance){
+        PJson::object  ret_context;
+        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
+        assert(json_context_0.is_object());
+        auto&& json_context_map_0 = json_context_0.object_items();
+        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
+        
+        return  PJson(ret_context);
+    }
+    template<>
+    ModelComponent& PSerializer::read(const PJson& json_context, ModelComponent& instance){
+        assert(json_context.is_object());
+        PSerializer::read(json_context,*(Lizeral::Component*)&instance);
+        
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const Resource& instance){
+        PJson::object  ret_context;
+        
+        ret_context.insert_or_assign("path", PSerializer::write(instance.m_path));
+        return  PJson(ret_context);
+    }
+    template<>
+    Resource& PSerializer::read(const PJson& json_context, Resource& instance){
+        assert(json_context.is_object());
+        
+        if(!json_context["path"].is_null()){
+            PSerializer::read(json_context["path"], instance.m_path);
+        }
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const Mesh& instance){
+        PJson::object  ret_context;
+        
+        
+        return  PJson(ret_context);
+    }
+    template<>
+    Mesh& PSerializer::read(const PJson& json_context, Mesh& instance){
+        assert(json_context.is_object());
+        
+        
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const Quaternion& instance){
+        PJson::object  ret_context;
+        
+        ret_context.insert_or_assign("w", PSerializer::write(instance.w));
+        ret_context.insert_or_assign("x", PSerializer::write(instance.x));
+        ret_context.insert_or_assign("y", PSerializer::write(instance.y));
+        ret_context.insert_or_assign("z", PSerializer::write(instance.z));
+        return  PJson(ret_context);
+    }
+    template<>
+    Quaternion& PSerializer::read(const PJson& json_context, Quaternion& instance){
+        assert(json_context.is_object());
+        
+        if(!json_context["w"].is_null()){
+            PSerializer::read(json_context["w"], instance.w);
+        }
+        if(!json_context["x"].is_null()){
+            PSerializer::read(json_context["x"], instance.x);
+        }
+        if(!json_context["y"].is_null()){
+            PSerializer::read(json_context["y"], instance.y);
+        }
+        if(!json_context["z"].is_null()){
+            PSerializer::read(json_context["z"], instance.z);
+        }
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const DirectionLightComponent& instance){
+        PJson::object  ret_context;
+        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
+        assert(json_context_0.is_object());
+        auto&& json_context_map_0 = json_context_0.object_items();
+        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
+        ret_context.insert_or_assign("color", PSerializer::write(instance.m_color));
+        ret_context.insert_or_assign("intensity", PSerializer::write(instance.m_intensity));
+        ret_context.insert_or_assign("isGlobal", PSerializer::write(instance.m_isGlobal));
+        return  PJson(ret_context);
+    }
+    template<>
+    DirectionLightComponent& PSerializer::read(const PJson& json_context, DirectionLightComponent& instance){
+        assert(json_context.is_object());
+        PSerializer::read(json_context,*(Lizeral::Component*)&instance);
+        if(!json_context["color"].is_null()){
+            PSerializer::read(json_context["color"], instance.m_color);
+        }
+        if(!json_context["intensity"].is_null()){
+            PSerializer::read(json_context["intensity"], instance.m_intensity);
+        }
+        if(!json_context["isGlobal"].is_null()){
+            PSerializer::read(json_context["isGlobal"], instance.m_isGlobal);
         }
         return instance;
     }
@@ -263,6 +334,45 @@ namespace Lizeral{
         }
         if(!json_context["max_corner"].is_null()){
             PSerializer::read(json_context["max_corner"], instance.m_max_corner);
+        }
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const CameraControlComponent& instance){
+        PJson::object  ret_context;
+        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
+        assert(json_context_0.is_object());
+        auto&& json_context_map_0 = json_context_0.object_items();
+        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
+        ret_context.insert_or_assign("move_speed", PSerializer::write(instance.move_speed));
+        ret_context.insert_or_assign("speedMultiplier", PSerializer::write(instance.m_speedMultiplier));
+        ret_context.insert_or_assign("sensitivityX", PSerializer::write(instance.m_sensitivityX));
+        ret_context.insert_or_assign("sensitivityY", PSerializer::write(instance.m_sensitivityY));
+        ret_context.insert_or_assign("pitch", PSerializer::write(instance.m_pitch));
+        ret_context.insert_or_assign("yaw", PSerializer::write(instance.m_yaw));
+        return  PJson(ret_context);
+    }
+    template<>
+    CameraControlComponent& PSerializer::read(const PJson& json_context, CameraControlComponent& instance){
+        assert(json_context.is_object());
+        PSerializer::read(json_context,*(Lizeral::Component*)&instance);
+        if(!json_context["move_speed"].is_null()){
+            PSerializer::read(json_context["move_speed"], instance.move_speed);
+        }
+        if(!json_context["speedMultiplier"].is_null()){
+            PSerializer::read(json_context["speedMultiplier"], instance.m_speedMultiplier);
+        }
+        if(!json_context["sensitivityX"].is_null()){
+            PSerializer::read(json_context["sensitivityX"], instance.m_sensitivityX);
+        }
+        if(!json_context["sensitivityY"].is_null()){
+            PSerializer::read(json_context["sensitivityY"], instance.m_sensitivityY);
+        }
+        if(!json_context["pitch"].is_null()){
+            PSerializer::read(json_context["pitch"], instance.m_pitch);
+        }
+        if(!json_context["yaw"].is_null()){
+            PSerializer::read(json_context["yaw"], instance.m_yaw);
         }
         return instance;
     }
@@ -429,41 +539,6 @@ namespace Lizeral{
         return instance;
     }
     template<>
-    PJson PSerializer::write(const ColliderComponent& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        ret_context.insert_or_assign("type", PSerializer::write(instance.m_type));
-        ret_context.insert_or_assign("size", PSerializer::write(instance.m_size));
-        ret_context.insert_or_assign("radius", PSerializer::write(instance.m_radius));
-        ret_context.insert_or_assign("height", PSerializer::write(instance.m_height));
-        ret_context.insert_or_assign("offset", PSerializer::write(instance.m_offset));
-        return  PJson(ret_context);
-    }
-    template<>
-    ColliderComponent& PSerializer::read(const PJson& json_context, ColliderComponent& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Component*)&instance);
-        if(!json_context["type"].is_null()){
-            PSerializer::read(json_context["type"], instance.m_type);
-        }
-        if(!json_context["size"].is_null()){
-            PSerializer::read(json_context["size"], instance.m_size);
-        }
-        if(!json_context["radius"].is_null()){
-            PSerializer::read(json_context["radius"], instance.m_radius);
-        }
-        if(!json_context["height"].is_null()){
-            PSerializer::read(json_context["height"], instance.m_height);
-        }
-        if(!json_context["offset"].is_null()){
-            PSerializer::read(json_context["offset"], instance.m_offset);
-        }
-        return instance;
-    }
-    template<>
     PJson PSerializer::write(const CameraComponent& instance){
         PJson::object  ret_context;
         auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
@@ -499,69 +574,37 @@ namespace Lizeral{
         return instance;
     }
     template<>
-    PJson PSerializer::write(const Quaternion& instance){
-        PJson::object  ret_context;
-        
-        ret_context.insert_or_assign("w", PSerializer::write(instance.w));
-        ret_context.insert_or_assign("x", PSerializer::write(instance.x));
-        ret_context.insert_or_assign("y", PSerializer::write(instance.y));
-        ret_context.insert_or_assign("z", PSerializer::write(instance.z));
-        return  PJson(ret_context);
-    }
-    template<>
-    Quaternion& PSerializer::read(const PJson& json_context, Quaternion& instance){
-        assert(json_context.is_object());
-        
-        if(!json_context["w"].is_null()){
-            PSerializer::read(json_context["w"], instance.w);
-        }
-        if(!json_context["x"].is_null()){
-            PSerializer::read(json_context["x"], instance.x);
-        }
-        if(!json_context["y"].is_null()){
-            PSerializer::read(json_context["y"], instance.y);
-        }
-        if(!json_context["z"].is_null()){
-            PSerializer::read(json_context["z"], instance.z);
-        }
-        return instance;
-    }
-    template<>
-    PJson PSerializer::write(const CameraControlComponent& instance){
+    PJson PSerializer::write(const ColliderComponent& instance){
         PJson::object  ret_context;
         auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
         assert(json_context_0.is_object());
         auto&& json_context_map_0 = json_context_0.object_items();
         ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        ret_context.insert_or_assign("move_speed", PSerializer::write(instance.move_speed));
-        ret_context.insert_or_assign("speedMultiplier", PSerializer::write(instance.m_speedMultiplier));
-        ret_context.insert_or_assign("sensitivityX", PSerializer::write(instance.m_sensitivityX));
-        ret_context.insert_or_assign("sensitivityY", PSerializer::write(instance.m_sensitivityY));
-        ret_context.insert_or_assign("pitch", PSerializer::write(instance.m_pitch));
-        ret_context.insert_or_assign("yaw", PSerializer::write(instance.m_yaw));
+        ret_context.insert_or_assign("type", PSerializer::write(instance.m_type));
+        ret_context.insert_or_assign("size", PSerializer::write(instance.m_size));
+        ret_context.insert_or_assign("radius", PSerializer::write(instance.m_radius));
+        ret_context.insert_or_assign("height", PSerializer::write(instance.m_height));
+        ret_context.insert_or_assign("offset", PSerializer::write(instance.m_offset));
         return  PJson(ret_context);
     }
     template<>
-    CameraControlComponent& PSerializer::read(const PJson& json_context, CameraControlComponent& instance){
+    ColliderComponent& PSerializer::read(const PJson& json_context, ColliderComponent& instance){
         assert(json_context.is_object());
         PSerializer::read(json_context,*(Lizeral::Component*)&instance);
-        if(!json_context["move_speed"].is_null()){
-            PSerializer::read(json_context["move_speed"], instance.move_speed);
+        if(!json_context["type"].is_null()){
+            PSerializer::read(json_context["type"], instance.m_type);
         }
-        if(!json_context["speedMultiplier"].is_null()){
-            PSerializer::read(json_context["speedMultiplier"], instance.m_speedMultiplier);
+        if(!json_context["size"].is_null()){
+            PSerializer::read(json_context["size"], instance.m_size);
         }
-        if(!json_context["sensitivityX"].is_null()){
-            PSerializer::read(json_context["sensitivityX"], instance.m_sensitivityX);
+        if(!json_context["radius"].is_null()){
+            PSerializer::read(json_context["radius"], instance.m_radius);
         }
-        if(!json_context["sensitivityY"].is_null()){
-            PSerializer::read(json_context["sensitivityY"], instance.m_sensitivityY);
+        if(!json_context["height"].is_null()){
+            PSerializer::read(json_context["height"], instance.m_height);
         }
-        if(!json_context["pitch"].is_null()){
-            PSerializer::read(json_context["pitch"], instance.m_pitch);
-        }
-        if(!json_context["yaw"].is_null()){
-            PSerializer::read(json_context["yaw"], instance.m_yaw);
+        if(!json_context["offset"].is_null()){
+            PSerializer::read(json_context["offset"], instance.m_offset);
         }
         return instance;
     }

@@ -449,7 +449,7 @@ namespace Lizeral {
 
         // 转换回 Lizeral 类型
         Vector3 newPos(pos.x(), pos.y(), pos.z());
-        Quaternion newRot(rot.x(), rot.y(), rot.z(), rot.w());
+        Quaternion newRot(rot.w(),rot.x(), rot.y(), rot.z());
 
         // 【关键】直接修改数据，不触发脏标记
         // 假设 TransformComponent 有 friend class PhysicsSystem

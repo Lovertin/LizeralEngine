@@ -7,208 +7,211 @@
 namespace Lizeral {
 
     void RenderingSystem::Initialize() {
-
         m_shadowShader = std::make_shared<Shader>(
             "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\shadow.vert", 
             "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\shadow.frag"
         );
+
         // ==========================================
-        // 【核心】：创建 Shadow Map FBO 与 深度贴图
+        // 【核心】：创建 CSM Shadow Map Array FBO
         // ==========================================
 
         // 1. 生成帧缓冲对象 (FBO)
         glGenFramebuffers(1, &m_depthMapFBO);
 
-        // 2. 生成一张纹理，用来存储深度信息
-        glGenTextures(1, &m_depthMap);
-        glBindTexture(GL_TEXTURE_2D, m_depthMap);
+        // 2. 生成纹理数组，用来存储多层深度信息
+        glGenTextures(1, &m_depthMapArray);
+        // 【修复 1】：必须绑定到 GL_TEXTURE_2D_ARRAY
+        glBindTexture(GL_TEXTURE_2D_ARRAY, m_depthMapArray); 
         
-        // 申请一块 2048x2048 的显存，格式为 GL_DEPTH_COMPONENT (只存深度，不存颜色)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        // 申请显存 (长, 宽, 层数)
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32F, 
+                     SHADOW_WIDTH, SHADOW_HEIGHT, NUM_CASCADES, 
+                     0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
         
-       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        // 【修复 2】：参数设置也必须全部对着 GL_TEXTURE_2D_ARRAY
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+        glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, borderColor);
 
-        // 3. 将这张深度纹理绑定到我们的 FBO 上
+        // 3. 将深度纹理绑定到 FBO
         glBindFramebuffer(GL_FRAMEBUFFER, m_depthMapFBO);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthMap, 0);
         
-        // unsigned int rbo;
-        // glGenRenderbuffers(1, &rbo);
-        // glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-        // glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, SHADOW_WIDTH, SHADOW_HEIGHT);
-        // glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
+        // 挂载整个纹理数组到 FBO (在 Tick 里面会用 glFramebufferTextureLayer 逐层绘制)
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_depthMapArray, 0);
 
-        // 【极其重要】：告诉 OpenGL，这个 FBO 我们不画颜色，只画深度！
-        // 如果不加这两句，OpenGL 会因为找不到颜色附件而报错。
+        // 告诉 OpenGL 这个 FBO 只画深度，不画颜色
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
 
-        // 检查 FBO 是否创建成功
+        // 检查 FBO 状态
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
             std::cerr << "[RenderingSystem] Error: Shadow Map Framebuffer is not complete!" << std::endl;
+        } else {
+            std::cout << "[RenderingSystem] CSM FBO Initialized Successfully. (Array Layers: " << NUM_CASCADES << ")" << std::endl;
         }
 
-        // 解绑 FBO，恢复到默认的屏幕渲染
+        // 解绑 FBO，恢复默认状态
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        std::cout << "[RenderingSystem] Initialized. Shadow Map (2048x2048) Created." << std::endl;
     }
 
     void RenderingSystem::Tick(Registry& registry, float deltaTime) {
+        // ========================================================
+        // 阶段 1：搜集场景核心数据 (Data Collection)
+        // ========================================================
         Matrix4x4 viewMatrix = Matrix4x4::IDENTITY;
         Matrix4x4 projMatrix = Matrix4x4::IDENTITY;
         Vector3 camPos(0, 0, 0);
+        const CameraComponent* mainCamPtr = nullptr; // 缓存主相机的指针
 
+        // 1.1 获取主摄像机
         auto cameraView = registry.view<CameraComponent, TransformComponent>();
         for (auto entity : cameraView) {
             auto& cam = cameraView.get<CameraComponent>(entity);
             if (cam.isMain()) {
+                mainCamPtr = &cam;
                 auto& t = cameraView.get<TransformComponent>(entity);
                 viewMatrix = cam.getViewMatrix();
                 projMatrix = cam.getProjectionMatrix();
                 camPos = t.getPosition();
-                break; // 找到主相机就退出循环
+                break; 
             }
         }
 
-        Vector3 lightDir(0.0f, 1.0f, 0.001f);
-        lightDir.normalise();
-        Vector3 lightColor(3.0f, 3.0f, 3.0f);
+        if (!mainCamPtr) return; // 如果场景里没有主相机，直接罢工，保护引擎
 
-        Vector3 targetPos(20.0f, 0.0f, 0.0f);
+        // 1.2 获取全局定向光 (太阳)
+        Vector3 lightDirToSun(1.0f, 1.5f, 1.0f);
+        lightDirToSun.normalise();
+        Vector3 lightColor(3.0f, 3.0f, 3.0f);  // 默认值
 
-        Vector3 lightPos(100.0f, 50.0f, 40.0f);
+        auto sunlightView = registry.view<TransformComponent, DirectionLightComponent>();
+        for (auto entity : sunlightView) {
+            auto& light = sunlightView.get<DirectionLightComponent>(entity);
+            if (light.isGlobal()) {
+                auto& sunTransform = registry.get<TransformComponent>(entity);
+                lightDirToSun = sunTransform.getForward(); // 动态获取朝向
 
-        Matrix4x4 lightProjection = Matrix4x4::ortho(-15.0f, 15.0f, -15.0f, 15.0f, 1.0f, 150.0f);
-        // 让太阳看向场景原点 (0,0,0)
-        Matrix4x4 lightView = Matrix4x4::lookAt(lightPos, targetPos, Vector3(0.0f, 0.0f, 1.0f));
-        
-        // 光源空间的终极矩阵 (传给 Shader 的 lightSpaceMatrix)
-        Matrix4x4 lightSpaceMatrix = lightProjection * lightView;
+                lightColor = light.getColor() * light.getIntensity(); // 动态获取光强
+                // lightColor = Vector3(3.0f, 3.0f, 3.0f);
+                // lightDirToSun = Vector3(1.5f, 1.0f, 1.5f);
+                // lightDirToSun.normalise();
+                break; // 只取第一个全局光
+            }
+        }
 
-        // ==========================================
-        // Pass 1: 深度渲染阶段 (Shadow Pass)
-        // 目标：从太阳的视角画一遍场景，不画颜色，只把深度写入 FBO
-        // ==========================================
-        // 1. 切换到我们的 FBO
+        // ========================================================
+        // 阶段 2：CSM 数学核爆 (Calculate Cascade Matrices)
+        // ========================================================
+        // 这里的距离必须和你在 shadow.frag 里接收的级联距离严格对应
+        std::vector<float> shadowCascadeLevels{ 15.0f, 50.0f, 150.0f }; 
+        std::vector<Matrix4x4> lightSpaceMatrices;
+        lightSpaceMatrices.reserve(4);
+
+        // 利用刚刚缓存的 mainCamPtr 计算 4 层级联的包围盒矩阵
+        // 注意最后一层的 farPlane 应该尽量贴合摄像机的实际 zFar，这里写 1000.0f 或 mainCamPtr->getzFar()
+        lightSpaceMatrices.push_back(getLightSpaceMatrix(mainCamPtr->getzNear(), shadowCascadeLevels[0], *mainCamPtr, viewMatrix, lightDirToSun));
+        lightSpaceMatrices.push_back(getLightSpaceMatrix(shadowCascadeLevels[0], shadowCascadeLevels[1], *mainCamPtr, viewMatrix, lightDirToSun));
+        lightSpaceMatrices.push_back(getLightSpaceMatrix(shadowCascadeLevels[1], shadowCascadeLevels[2], *mainCamPtr, viewMatrix, lightDirToSun));
+        lightSpaceMatrices.push_back(getLightSpaceMatrix(shadowCascadeLevels[2], mainCamPtr->getzFar(), *mainCamPtr, viewMatrix, lightDirToSun));
+
+
+        // ========================================================
+        // 阶段 3：深度渲染管线 (Shadow Pass - 连拍 4 张)
+        // ========================================================
         glBindFramebuffer(GL_FRAMEBUFFER, m_depthMapFBO);
-        // 【关键】：视口必须和阴影贴图的分辨率一模一样！
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT); 
 
         glEnable(GL_DEPTH_TEST); 
         glDepthMask(GL_TRUE);
-
-        glClear(GL_DEPTH_BUFFER_BIT); // 只需要清空深度！
-        
-        // 开启剔除正面，解决“阴影悬浮(Peter Panning)”的经典伪影问题
         glEnable(GL_CULL_FACE);
-        glCullFace(GL_FRONT); 
+        glCullFace(GL_BACK); // 剔除正面防摩尔纹
 
-        // 假设你有 m_shadowShader 这个成员变量
         m_shadowShader->Bind();
-        m_shadowShader->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
 
         auto modelView = registry.view<TransformComponent, ModelComponent>();
-        for (auto entity : modelView) {
-            auto& t = modelView.get<TransformComponent>(entity);
-            auto& m = modelView.get<ModelComponent>(entity);
-            if (!m.m_Model) continue;
 
-            m_shadowShader->SetUniformMat4f("model", t.getMatrix());
-            
-            // 用极简的 shadowShader 把这个实体的所有网格画一遍
-            for (auto& mesh : m.m_Model->GetMeshes()) {
-                mesh.Draw(); 
+        // 【CSM 核心循环】：一层一层地切蛋糕，并拍照
+        for (int layer = 0; layer < lightSpaceMatrices.size(); ++layer) {
+            // 【关键 API】：把 FBO 的画板切换到纹理数组的第 layer 层
+            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_depthMapArray, 0, layer);
+            glClear(GL_DEPTH_BUFFER_BIT); // 务必清空这一层的老数据！
+
+            // 告诉 Shader 这张底片用哪个光照矩阵
+            m_shadowShader->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrices[layer]);
+
+            // 画出整个世界
+            for (auto entity : modelView) {
+                auto& t = modelView.get<TransformComponent>(entity);
+                auto& m = modelView.get<ModelComponent>(entity);
+                if (!m.m_Model) continue;
+
+                m_shadowShader->SetUniformMat4f("model", t.getMatrix());
+                for (auto& mesh : m.m_Model->GetMeshes()) {
+                    mesh.Draw(); 
+                }
             }
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, 1280, 720);
+
+        // ========================================================
+        // 阶段 4：颜色渲染管线 (Color Pass)
+        // ========================================================
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // 切回屏幕
+        glViewport(0, 0, 1280, 720); // 恢复屏幕分辨率
 
         glEnable(GL_DEPTH_TEST);
-        glDisable(GL_CULL_FACE); // 根据你的模型情况，可以开启背面剔除
+        glCullFace(GL_BACK); // 颜色渲染必须恢复背面剔除
         
         for (auto entity : modelView) {
             auto& t = modelView.get<TransformComponent>(entity);
             auto& m = modelView.get<ModelComponent>(entity);
-
             if (!m.m_Model) continue;
 
             Matrix4x4 modelMatrix = t.getMatrix();
 
-            // 遍历模型的所有子网格
             for (auto& mesh : m.m_Model->GetMeshes()) {
                 
-                // 将材质向下转型为 PBRMaterial (未来可以通过 Material 虚函数多态处理，无需转型)
                 auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(mesh.m_Material);
-                if (!pbrMat || !pbrMat->GetShader()) continue; // 防御性编程
+                if (!pbrMat || !pbrMat->GetShader()) continue; 
 
                 auto shader = pbrMat->GetShader();
                 shader->Bind();
 
-                // A. 注入引擎级/系统级数据 (所有物体都一样的环境数据)
+                // --- 4.1 注入通用环境数据 ---
                 shader->SetUniformMat4f("model", modelMatrix);
                 shader->SetUniformMat4f("view", viewMatrix);
                 shader->SetUniformMat4f("projection", projMatrix);
                 shader->SetUniformVector3f("u_camPos", camPos);
                 
-                shader->SetUniformVector3f("u_lightDir", lightDir);
+                shader->SetUniformVector3f("u_lightDir", lightDirToSun);
                 shader->SetUniformVector3f("u_lightColor", lightColor);
 
-                shader->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
-                glActiveTexture(GL_TEXTURE7); // 用一个空闲的纹理槽位
-                glBindTexture(GL_TEXTURE_2D, m_depthMap);
+                // --- 4.2 注入 CSM 数据！ ---
+                shader->SetUniform1i("u_cascadeCount", lightSpaceMatrices.size());
+                
+                for (size_t i = 0; i < lightSpaceMatrices.size(); ++i) {
+                    shader->SetUniformMat4f("u_lightSpaceMatrices[" + std::to_string(i) + "]", lightSpaceMatrices[i]);
+                    if (i < shadowCascadeLevels.size()) {
+                        shader->SetUniform1f("u_cascadePlaneDistances[" + std::to_string(i) + "]", shadowCascadeLevels[i]);
+                    }
+                }
+
+                // --- 4.3 绑定纹理数组 ---
+                glActiveTexture(GL_TEXTURE7); 
+                glBindTexture(GL_TEXTURE_2D_ARRAY, m_depthMapArray); // 极其关键：GL_TEXTURE_2D_ARRAY
                 shader->SetUniform1i("shadowMap", 7);
 
-                // B. 注入材质级数据 (数据驱动的核心！让材质把自己的参数喂给 Shader)
+                // --- 4.4 渲染网格 ---
                 pbrMat->BindAndApply();
-
-                // C. 提交 Draw Call
-                // 注意：这里不要调用 m.m_Model->Draw()，因为那是画整个模型。我们现在是按 Mesh 拆分画的。
-                // 假设你的 Mesh 类有类似 Draw() 或 BindVAO() + glDrawElements() 的方法
                 mesh.Draw(); 
             }
         }
 
         glUseProgram(0);
-
-        // glActiveTexture(GL_TEXTURE0);
-        // // 【注意】：请确保你能拿到 m_depthMap 的 ID！
-        // glBindTexture(GL_TEXTURE_2D, m_depthMap); 
-
-        // // 切换到 2D 正交投影模式 (假设你的屏幕是 1280x720)
-        // glMatrixMode(GL_PROJECTION);
-        // glPushMatrix();
-        // glLoadIdentity();
-        // glOrtho(0, 1280, 0, 720, -1, 1);
-        // glMatrixMode(GL_MODELVIEW);
-        // glPushMatrix();
-        // glLoadIdentity();
-
-        // // 关闭光照和深度测试，纯粹画一张 2D 图片
-        // glDisable(GL_DEPTH_TEST);
-        // glDisable(GL_LIGHTING);
-        // glEnable(GL_TEXTURE_2D);
-        // glColor3f(1.0f, 1.0f, 1.0f); 
-
-        // // 在右上角画一个 300x300 的正方形来显示深度图
-        // glBegin(GL_QUADS);
-        // glTexCoord2f(0, 0); glVertex2f(980, 420);
-        // glTexCoord2f(1, 0); glVertex2f(1280, 420);
-        // glTexCoord2f(1, 1); glVertex2f(1280, 720);
-        // glTexCoord2f(0, 1); glVertex2f(980, 720);
-        // glEnd();
-
-        // // 恢复状态
-        // glEnable(GL_DEPTH_TEST);
-        // glPopMatrix();
-        // glMatrixMode(GL_PROJECTION);
-        // glPopMatrix();
     }
 
     void RenderingSystem::Shutdown() {
@@ -216,10 +219,109 @@ namespace Lizeral {
             glDeleteFramebuffers(1, &m_depthMapFBO);
             m_depthMapFBO = 0;
         }
-        if (m_depthMap != 0) {
-            glDeleteTextures(1, &m_depthMap);
-            m_depthMap = 0;
-        }
+        // if (m_depthMap != 0) {
+        //     glDeleteTextures(1, &m_depthMap);
+        //     m_depthMap = 0;
+        // }
     }
+
+
+    std::vector<Vector3> getFrustumCornersWorldSpace(const Matrix4x4& projMatrix, const Matrix4x4& viewMatrix) {
+        // 1. 计算视图投影矩阵的逆矩阵
+        Matrix4x4 viewProj = projMatrix * viewMatrix;
+        Matrix4x4 invViewProj = viewProj.inverse();
+
+        std::vector<Vector3> corners;
+        corners.reserve(8);
+
+        // 2. NDC 空间下的 8 个标准顶点
+        // X, Y, Z 分别在 -1 和 1 之间
+        for (unsigned int x = 0; x < 2; ++x) {
+            for (unsigned int y = 0; y < 2; ++y) {
+                for (unsigned int z = 0; z < 2; ++z) {
+                    
+                    // 将 0,1 映射到 -1.0, 1.0
+                    float ptX = 2.0f * x - 1.0f;
+                    float ptY = 2.0f * y - 1.0f;
+                    float ptZ = 2.0f * z - 1.0f;
+
+                    // 构造 NDC 坐标
+                    Vector3 ptNDC(ptX, ptY, ptZ);
+
+                    // 乘以逆矩阵，还原到世界空间
+                    Vector3 ptWorld = invViewProj * ptNDC; 
+
+                    // 因为我们是用逆矩阵还原透视投影，w 分量不一定为 1，必须除以 w 才能得到真实的 3D 坐标。
+                    Vector4 ptWorld4 = invViewProj * Vector4(ptX, ptY, ptZ, 1.0f);
+                    
+                    corners.push_back(Vector3(ptWorld4.x / ptWorld4.w
+                                            , ptWorld4.y / ptWorld4.w, 
+                                              ptWorld4.z / ptWorld4.w));
+
+                    // corners.push_back(ptWorld);
+                }
+            }
+        }
+        return corners;
+    }
+
+    Matrix4x4 RenderingSystem::getLightSpaceMatrix(
+    const float nearPlane, 
+    const float farPlane, 
+    const CameraComponent& cam, 
+    const Matrix4x4& camView, 
+    const Vector3& lightDir) 
+{
+    // 1. USE THE EXACT CAMERA PROJECTION to prevent "backward/mirrored" frustums
+    Matrix4x4 proj = const_cast<CameraComponent&>(cam).buildPerspective(cam.getFov(), cam.getAspect(), nearPlane, farPlane);
+    std::vector<Vector3> corners = getFrustumCornersWorldSpace(proj, camView);
+
+    // 2. Find the center of the sub-frustum
+    Vector3 center(0.0f, 0.0f, 0.0f);
+    for (const auto& v : corners) {
+        center += v;
+    }
+    center /= corners.size();
+
+    // 3. Calculate the Bounding Sphere Radius 
+    // This perfectly encapsulates the frustum and stops shadows from "wobbling" when the camera rotates!
+    float radius = 0.0f;
+    for (const auto& v : corners) {
+        float distance = (v - center).length();
+        radius = std::max(radius, distance);
+    }
+    
+    // Optional: Snap radius to texel increments here if you want absolutely 0 sub-pixel jitter, 
+    // but the bounding sphere alone fixes 95% of the movement artifacts.
+
+    // 4. Position the Sun Camera
+    // We pull the sun back by a fixed 'zPullback' distance so it can see objects casting shadows from behind the camera.
+    float zPullback = 300.0f;
+    Vector3 lightPos = center + lightDir * zPullback;
+    Vector3 upVec = (std::abs(lightDir.y) > 0.999f) ? Vector3(0.0f, 0.0f, 1.0f) : Vector3(0.0f, 1.0f, 0.0f);
+    Matrix4x4 lightView = Matrix4x4::lookAt(lightPos, center, upVec);
+
+    // 5. Build the Ortho Matrix tightly around the sphere
+    // Because the light looks EXACTLY at 'center', the sphere perfectly maps to X/Y bounds from -radius to +radius.
+    // ZERO padding is needed! Your resolution will be incredibly sharp.
+    float minX = -radius;
+    float maxX =  radius;
+    float minY = -radius;
+    float maxY =  radius;
+
+    // 6. Perfect Z-Bounds
+    // The center is 'zPullback' units away from the light. The sphere reaches 'radius' units closer and further.
+    float zNear = zPullback - radius;
+    float zFar  = zPullback + radius;
+
+    // To catch tall buildings or trees BEHIND the camera (outside the frustum), we drastically pull the near plane back.
+    // Making zNear negative is perfectly fine in OpenGL ortho projections.
+    zNear -= 200.0f; 
+
+    Matrix4x4 lightProjection = Matrix4x4::ortho(minX, maxX, minY, maxY, zNear, zFar);
+
+    return lightProjection * lightView;
+}
+
 
 } // namespace Lizeral
