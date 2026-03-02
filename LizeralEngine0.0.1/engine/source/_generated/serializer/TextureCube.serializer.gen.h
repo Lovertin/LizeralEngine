@@ -1,6 +1,5 @@
 #pragma once
 #include "runtime\function\res_type\texture\TextureCube.h"
-#include "_generated\serializer\resource.serializer.gen.h"
 
 namespace Lizeral{
     template<>

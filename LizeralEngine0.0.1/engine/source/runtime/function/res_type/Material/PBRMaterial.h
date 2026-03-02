@@ -7,9 +7,7 @@
 #include "runtime/core/meta/reflection/reflection.h"
 
 namespace Lizeral {
-    REFLECTION_TYPE(PBRMaterial)
-    CLASS( PBRMaterial : public Material,WhiteListFields) {
-        REFLECTION_BODY(PBRMaterial)
+    class PBRMaterial : public Material{
     public:
         // PBR 数值参数
         Vector3 m_Albedo { 1.0f, 1.0f, 1.0f };

@@ -14,14 +14,17 @@ namespace Lizeral {
         REFLECTION_BODY(Texture2D)
     private:
         GLuint m_RendererID;  // OpenGL 分配的纹理 ID
+
+        META(Enable)
         std::string m_Path;   // 文件路径，方便调试
+
         int m_Width;
         int m_Height;
         int m_Channels;       // 颜色通道数 (RGB=3, RGBA=4)
 
     public:
         Texture2D();
-        virtual ~Texture2D();
+        ~Texture2D();
 
         // 核心：供给 ResourceManager 调用的加载接口
         virtual bool LoadFromFile(const std::string& path) override;

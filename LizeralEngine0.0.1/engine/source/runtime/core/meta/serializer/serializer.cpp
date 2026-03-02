@@ -1,4 +1,5 @@
 #include "serializer.h"
+#include "runtime/function/ecs/components/Collider/ColliderComponent.h"
 #include <assert.h>
 namespace Lizeral
 {
@@ -86,6 +87,27 @@ namespace Lizeral
         assert(json_context.is_string());
         return instance = json_context.string_value();
     }
+
+
+    // // 2. 解决 Resource (抽象基类) 的序列化报错
+    // template<>
+    // inline json11::Json PSerializer::write(const Resource& instance) {
+    //     return json11::Json::object(); // 返回空 JSON 对象
+    // }
+    // template<>
+    // inline Resource& PSerializer::read(const json11::Json& json_context, Resource& instance) {
+    //     return instance; // 啥也不干，直接返回
+    // }
+
+    // // 3. 解决 Material 的序列化报错
+    // template<>
+    // inline json11::Json PSerializer::write(const Material& instance) {
+    //     return json11::Json::object();
+    // }
+    // template<>
+    // inline Material& PSerializer::read(const json11::Json& json_context, Material& instance) {
+    //     return instance;
+    // }
 
     // template<>
     // PJson PSerializer::write(const Reflection::object& instance)

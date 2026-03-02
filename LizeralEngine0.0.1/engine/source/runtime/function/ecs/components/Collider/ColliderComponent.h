@@ -35,7 +35,7 @@ namespace Lizeral {
         END_REFLECTION_UPDATED()
         // ========================================================
 
-        // --- Setters (运行时脚本修改) ---
+        // --- Setters ---
         void setType(ColliderType type) {
             if (m_type != type) { m_type = type; setDirty(COLLIDER_DIRTY_TYPE); }
         }

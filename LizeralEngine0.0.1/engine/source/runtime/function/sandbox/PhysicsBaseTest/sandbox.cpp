@@ -6,7 +6,6 @@
 // 1. OpenGL Headers
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <QApplication>
 
 // 2. Engine Headers
 #include "runtime/function/ecs/registry.h"
@@ -44,7 +43,7 @@ using namespace Lizeral;
 const int WIN_WIDTH = 1280;
 const int WIN_HEIGHT = 720;
 
-// --- 辅助：将 Lizeral Matrix4x4 转换为 OpenGL 格式并加载 (用于物理 Debug 线框) ---
+// --- 辅助将 Lizeral Matrix4x4 转换为 OpenGL 格式并加载 (用于物理 Debug 线框) ---
 void LoadEngineMatrixToOpenGL(GLenum mode, const Matrix4x4& m) {
     float glMat[16];
     glMat[0] = m[0][0]; glMat[1] = m[1][0]; glMat[2] = m[2][0]; glMat[3] = m[3][0];
@@ -61,11 +60,9 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
-    // ========================================================
-    // 1. 初始化 GLFW、GLAD、系统
-    // ========================================================
+
     if (!glfwInit()) return -1;
-    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Lizeral Engine - PBR & Shadow", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Lizeral Engine - PBR & Shadow", NULL, NULL); 
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -314,7 +311,6 @@ int main() {
         renderSystem.Tick(registry, deltaTime);
 
         // 2. 补画天空盒
-        // 【防污染】：切回 0 号纹理，防止 PBR 管线的深度图残留在纹理槽里
         glActiveTexture(GL_TEXTURE0); 
         glDepthFunc(GL_LEQUAL); 
         skyboxShader->Bind();
@@ -336,7 +332,6 @@ int main() {
         glDepthFunc(GL_LESS); 
         glUseProgram(0);
 
-        // 3. 物理 Debug X光机 (绘制红色/绿色/白色的线框边界)
         glDisable(GL_CULL_FACE); // 确保各种刁钻角度都能看到物理线框
         LoadEngineMatrixToOpenGL(GL_PROJECTION, mainCam.getProjectionMatrix());
         LoadEngineMatrixToOpenGL(GL_MODELVIEW, mainCam.getViewMatrix());

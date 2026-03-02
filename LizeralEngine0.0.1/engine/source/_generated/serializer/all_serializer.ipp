@@ -1,11 +1,9 @@
 #pragma once
-#include "_generated\serializer\PBRMaterial.serializer.gen.h"
 #include "_generated\serializer\Texture2D.serializer.gen.h"
 #include "_generated\serializer\TransformComponent.serializer.gen.h"
 #include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
 #include "_generated\serializer\TextureCube.serializer.gen.h"
 #include "_generated\serializer\ModelComponent.serializer.gen.h"
-#include "_generated\serializer\resource.serializer.gen.h"
 #include "_generated\serializer\Mesh.serializer.gen.h"
 #include "_generated\serializer\quaternion.serializer.gen.h"
 #include "_generated\serializer\DirectionalLightComponent.serializer.gen.h"
@@ -23,37 +21,22 @@
 #include "_generated\serializer\ColliderComponent.serializer.gen.h"
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const PBRMaterial& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Material*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        
-        return  PJson(ret_context);
-    }
-    template<>
-    PBRMaterial& PSerializer::read(const PJson& json_context, PBRMaterial& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Material*)&instance);
-        
-        return instance;
-    }
-    template<>
     PJson PSerializer::write(const Texture2D& instance){
         PJson::object  ret_context;
         auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
         assert(json_context_0.is_object());
         auto&& json_context_map_0 = json_context_0.object_items();
         ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        
+        ret_context.insert_or_assign("Path", PSerializer::write(instance.m_Path));
         return  PJson(ret_context);
     }
     template<>
     Texture2D& PSerializer::read(const PJson& json_context, Texture2D& instance){
         assert(json_context.is_object());
         PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
-        
+        if(!json_context["Path"].is_null()){
+            PSerializer::read(json_context["Path"], instance.m_Path);
+        }
         return instance;
     }
     template<>
@@ -146,22 +129,6 @@ namespace Lizeral{
         assert(json_context.is_object());
         PSerializer::read(json_context,*(Lizeral::Component*)&instance);
         
-        return instance;
-    }
-    template<>
-    PJson PSerializer::write(const Resource& instance){
-        PJson::object  ret_context;
-        
-        ret_context.insert_or_assign("path", PSerializer::write(instance.m_path));
-        return  PJson(ret_context);
-    }
-    template<>
-    Resource& PSerializer::read(const PJson& json_context, Resource& instance){
-        assert(json_context.is_object());
-        
-        if(!json_context["path"].is_null()){
-            PSerializer::read(json_context["path"], instance.m_path);
-        }
         return instance;
     }
     template<>

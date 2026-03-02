@@ -3,11 +3,7 @@
 #include "runtime/core/meta/reflection/reflection.h"
 
 namespace Lizeral {
-
-    REFLECTION_TYPE(Resource)
-    CLASS(Resource, WhiteListFields) {
-        REFLECTION_BODY(Resource)
-
+    class Resource {
     public:
         virtual ~Resource() = default;
 
@@ -19,7 +15,6 @@ namespace Lizeral {
         virtual bool LoadFromFile(const std::string& path) = 0;
 
     protected:
-        META(Enable)
         std::string m_path {""};
     };
 }

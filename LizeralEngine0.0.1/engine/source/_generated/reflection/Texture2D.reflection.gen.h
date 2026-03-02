@@ -26,13 +26,28 @@ namespace TypeFieldReflectionOparator{
             return count;
         }
         // fields
-        
+        static const char* getFieldName_m_Path(){ return "m_Path";}
+        static const char* getFieldTypeName_m_Path(){ return "std::string";}
+        static void set_m_Path(void* instance, void* field_value){ 
+            auto* typed_instance = static_cast<Texture2D*>(instance);
+            typed_instance->m_Path = *static_cast<std::string*>(field_value);
+            Lizeral::Reflection::TryNotifyReflectionUpdated(typed_instance, "m_Path");
+        }
+        static void* get_m_Path(void* instance){ return static_cast<void*>(&(static_cast<Texture2D*>(instance)->m_Path));}
+        static bool isArray_m_Path(){ return false; }
     };
 }//namespace TypeFieldReflectionOparator
 
 
     void TypeWrapperRegister_Texture2D(){
-        
+        FieldFunctionTuple* f_field_function_tuple_m_Path=new FieldFunctionTuple(
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::set_m_Path,
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::get_m_Path,
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::getClassName,
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::getFieldName_m_Path,
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::getFieldTypeName_m_Path,
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::isArray_m_Path);
+        REGISTER_FIELD_TO_MAP("Texture2D", f_field_function_tuple_m_Path);
         
         
         ClassFunctionTuple* f_class_function_tuple_Texture2D=new ClassFunctionTuple(

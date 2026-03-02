@@ -18,7 +18,7 @@ if ($currentDir.Path -ne $expectedDir) {
 }
 
 # Step 1: Build the project
-Write-Host "`n[1/4] Building project..." -ForegroundColor Green
+Write-Host "`n[1/3] Building project..." -ForegroundColor Green
 cd "engine\build"
 cmake --build . --config Release
 
@@ -30,62 +30,56 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# Step 2: Check executables
-Write-Host "`n[2/4] Checking executables..." -ForegroundColor Green
+# Step 2: Check executables (同时检查两个引擎程序)
+Write-Host "`n[2/3] Checking executables..." -ForegroundColor Green
+$allPassed = $true
 
-# Check Physics Sandbox
+# 检查 Sandbox
 $physicsExePath = "..\bin\LizeralPhysicsSandbox.exe"
 if (Test-Path $physicsExePath) {
     $physicsFileInfo = Get-Item $physicsExePath
     Write-Host "✓ Physics Sandbox created: $physicsExePath" -ForegroundColor Green
-    Write-Host "  File size: $([math]::Round($physicsFileInfo.Length/1KB, 2)) KB" -ForegroundColor Gray
 } else {
     Write-Host "✗ Physics Sandbox not found: $physicsExePath" -ForegroundColor Red
-    exit 1
+    $allPassed = $false
 }
 
-# Check Rendering Test
-$renderingExePath = "..\bin\LizeralRenderingTest.exe"
-if (Test-Path $renderingExePath) {
-    $renderingFileInfo = Get-Item $renderingExePath
-    Write-Host "✓ Rendering Test created: $renderingExePath" -ForegroundColor Green
-    Write-Host "  File size: $([math]::Round($renderingFileInfo.Length/1KB, 2)) KB" -ForegroundColor Gray
+# 检查 Editor
+$editorExePath = "..\bin\LizeralEditor.exe"
+if (Test-Path $editorExePath) {
+    $editorFileInfo = Get-Item $editorExePath
+    Write-Host "✓ Lizeral Editor created:  $editorExePath" -ForegroundColor Green
+    Write-Host "  File size: $([math]::Round($editorFileInfo.Length/1KB, 2)) KB" -ForegroundColor Gray
 } else {
-    Write-Host "✗ Rendering Test not found: $renderingExePath" -ForegroundColor Red
+    Write-Host "✗ Lizeral Editor not found: $editorExePath" -ForegroundColor Red
+    $allPassed = $false
+}
+
+if (-not $allPassed) {
     exit 1
 }
 
-# Step 3: Run Physics Sandbox
-Write-Host "`n[3/4] Running Physics Sandbox..." -ForegroundColor Green
+# Step 3: Run the Editor (默认运行编辑器)
+Write-Host "`n[3/3] Running Lizeral Editor..." -ForegroundColor Green
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 cd "..\bin"
-Write-Host "Starting Physics Sandbox..." -ForegroundColor Cyan
-.\LizeralPhysicsSandbox.exe
-$physicsExitCode = $LASTEXITCODE
-Write-Host "----------------------------------------" -ForegroundColor DarkGray
+Write-Host "Starting Editor..." -ForegroundColor Cyan
 
-# Step 4: Run Rendering Test
-Write-Host "`n[4/4] Running Rendering Test..." -ForegroundColor Green
-Write-Host "----------------------------------------" -ForegroundColor DarkGray
-Write-Host "Starting Rendering Test..." -ForegroundColor Cyan
-#.\LizeralRenderingTest.exe
-$renderingExitCode = $LASTEXITCODE
+# 【关键修改】：这里改为运行 Editor
+.\LizeralEditor.exe
+
+$editorExitCode = $LASTEXITCODE
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 
 # Summary
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "Build Summary:" -ForegroundColor Cyan
-Write-Host "  Physics Sandbox exit code: $physicsExitCode" -ForegroundColor Gray
-Write-Host "  Rendering Test exit code: $renderingExitCode" -ForegroundColor Gray
+Write-Host "  Editor exit code: $editorExitCode" -ForegroundColor Gray
 
-if ($physicsExitCode -eq 0 -and $renderingExitCode -eq 0) {
-    Write-Host "Both programs completed successfully!" -ForegroundColor Green
-} elseif ($physicsExitCode -eq 0) {
-    Write-Host "Physics Sandbox completed, Rendering Test had issues" -ForegroundColor Yellow
-} elseif ($renderingExitCode -eq 0) {
-    Write-Host "Rendering Test completed, Physics Sandbox had issues" -ForegroundColor Yellow
+if ($editorExitCode -eq 0) {
+    Write-Host "Lizeral Editor closed cleanly!" -ForegroundColor Green
 } else {
-    Write-Host "Both programs had issues" -ForegroundColor Red
+    Write-Host "Lizeral Editor crashed or had issues." -ForegroundColor Red
 }
 Write-Host "========================================" -ForegroundColor Cyan
 

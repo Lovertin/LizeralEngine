@@ -58,6 +58,12 @@ file(GLOB_RECURSE SRC_PHYSICS "source/runtime/function/physics/*.cpp")
 # D. 必要的 Log 或其他 Core (根据你的项目结构调整，只选纯 cpp)
 file(GLOB_RECURSE SRC_LOG "source/runtime/core/log/*.cpp")
 
+# 新增 G: 抓取 Meta 系统 (反射/序列化底层核心实现) 的源文件
+file(GLOB_RECURSE SRC_META "source/runtime/core/meta/*.cpp")
+
+# 新增 H: 抓取由 LizeralParser 自动生成的所有 .cpp 文件
+file(GLOB_RECURSE SRC_GENERATED "source/_generated/*.cpp")
+
 # 1. 确保 Input 源文件被包含
 file(GLOB_RECURSE SRC_INPUT "source/runtime/function/input/*.cpp") 
 
@@ -73,6 +79,10 @@ file(GLOB_RECURSE SRC_RESOURCE "source/runtime/resource/*.cpp")
 # 5. Vendor包
 file(GLOB_RECURSE SRC_VENFOR "source/runtime/core/vendor/stb_image/*.cpp")
 
+# 6. 包含我的editor
+file(GLOB_RECURSE SRC_EDITOR CONFIGURE_DEPENDS "source/editor/*.cpp" "source/editor/*.h")
+
+
 
 # E. 聚合物理沙盒源文件
 set(PHYSICS_SANDBOX_SOURCES 
@@ -80,26 +90,31 @@ set(PHYSICS_SANDBOX_SOURCES
     ${SRC_ECS}
     ${SRC_PHYSICS}
     ${SRC_LOG}
-    ${SRC_INPUT}   # <--- 必须加这个
-    ${SRC_RENDER}  # <--- 必须加这个
+    ${SRC_INPUT}
+    ${SRC_RENDER}
     ${SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
     "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
 )
 
-# F. 聚合渲染测试源文件
-set(RENDERING_TEST_SOURCES 
+set(EDITOR_SOURCES 
     ${SRC_MATH}
     ${SRC_ECS}
+    ${SRC_PHYSICS}
     ${SRC_LOG}
-    ${SRC_INPUT}
-    ${SRC_RENDER}
+    ${SRC_INPUT}  
+    ${SRC_RENDER} 
     ${SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
-    "source/runtime/function/sandbox/renderingWorld.cpp"
+    ${SRC_META}      
+    ${SRC_GENERATED} 
+    "3rdparty/json11/json11.cpp"
+    ${SRC_EDITOR}
 )
+
+
 
 # =============================================================
 # ★ 本地引入工业级模型加载库：Assimp
@@ -122,7 +137,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 #构建qt6平台
-add_executable(LizeralEditor ${PHYSICS_SANDBOX_SOURCES})
+add_executable(LizeralEditor ${EDITOR_SOURCES})
 target_include_directories(LizeralEditor PRIVATE
     source                      
     source/runtime              
@@ -166,11 +181,6 @@ target_link_libraries(LizeralPhysicsSandbox PUBLIC
     glfw
     bullet
     assimp      # 【关键】链接本地编译好的 Assimp
-
-    Qt6::Core 
-    Qt6::Gui 
-    Qt6::Widgets 
-    Qt6::OpenGLWidgets
 )
 
 if(WIN32)
