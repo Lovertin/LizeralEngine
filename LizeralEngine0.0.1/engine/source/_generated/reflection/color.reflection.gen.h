@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Color*)instance);
         }
         // base class
-        static int getColorBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getColorBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_r(){ return "r";}
@@ -55,29 +55,44 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Color(){
+        std::unordered_map<std::string, std::string> meta_tags_r;
+        
+
         FieldFunctionTuple* f_field_function_tuple_r=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColorOperator::set_r,
             &TypeFieldReflectionOparator::TypeColorOperator::get_r,
             &TypeFieldReflectionOparator::TypeColorOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColorOperator::getFieldName_r,
             &TypeFieldReflectionOparator::TypeColorOperator::getFieldTypeName_r,
-            &TypeFieldReflectionOparator::TypeColorOperator::isArray_r);
+            &TypeFieldReflectionOparator::TypeColorOperator::isArray_r,
+            meta_tags_r
+        );
         REGISTER_FIELD_TO_MAP("Color", f_field_function_tuple_r);
+        std::unordered_map<std::string, std::string> meta_tags_g;
+        
+
         FieldFunctionTuple* f_field_function_tuple_g=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColorOperator::set_g,
             &TypeFieldReflectionOparator::TypeColorOperator::get_g,
             &TypeFieldReflectionOparator::TypeColorOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColorOperator::getFieldName_g,
             &TypeFieldReflectionOparator::TypeColorOperator::getFieldTypeName_g,
-            &TypeFieldReflectionOparator::TypeColorOperator::isArray_g);
+            &TypeFieldReflectionOparator::TypeColorOperator::isArray_g,
+            meta_tags_g
+        );
         REGISTER_FIELD_TO_MAP("Color", f_field_function_tuple_g);
+        std::unordered_map<std::string, std::string> meta_tags_b;
+        
+
         FieldFunctionTuple* f_field_function_tuple_b=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColorOperator::set_b,
             &TypeFieldReflectionOparator::TypeColorOperator::get_b,
             &TypeFieldReflectionOparator::TypeColorOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColorOperator::getFieldName_b,
             &TypeFieldReflectionOparator::TypeColorOperator::getFieldTypeName_b,
-            &TypeFieldReflectionOparator::TypeColorOperator::isArray_b);
+            &TypeFieldReflectionOparator::TypeColorOperator::isArray_b,
+            meta_tags_b
+        );
         REGISTER_FIELD_TO_MAP("Color", f_field_function_tuple_b);
         
         

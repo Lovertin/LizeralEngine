@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(ColliderComponent*)instance);
         }
         // base class
-        static int getColliderComponentBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Component,static_cast<ColliderComponent*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getColliderComponentBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Component, static_cast<ColliderComponent*>(instance)));
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_type(){ return "m_type";}
@@ -76,45 +73,70 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_ColliderComponent(){
+        std::unordered_map<std::string, std::string> meta_tags_m_type;
+        meta_tags_m_type.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_type=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::set_m_type,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::get_m_type,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldName_m_type,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldTypeName_m_type,
-            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_type);
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_type,
+            meta_tags_m_type
+        );
         REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_type);
+        std::unordered_map<std::string, std::string> meta_tags_m_size;
+        meta_tags_m_size.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_size=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::set_m_size,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::get_m_size,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldName_m_size,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldTypeName_m_size,
-            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_size);
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_size,
+            meta_tags_m_size
+        );
         REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_size);
+        std::unordered_map<std::string, std::string> meta_tags_m_radius;
+        meta_tags_m_radius.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_radius=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::set_m_radius,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::get_m_radius,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldName_m_radius,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldTypeName_m_radius,
-            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_radius);
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_radius,
+            meta_tags_m_radius
+        );
         REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_radius);
+        std::unordered_map<std::string, std::string> meta_tags_m_height;
+        meta_tags_m_height.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_height=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::set_m_height,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::get_m_height,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldName_m_height,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldTypeName_m_height,
-            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_height);
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_height,
+            meta_tags_m_height
+        );
         REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_height);
+        std::unordered_map<std::string, std::string> meta_tags_m_offset;
+        meta_tags_m_offset.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_offset=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::set_m_offset,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::get_m_offset,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldName_m_offset,
             &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldTypeName_m_offset,
-            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_offset);
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_offset,
+            meta_tags_m_offset
+        );
         REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_offset);
         
         

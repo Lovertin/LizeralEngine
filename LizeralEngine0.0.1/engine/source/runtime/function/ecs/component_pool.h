@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <iostream>
 
 namespace Lizeral {
 
@@ -30,6 +31,7 @@ namespace Lizeral {
         std::unordered_map<Entity, size_t> m_entity_to_index;
 
     public:
+
         bool has(Entity entity) const override {
             return m_entity_to_index.find(entity) != m_entity_to_index.end();
         }

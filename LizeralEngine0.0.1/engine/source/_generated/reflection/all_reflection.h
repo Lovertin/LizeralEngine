@@ -6,6 +6,7 @@
 #include "_generated\reflection\RigidBodyComponent.reflection.gen.h"
 #include "_generated\reflection\TextureCube.reflection.gen.h"
 #include "_generated\reflection\ModelComponent.reflection.gen.h"
+#include "_generated\reflection\NameComponent.reflection.gen.h"
 #include "_generated\reflection\Mesh.reflection.gen.h"
 #include "_generated\reflection\quaternion.reflection.gen.h"
 #include "_generated\reflection\DirectionalLightComponent.reflection.gen.h"
@@ -30,6 +31,7 @@ namespace Reflection{
     TypeWrappersRegister::RigidBodyComponent();
     TypeWrappersRegister::TextureCube();
     TypeWrappersRegister::ModelComponent();
+    TypeWrappersRegister::NameComponent();
     TypeWrappersRegister::Mesh();
     TypeWrappersRegister::Quaternion();
     TypeWrappersRegister::DirectionLightComponent();

@@ -1,0 +1,5 @@
+namespace Lizeral{
+
+    struct EditorOnlyComponent{};
+    
+}

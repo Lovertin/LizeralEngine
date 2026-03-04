@@ -34,10 +34,14 @@ namespace Lizeral{
             if (m_scale != scale) { m_scale = scale; setDirty(TRANS_DIRTY_SCALE); }
         }
 
+        void setTest(const float test) {testFloat = test;}
+
         // Getters ...
         const Vector3& getPosition() const { return m_position; }
         const Quaternion& getRotation() const { return m_rotation; }
         const Vector3& getScale() const { return m_scale; }
+
+        const float gettest() const {return testFloat;}
 
         // 获取变换矩阵（用于渲染）
         Matrix4x4 getMatrix() const {
@@ -89,10 +93,14 @@ namespace Lizeral{
         }
 
     private:
+
+        META(Enable)
+        float testFloat {1.0f};
+
         META(Enable)
         Vector3 m_position { Vector3::ZERO };
 
-        META(Enable)
+        META(Enable,Range:-360~360,UI:Slider)
         Quaternion m_rotation { Quaternion::IDENTITY };
 
         META(Enable)

@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(CameraComponent*)instance);
         }
         // base class
-        static int getCameraComponentBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Component,static_cast<CameraComponent*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getCameraComponentBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Component, static_cast<CameraComponent*>(instance)));
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_fov(){ return "m_fov";}
@@ -76,45 +73,70 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_CameraComponent(){
+        std::unordered_map<std::string, std::string> meta_tags_m_fov;
+        meta_tags_m_fov.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_fov=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::set_m_fov,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::get_m_fov,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldName_m_fov,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_m_fov,
-            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_fov);
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_fov,
+            meta_tags_m_fov
+        );
         REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_m_fov);
+        std::unordered_map<std::string, std::string> meta_tags_m_aspect;
+        meta_tags_m_aspect.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_aspect=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::set_m_aspect,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::get_m_aspect,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldName_m_aspect,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_m_aspect,
-            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_aspect);
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_aspect,
+            meta_tags_m_aspect
+        );
         REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_m_aspect);
+        std::unordered_map<std::string, std::string> meta_tags_m_zNear;
+        meta_tags_m_zNear.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_zNear=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::set_m_zNear,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::get_m_zNear,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldName_m_zNear,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_m_zNear,
-            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_zNear);
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_zNear,
+            meta_tags_m_zNear
+        );
         REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_m_zNear);
+        std::unordered_map<std::string, std::string> meta_tags_m_zFar;
+        meta_tags_m_zFar.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_zFar=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::set_m_zFar,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::get_m_zFar,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldName_m_zFar,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_m_zFar,
-            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_zFar);
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_m_zFar,
+            meta_tags_m_zFar
+        );
         REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_m_zFar);
+        std::unordered_map<std::string, std::string> meta_tags_isMainCamera;
+        meta_tags_isMainCamera.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_isMainCamera=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::set_isMainCamera,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::get_isMainCamera,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldName_isMainCamera,
             &TypeFieldReflectionOparator::TypeCameraComponentOperator::getFieldTypeName_isMainCamera,
-            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_isMainCamera);
+            &TypeFieldReflectionOparator::TypeCameraComponentOperator::isArray_isMainCamera,
+            meta_tags_isMainCamera
+        );
         REGISTER_FIELD_TO_MAP("CameraComponent", f_field_function_tuple_isMainCamera);
         
         

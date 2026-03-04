@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(AxisAlignedBox*)instance);
         }
         // base class
-        static int getAxisAlignedBoxBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getAxisAlignedBoxBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_center(){ return "m_center";}
@@ -64,37 +64,57 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_AxisAlignedBox(){
+        std::unordered_map<std::string, std::string> meta_tags_m_center;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_center=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::set_m_center,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::get_m_center,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getClassName,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldName_m_center,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldTypeName_m_center,
-            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_center);
+            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_center,
+            meta_tags_m_center
+        );
         REGISTER_FIELD_TO_MAP("AxisAlignedBox", f_field_function_tuple_m_center);
+        std::unordered_map<std::string, std::string> meta_tags_m_half_extent;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_half_extent=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::set_m_half_extent,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::get_m_half_extent,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getClassName,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldName_m_half_extent,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldTypeName_m_half_extent,
-            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_half_extent);
+            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_half_extent,
+            meta_tags_m_half_extent
+        );
         REGISTER_FIELD_TO_MAP("AxisAlignedBox", f_field_function_tuple_m_half_extent);
+        std::unordered_map<std::string, std::string> meta_tags_m_min_corner;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_min_corner=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::set_m_min_corner,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::get_m_min_corner,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getClassName,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldName_m_min_corner,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldTypeName_m_min_corner,
-            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_min_corner);
+            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_min_corner,
+            meta_tags_m_min_corner
+        );
         REGISTER_FIELD_TO_MAP("AxisAlignedBox", f_field_function_tuple_m_min_corner);
+        std::unordered_map<std::string, std::string> meta_tags_m_max_corner;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_max_corner=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::set_m_max_corner,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::get_m_max_corner,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getClassName,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldName_m_max_corner,
             &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::getFieldTypeName_m_max_corner,
-            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_max_corner);
+            &TypeFieldReflectionOparator::TypeAxisAlignedBoxOperator::isArray_m_max_corner,
+            meta_tags_m_max_corner
+        );
         REGISTER_FIELD_TO_MAP("AxisAlignedBox", f_field_function_tuple_m_max_corner);
         
         

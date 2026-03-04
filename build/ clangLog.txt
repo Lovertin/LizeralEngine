@@ -188,11 +188,20 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Rigidbody/RigidBodyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Transform/TransformComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Light/DirectionalLightComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/EditorOnly/EditorOnlyComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Name/NameComponent.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\array \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/EditorOnly/EditorOnlyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Light/DirectionalLightComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Model/ModelComponent.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Name/NameComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/RigidBody/RigidBodyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Transform/TransformComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/component_pool.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\iostream \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\istream \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\ostream \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/entity.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/registry.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/component_pool.h \
@@ -213,10 +222,6 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraControlSystem/CameraControlSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraSystem/CameraSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/RenderingSystem/RenderingSystem.h \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\iostream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\istream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\ostream \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/Material.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/PBRMaterial.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/Texture2D.h \

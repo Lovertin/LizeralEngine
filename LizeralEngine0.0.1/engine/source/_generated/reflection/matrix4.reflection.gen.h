@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Matrix4x4_*)instance);
         }
         // base class
-        static int getMatrix4x4_BaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getMatrix4x4_BaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_v0(){ return "v0";}
@@ -172,133 +172,213 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Matrix4x4_(){
+        std::unordered_map<std::string, std::string> meta_tags_v0;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v0=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v0,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v0,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v0,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v0,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v0);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v0,
+            meta_tags_v0
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v0);
+        std::unordered_map<std::string, std::string> meta_tags_v1;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v1=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v1,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v1,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v1,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v1,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v1);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v1,
+            meta_tags_v1
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v1);
+        std::unordered_map<std::string, std::string> meta_tags_v2;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v2=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v2,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v2,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v2,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v2,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v2);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v2,
+            meta_tags_v2
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v2);
+        std::unordered_map<std::string, std::string> meta_tags_v3;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v3=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v3,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v3,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v3,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v3,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v3);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v3,
+            meta_tags_v3
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v3);
+        std::unordered_map<std::string, std::string> meta_tags_v4;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v4=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v4,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v4,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v4,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v4,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v4);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v4,
+            meta_tags_v4
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v4);
+        std::unordered_map<std::string, std::string> meta_tags_v5;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v5=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v5,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v5,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v5,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v5,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v5);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v5,
+            meta_tags_v5
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v5);
+        std::unordered_map<std::string, std::string> meta_tags_v6;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v6=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v6,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v6,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v6,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v6,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v6);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v6,
+            meta_tags_v6
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v6);
+        std::unordered_map<std::string, std::string> meta_tags_v7;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v7=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v7,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v7,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v7,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v7,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v7);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v7,
+            meta_tags_v7
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v7);
+        std::unordered_map<std::string, std::string> meta_tags_v8;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v8=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v8,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v8,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v8,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v8,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v8);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v8,
+            meta_tags_v8
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v8);
+        std::unordered_map<std::string, std::string> meta_tags_v9;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v9=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v9,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v9,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v9,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v9,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v9);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v9,
+            meta_tags_v9
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v9);
+        std::unordered_map<std::string, std::string> meta_tags_v10;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v10=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v10,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v10,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v10,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v10,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v10);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v10,
+            meta_tags_v10
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v10);
+        std::unordered_map<std::string, std::string> meta_tags_v11;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v11=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v11,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v11,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v11,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v11,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v11);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v11,
+            meta_tags_v11
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v11);
+        std::unordered_map<std::string, std::string> meta_tags_v12;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v12=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v12,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v12,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v12,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v12,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v12);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v12,
+            meta_tags_v12
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v12);
+        std::unordered_map<std::string, std::string> meta_tags_v13;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v13=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v13,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v13,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v13,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v13,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v13);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v13,
+            meta_tags_v13
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v13);
+        std::unordered_map<std::string, std::string> meta_tags_v14;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v14=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v14,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v14,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v14,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v14,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v14);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v14,
+            meta_tags_v14
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v14);
+        std::unordered_map<std::string, std::string> meta_tags_v15;
+        
+
         FieldFunctionTuple* f_field_function_tuple_v15=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::set_v15,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::get_v15,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getClassName,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldName_v15,
             &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::getFieldTypeName_v15,
-            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v15);
+            &TypeFieldReflectionOparator::TypeMatrix4x4_Operator::isArray_v15,
+            meta_tags_v15
+        );
         REGISTER_FIELD_TO_MAP("Matrix4x4_", f_field_function_tuple_v15);
         
         

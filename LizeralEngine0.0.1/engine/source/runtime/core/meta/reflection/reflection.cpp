@@ -13,6 +13,7 @@ namespace Lizeral
         static std::multimap<std::string, FieldFunctionTuple*> m_field_map;
         static std::map<std::string, ArrayFunctionTuple*>      m_array_map;
 
+
         void TypeMetaRegisterinterface::registerToFieldMap(const char* name, FieldFunctionTuple* value)
         {
             m_field_map.insert(std::make_pair(name, value));
@@ -85,6 +86,11 @@ namespace Lizeral
             return f_type;
         }
 
+        TypeMeta::~TypeMeta() {
+            // 哪怕里面什么都不写，或者只写个 clear，它也能保障跨库内存的绝对安全
+            m_fields.clear(); 
+        }
+
         bool TypeMeta::newArrayAccessorFromName(std::string array_type_name, ArrayAccessor& accessor)
         {
             auto iter = m_array_map.find(array_type_name);
@@ -123,27 +129,26 @@ namespace Lizeral
 
         std::string TypeMeta::getTypeName() { return m_type_name; }
 
-        int TypeMeta::getFieldsList(FieldAccessor*& out_list)
-        {
-            int count = m_fields.size();
-            out_list  = new FieldAccessor[count];
-            for (int i = 0; i < count; ++i)
-            {
-                out_list[i] = m_fields[i];
-            }
-            return count;
-        }
+        // int TypeMeta::getFieldsList(FieldAccessor*& out_list)
+        // {
+        //     int count = m_fields.size();
+        //     out_list  = new FieldAccessor[count];
+        //     for (int i = 0; i < count; ++i)
+        //     {
+        //         out_list[i] = m_fields[i];
+        //     }
+        //     return count;
+        // }
 
-        int TypeMeta::getBaseClassReflectionInstanceList(ReflectionInstance*& out_list, void* instance)
+        std::vector<ReflectionInstance> TypeMeta::getBaseClassReflectionInstanceList(void* instance)
         {
             auto iter = m_class_map.find(m_type_name);
-
             if (iter != m_class_map.end())
             {
-                return (std::get<0>(*iter->second))(out_list, instance);
+                // 直接调用并返回 vector，依靠 C++ 的 RVO (返回值优化)，性能极高且绝对不会内存泄漏
+                return (std::get<0>(*iter->second))(instance);
             }
-
-            return 0;
+            return std::vector<ReflectionInstance>(); // 如果没找到，返回空数组
         }
 
         FieldAccessor TypeMeta::getFieldByName(const char* name)
@@ -223,6 +228,23 @@ namespace Lizeral
         {
             // todo: should check validation
             return (std::get<5>(*m_functions))();
+        }
+
+
+        bool FieldAccessor::hasMetaData(const std::string& key) const {
+            if (!m_functions) return false;
+            const auto& meta_map = std::get<6>(*m_functions);
+            return meta_map.find(key) != meta_map.end();
+        }
+
+        std::string FieldAccessor::getMetaData(const std::string& key) const {
+            if (!m_functions) return "";
+            const auto& meta_map = std::get<6>(*m_functions);
+            auto it = meta_map.find(key);
+            if (it != meta_map.end()) {
+                return it->second;
+            }
+            return "";
         }
 
         FieldAccessor& FieldAccessor::operator=(const FieldAccessor& dest)

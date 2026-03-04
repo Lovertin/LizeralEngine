@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(CameraControlComponent*)instance);
         }
         // base class
-        static int getCameraControlComponentBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Component,static_cast<CameraControlComponent*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getCameraControlComponentBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Component, static_cast<CameraControlComponent*>(instance)));
+            return out_list;
         }
         // fields
         static const char* getFieldName_move_speed(){ return "move_speed";}
@@ -85,53 +82,83 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_CameraControlComponent(){
+        std::unordered_map<std::string, std::string> meta_tags_move_speed;
+        meta_tags_move_speed.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_move_speed=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::set_move_speed,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::get_move_speed,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldName_move_speed,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldTypeName_move_speed,
-            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_move_speed);
+            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_move_speed,
+            meta_tags_move_speed
+        );
         REGISTER_FIELD_TO_MAP("CameraControlComponent", f_field_function_tuple_move_speed);
+        std::unordered_map<std::string, std::string> meta_tags_m_speedMultiplier;
+        meta_tags_m_speedMultiplier.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_speedMultiplier=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::set_m_speedMultiplier,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::get_m_speedMultiplier,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldName_m_speedMultiplier,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldTypeName_m_speedMultiplier,
-            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_speedMultiplier);
+            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_speedMultiplier,
+            meta_tags_m_speedMultiplier
+        );
         REGISTER_FIELD_TO_MAP("CameraControlComponent", f_field_function_tuple_m_speedMultiplier);
+        std::unordered_map<std::string, std::string> meta_tags_m_sensitivityX;
+        meta_tags_m_sensitivityX.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_sensitivityX=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::set_m_sensitivityX,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::get_m_sensitivityX,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldName_m_sensitivityX,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldTypeName_m_sensitivityX,
-            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_sensitivityX);
+            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_sensitivityX,
+            meta_tags_m_sensitivityX
+        );
         REGISTER_FIELD_TO_MAP("CameraControlComponent", f_field_function_tuple_m_sensitivityX);
+        std::unordered_map<std::string, std::string> meta_tags_m_sensitivityY;
+        meta_tags_m_sensitivityY.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_sensitivityY=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::set_m_sensitivityY,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::get_m_sensitivityY,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldName_m_sensitivityY,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldTypeName_m_sensitivityY,
-            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_sensitivityY);
+            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_sensitivityY,
+            meta_tags_m_sensitivityY
+        );
         REGISTER_FIELD_TO_MAP("CameraControlComponent", f_field_function_tuple_m_sensitivityY);
+        std::unordered_map<std::string, std::string> meta_tags_m_pitch;
+        meta_tags_m_pitch.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_pitch=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::set_m_pitch,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::get_m_pitch,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldName_m_pitch,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldTypeName_m_pitch,
-            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_pitch);
+            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_pitch,
+            meta_tags_m_pitch
+        );
         REGISTER_FIELD_TO_MAP("CameraControlComponent", f_field_function_tuple_m_pitch);
+        std::unordered_map<std::string, std::string> meta_tags_m_yaw;
+        meta_tags_m_yaw.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_yaw=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::set_m_yaw,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::get_m_yaw,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldName_m_yaw,
             &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::getFieldTypeName_m_yaw,
-            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_yaw);
+            &TypeFieldReflectionOparator::TypeCameraControlComponentOperator::isArray_m_yaw,
+            meta_tags_m_yaw
+        );
         REGISTER_FIELD_TO_MAP("CameraControlComponent", f_field_function_tuple_m_yaw);
         
         

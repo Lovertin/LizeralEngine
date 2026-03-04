@@ -17,15 +17,21 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(TransformComponent*)instance);
         }
         // base class
-        static int getTransformComponentBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Component,static_cast<TransformComponent*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getTransformComponentBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Component, static_cast<TransformComponent*>(instance)));
+            return out_list;
         }
         // fields
+        static const char* getFieldName_testFloat(){ return "testFloat";}
+        static const char* getFieldTypeName_testFloat(){ return "float";}
+        static void set_testFloat(void* instance, void* field_value){ 
+            auto* typed_instance = static_cast<TransformComponent*>(instance);
+            typed_instance->testFloat = *static_cast<float*>(field_value);
+            Lizeral::Reflection::TryNotifyReflectionUpdated(typed_instance, "testFloat");
+        }
+        static void* get_testFloat(void* instance){ return static_cast<void*>(&(static_cast<TransformComponent*>(instance)->testFloat));}
+        static bool isArray_testFloat(){ return false; }
         static const char* getFieldName_m_position(){ return "m_position";}
         static const char* getFieldTypeName_m_position(){ return "Lizeral::Vector3";}
         static void set_m_position(void* instance, void* field_value){ 
@@ -58,29 +64,59 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_TransformComponent(){
+        std::unordered_map<std::string, std::string> meta_tags_testFloat;
+        meta_tags_testFloat.insert({"Enable", ""});
+
+        FieldFunctionTuple* f_field_function_tuple_testFloat=new FieldFunctionTuple(
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::set_testFloat,
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::get_testFloat,
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::getClassName,
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldName_testFloat,
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldTypeName_testFloat,
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_testFloat,
+            meta_tags_testFloat
+        );
+        REGISTER_FIELD_TO_MAP("TransformComponent", f_field_function_tuple_testFloat);
+        std::unordered_map<std::string, std::string> meta_tags_m_position;
+        meta_tags_m_position.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_position=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::set_m_position,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::get_m_position,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldName_m_position,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldTypeName_m_position,
-            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_m_position);
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_m_position,
+            meta_tags_m_position
+        );
         REGISTER_FIELD_TO_MAP("TransformComponent", f_field_function_tuple_m_position);
+        std::unordered_map<std::string, std::string> meta_tags_m_rotation;
+        meta_tags_m_rotation.insert({"UI", "Slider"});
+        meta_tags_m_rotation.insert({"Range", "-360~360"});
+        meta_tags_m_rotation.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_rotation=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::set_m_rotation,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::get_m_rotation,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldName_m_rotation,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldTypeName_m_rotation,
-            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_m_rotation);
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_m_rotation,
+            meta_tags_m_rotation
+        );
         REGISTER_FIELD_TO_MAP("TransformComponent", f_field_function_tuple_m_rotation);
+        std::unordered_map<std::string, std::string> meta_tags_m_scale;
+        meta_tags_m_scale.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_scale=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::set_m_scale,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::get_m_scale,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldName_m_scale,
             &TypeFieldReflectionOparator::TypeTransformComponentOperator::getFieldTypeName_m_scale,
-            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_m_scale);
+            &TypeFieldReflectionOparator::TypeTransformComponentOperator::isArray_m_scale,
+            meta_tags_m_scale
+        );
         REGISTER_FIELD_TO_MAP("TransformComponent", f_field_function_tuple_m_scale);
         
         

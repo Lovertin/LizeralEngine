@@ -8,6 +8,7 @@ namespace Lizeral {
 
     bool Model::LoadFromFile(const std::string& path) {
         Assimp::Importer importer;
+        std::cout << "[Assimp] Ready to call ReadFile for: " << path << std::endl;
 
         // 【超级魔法宏】：
         // aiProcess_Triangulate: 如果模型有四边形面，全部切成三角形（完美解决你的破面问题！）
@@ -21,6 +22,8 @@ namespace Lizeral {
             aiProcess_CalcTangentSpace
             // aiProcess_PreTransformVertices
         );
+
+        std::cout << "[Assimp] ReadFile completed!" << std::endl;
 
         // 错误检查
         if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {

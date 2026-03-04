@@ -2,6 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <memory>
+#include <chrono>
 
 // 1. OpenGL Headers
 #include <glad/glad.h>
@@ -43,7 +44,6 @@ using namespace Lizeral;
 const int WIN_WIDTH = 1280;
 const int WIN_HEIGHT = 720;
 
-// --- 辅助将 Lizeral Matrix4x4 转换为 OpenGL 格式并加载 (用于物理 Debug 线框) ---
 void LoadEngineMatrixToOpenGL(GLenum mode, const Matrix4x4& m) {
     float glMat[16];
     glMat[0] = m[0][0]; glMat[1] = m[1][0]; glMat[2] = m[2][0]; glMat[3] = m[3][0];
@@ -60,74 +60,89 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
-
-    if (!glfwInit()) return -1;
-    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Lizeral Engine - PBR & Shadow", NULL, NULL); 
-    if (!window) { glfwTerminate(); return -1; }
+    // 初始化 GLFW
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    
+    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Lizeral Engine - PBR & Shadow", NULL, NULL);
+    if (!window) {
+        glfwTerminate();
+        return -1;
+    }
+    
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return -1;
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        return -1;
+    }
 
+    // 创建系统
     Registry registry;
-    
     PhysicsScene physicsScene;
     PhysicsSystem physicsSystem;
-    physicsScene.Initialize();
-    physicsSystem.Initialize(&physicsScene);
-    
     RenderingSystem renderSystem;
-    renderSystem.Initialize();
-
-    Input::GetInstance().Init(window);
     CameraSystem cameraSystem;
     CameraControlSystem cameraControlSystem;
 
+    physicsScene.Initialize();
+    physicsSystem.Initialize(&physicsScene);
+    renderSystem.Initialize();
+    Input::GetInstance().Init(window);
+
     std::cout << "All Systems Initialized. Hold RMB + WASD to move." << std::endl;
 
-    // ========================================================
-    // 2. 资源加载与材质配置
-    // ========================================================
+    // 资源指针
+    std::shared_ptr<Model> pureBox = nullptr;
+    std::shared_ptr<Model> shuttleModel = nullptr;
+    std::shared_ptr<Model> boxModel = nullptr;
+    std::shared_ptr<Model> monkey = nullptr;
+    std::shared_ptr<Shader> pbrShader = nullptr;
+    std::shared_ptr<Shader> skyboxShader = nullptr;
+    std::shared_ptr<TextureCube> irradianceMap = nullptr;
+    std::shared_ptr<TextureCube> specularMap = nullptr;
+
+    // 资源加载
     ResourceManager::GetInstance().SetRootPath("");
     
-    auto shuttleModel = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\mazda_glb.glb");
-    auto boxModel = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\cardboard_box.glb");
-    auto pureBox = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\box_with_uv.glb");
+    shuttleModel = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\mazda_glb.glb");
+    boxModel = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\cardboard_box.glb");
+    pureBox = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\box_with_uv.glb");
+    monkey = ResourceManager::GetInstance().Load<Model>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\monkey.glb");
 
-    auto pbrShader = std::make_shared<Shader>(
-        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.vert", 
+    pbrShader = std::make_shared<Shader>(
+        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.vert",
         "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.frag"
     );
-    auto skyboxShader = std::make_shared<Shader>(
+    
+    skyboxShader = std::make_shared<Shader>(
         "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\skybox.vert",
         "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\skybox.frag"
     );
 
-    auto irradianceMap = ResourceManager::GetInstance().Load<TextureCube>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\skyCube\\skybox_irradiance");
-    auto specularMap = ResourceManager::GetInstance().Load<TextureCube>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\skyCube\\skybox_specular");
+    irradianceMap = ResourceManager::GetInstance().Load<TextureCube>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\skyCube\\skybox_irradiance");
+    specularMap = ResourceManager::GetInstance().Load<TextureCube>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\texture\\skyCube\\skybox_specular");
 
-    // 统一配置马自达的 PBR 材质
+    // 材质配置
     for (auto& mesh : shuttleModel->GetMeshes()) {
         auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(mesh.m_Material);
         if (pbrMat) {
             pbrMat->SetShader(pbrShader);
             pbrMat->m_IrradianceMap = irradianceMap;
             pbrMat->m_PrefilterMap = specularMap;
-            pbrMat->m_Metallic = 0.2f;   
-            pbrMat->m_Roughness = 0.15f; 
+            pbrMat->m_Metallic = 0.2f;
+            pbrMat->m_Roughness = 0.15f;
         }
     }
 
-    // 统一配置盒子的 PBR 材质 (包括地面、下落方块、头顶悬浮方块都会共用这个属性)
     for (auto& mesh : boxModel->GetMeshes()) {
         auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(mesh.m_Material);
         if (pbrMat) {
             pbrMat->SetShader(pbrShader);
-            // 这里故意注释掉 IBL，让盒子和地面呈现纯粹的泥土亚光感，不受天空盒反射干扰
-            // pbrMat->m_IrradianceMap = irradianceMap;
-            // pbrMat->m_PrefilterMap = specularMap;
-            pbrMat->m_Metallic = 0.0f;   
-            pbrMat->m_Roughness = 0.9f; 
+            pbrMat->m_Metallic = 0.0f;
+            pbrMat->m_Roughness = 0.9f;
         }
     }
 
@@ -135,23 +150,27 @@ int main() {
         auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(mesh.m_Material);
         if (pbrMat) {
             pbrMat->SetShader(pbrShader);
-            // 这里故意注释掉 IBL，让盒子和地面呈现纯粹的泥土亚光感，不受天空盒反射干扰
-            // pbrMat->m_IrradianceMap = irradianceMap;
-            // pbrMat->m_PrefilterMap = specularMap;
-            pbrMat->m_Metallic = 0.1f;   
-            pbrMat->m_Roughness = 0.9f; 
+            pbrMat->m_Metallic = 0.1f;
+            pbrMat->m_Roughness = 0.9f;
         }
     }
 
-    // ========================================================
-    // 3. 构建 ECS 场景实体
-    // ========================================================
+    for (auto& mesh : monkey->GetMeshes()) {
+        auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(mesh.m_Material);
+        if (pbrMat) {
+            pbrMat->SetShader(pbrShader);
+            pbrMat->m_IrradianceMap = irradianceMap;
+            pbrMat->m_PrefilterMap = specularMap;
+            pbrMat->m_Metallic = 0.1f;
+            pbrMat->m_Roughness = 0.9f;
+        }
+    }
 
-    // --- A. 主相机 ---
+    // 创建相机实体
     Entity cameraEntity = registry.create();
     {
         auto& t = registry.emplace<TransformComponent>(cameraEntity);
-        t.setPosition(Vector3(0.0f, 10.0f, 20.0f)); 
+        t.setPosition(Vector3(0.0f, 10.0f, 20.0f));
         
         auto& cam = registry.emplace<CameraComponent>(cameraEntity);
         cam.setFov(45.0f);
@@ -162,34 +181,36 @@ int main() {
 
         auto& ctrl = registry.emplace<CameraControlComponent>(cameraEntity);
         ctrl.setMoveSpeed(2.0f);
-        ctrl.setSensitivityX(0.1f); 
+        ctrl.setSensitivityX(0.1f);
         ctrl.setSensitivityY(0.1f);
         ctrl.setYaw(-90.0f);
     }
 
-    // // --- B. 地面 (升级为 PBR Box 模型！) ---
+    // 创建地面
     Entity ground = registry.create();
     {
         auto& t = registry.emplace<TransformComponent>(ground);
         t.setPosition(Vector3(0, 0, 0));
-        t.setScale(Vector3(30.0f, 1.0f, 30.0f)); // 压扁并放大
+        t.setScale(Vector3(30.0f, 1.0f, 30.0f));
         
-        // 【关键】：地面现在也是真正的模型了，能够接收阴影！
         registry.emplace<ModelComponent>(ground, pureBox);
 
         auto& c = registry.emplace<ColliderComponent>(ground);
         c.setType(ColliderType::Box);
         c.setSize(Vector3(2.0f, 2.0f, 2.0f));
+        
         auto& rb = registry.emplace<RigidBodyComponent>(ground);
-        rb.setMass(0.0f); rb.setFriction(0.8f); rb.setRestitution(1.0f);
+        rb.setMass(0.0f);
+        rb.setFriction(0.8f);
+        rb.setRestitution(1.0f);
     }
 
-    // --- C. 动态方块 (同样升级为 PBR 模型) ---
+    // 创建动态方块
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 3; x++) {
             Entity cube = registry.create();
             auto& t = registry.emplace<TransformComponent>(cube);
-            t.setPosition(Vector3(x * 2.5f - 2.5f, 10.0f + y * 3.0f, 0)); 
+            t.setPosition(Vector3(x * 2.5f - 2.5f, 10.0f + y * 4.0f, 0));
             t.setScale(Vector3(1, 1, 1));
             
             registry.emplace<ModelComponent>(cube, pureBox);
@@ -197,75 +218,95 @@ int main() {
             auto& c = registry.emplace<ColliderComponent>(cube);
             c.setType(ColliderType::Box);
             c.setSize(Vector3(2.0f, 2.0f, 2.0f));
+            
             auto& rb = registry.emplace<RigidBodyComponent>(cube);
-            rb.setMass(1.0f); rb.setFriction(0.5f); rb.setRestitution(0.7f);
+            rb.setMass(1.0f);
+            rb.setFriction(0.5f);
+            rb.setRestitution(0.5f);
         }
     }
 
-    // --- D. 纯渲染锚点：马自达 (无物理组件) ---
+    // 创建马自达
     Entity carEntity = registry.create();
     {
         auto& t = registry.emplace<TransformComponent>(carEntity);
-        t.setPosition(Vector3(20.0f, 10.0f, 0.0f)); 
+        t.setPosition(Vector3(20.0f, 10.0f, 0.0f));
         t.setScale(Vector3(2.0f, 2.0f, 2.0f));
         registry.emplace<ModelComponent>(carEntity, shuttleModel);
-
-        // auto& rb = registry.emplace<RigidBodyComponent>(carEntity);
-        // rb.setMass(1.0f); rb.setFriction(0.5f); rb.setRestitution(0.5f);
-
-        // auto& c = registry.emplace<ColliderComponent>(carEntity);
-        // c.setType(ColliderType::Box);
-        // c.setSize(Vector3(2.0f, 2.0f, 2.0f));
     }
 
-    // --- E. 纯渲染锚点：悬浮巨盒 (无物理组件) ---
+    // 创建悬浮盒
     Entity floatingBoxEntity = registry.create();
     {
         auto& t = registry.emplace<TransformComponent>(floatingBoxEntity);
-        // 放在车的正上方
-        t.setPosition(Vector3(20.0f, 7.0f, 0.0f)); 
-        t.setScale(Vector3(0.1f, 0.1f, 0.1f)); 
+        t.setPosition(Vector3(20.0f, 7.0f, 0.0f));
+        t.setScale(Vector3(0.1f, 0.1f, 0.1f));
         registry.emplace<ModelComponent>(floatingBoxEntity, boxModel);
 
         auto& rb = registry.emplace<RigidBodyComponent>(floatingBoxEntity);
-        rb.setMass(1.0f); rb.setFriction(0.5f); rb.setRestitution(0.5f);
+        rb.setMass(1.0f);
+        rb.setFriction(0.5f);
+        rb.setRestitution(0.5f);
 
         auto& c = registry.emplace<ColliderComponent>(floatingBoxEntity);
         c.setType(ColliderType::Box);
         c.setSize(Vector3(80.0f, 40.0f, 80.0f));
     }
-    // --- F. 定向光太阳 ---
-    Entity SunLight =registry.create();
-    {
-        auto& t=registry.emplace<TransformComponent>(SunLight);
-        t.setForward(Vector3(1.0f, 1.0f, 1.0f));
 
-        auto& l =registry.emplace<DirectionLightComponent>(SunLight);
+    // 创建光源
+    Entity SunLight = registry.create();
+    {
+        auto& t = registry.emplace<TransformComponent>(SunLight);
+        t.setForward(Vector3(1.0f, 1.0f, 1.0f));
+        auto& l = registry.emplace<DirectionLightComponent>(SunLight);
         l.setIntensity(3.0);
     }
 
-    // --- 天空盒 VAO 初始化 ---
+    // 创建猴子
+    Entity Monkeyhead = registry.create();
+    {
+        auto& t = registry.emplace<TransformComponent>(Monkeyhead);
+        t.setPosition(Vector3(10.0f, 7.0f, 0.0f));
+        t.setScale(Vector3(1.0f, 1.0f, 1.0f));
+        registry.emplace<ModelComponent>(Monkeyhead, monkey);
+        
+        auto& c = registry.emplace<ColliderComponent>(Monkeyhead);
+        c.setType(ColliderType::Sphere);
+        c.setRadius(1.0f);
+
+        auto& rb = registry.emplace<RigidBodyComponent>(Monkeyhead);
+        rb.setMass(2.0f);
+        rb.setRestitution(0.2f);
+        rb.setFriction(0.2f);
+    }
+
+    // 天空盒初始化
     float skyboxVertices[] = {
-        -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f
+        -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f
     };
+    
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
     glBindVertexArray(skyboxVAO);
     glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glBindVertexArray(0);
 
-    // ========================================================
-    // 4. 主循环
-    // ========================================================
+    // 主循环
     float lastTime = 0.0f;
     glEnable(GL_DEPTH_TEST);
 
@@ -344,7 +385,8 @@ int main() {
         glfwSwapBuffers(window);
     }
 
-    // 5. 清理
+
+    // 清理
     physicsSystem.Shutdown();
     renderSystem.Shutdown();
     glfwTerminate();

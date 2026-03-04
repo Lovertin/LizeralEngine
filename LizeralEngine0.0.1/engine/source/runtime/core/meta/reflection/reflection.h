@@ -101,12 +101,13 @@ namespace Lizeral
     typedef std::function<void*(int, void*)>       GetArrayFunc;
     typedef std::function<int(void*)>              GetSizeFunc;
     typedef std::function<bool()>                  GetBoolFunc;
+    typedef std::unordered_map<std::string, std::string> StringMap;
 
     typedef std::function<void*(const PJson&)>                          ConstructorWithPJson;
     typedef std::function<PJson(void*)>                                 WritePJsonByName;
-    typedef std::function<int(Reflection::ReflectionInstance*&, void*)> GetBaseClassReflectionInstanceListFunc;
+    typedef std::function<std::vector<Reflection::ReflectionInstance>(void*)> GetBaseClassReflectionInstanceListFunc;
 
-    typedef std::tuple<SetFuncion, GetFuncion, GetNameFuncion, GetNameFuncion, GetNameFuncion, GetBoolFunc>
+    typedef std::tuple<SetFuncion, GetFuncion, GetNameFuncion, GetNameFuncion, GetNameFuncion, GetBoolFunc,StringMap>
         FieldFunctionTuple;
     typedef std::tuple<GetBaseClassReflectionInstanceListFunc, ConstructorWithPJson, WritePJsonByName>
                                                                                                 ClassFunctionTuple;
@@ -132,6 +133,12 @@ namespace Lizeral
         public:
             TypeMeta();
 
+            ~TypeMeta();
+
+            TypeMeta(const TypeMeta& dest) = default;
+            TypeMeta(TypeMeta&& dest) noexcept = default;
+            TypeMeta& operator=(TypeMeta&& dest) noexcept = default;
+
             // static void Register();
 
             static TypeMeta newMetaFromName(std::string type_name);
@@ -142,9 +149,11 @@ namespace Lizeral
 
             std::string getTypeName();
 
-            int getFieldsList(FieldAccessor*& out_list);
+            // int getFieldsList(FieldAccessor*& out_list);
 
-            int getBaseClassReflectionInstanceList(ReflectionInstance*& out_list, void* instance);
+            std::vector<ReflectionInstance> getBaseClassReflectionInstanceList(void* instance);
+
+            const std::vector<FieldAccessor>& getFields() const { return m_fields; }
 
             FieldAccessor getFieldByName(const char* name);
 
@@ -187,6 +196,9 @@ namespace Lizeral
             const char* getFieldName() const;
             const char* getFieldTypeName();
             bool        isArrayType();
+
+            bool hasMetaData(const std::string& key) const;
+            std::string getMetaData(const std::string& key) const;
 
             FieldAccessor& operator=(const FieldAccessor& dest);
 
@@ -231,6 +243,9 @@ namespace Lizeral
         public:
             ReflectionInstance(TypeMeta meta, void* instance) : m_meta(meta), m_instance(instance) {}
             ReflectionInstance() : m_meta(), m_instance(nullptr) {}
+
+            ReflectionInstance(const ReflectionInstance& dest) = default;
+            ReflectionInstance(ReflectionInstance&& dest) noexcept = default;
 
             ReflectionInstance& operator=(ReflectionInstance& dest);
 

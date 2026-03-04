@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Vector3*)instance);
         }
         // base class
-        static int getVector3BaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getVector3BaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_x(){ return "x";}
@@ -55,29 +55,44 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Vector3(){
+        std::unordered_map<std::string, std::string> meta_tags_x;
+        
+
         FieldFunctionTuple* f_field_function_tuple_x=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeVector3Operator::set_x,
             &TypeFieldReflectionOparator::TypeVector3Operator::get_x,
             &TypeFieldReflectionOparator::TypeVector3Operator::getClassName,
             &TypeFieldReflectionOparator::TypeVector3Operator::getFieldName_x,
             &TypeFieldReflectionOparator::TypeVector3Operator::getFieldTypeName_x,
-            &TypeFieldReflectionOparator::TypeVector3Operator::isArray_x);
+            &TypeFieldReflectionOparator::TypeVector3Operator::isArray_x,
+            meta_tags_x
+        );
         REGISTER_FIELD_TO_MAP("Vector3", f_field_function_tuple_x);
+        std::unordered_map<std::string, std::string> meta_tags_y;
+        
+
         FieldFunctionTuple* f_field_function_tuple_y=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeVector3Operator::set_y,
             &TypeFieldReflectionOparator::TypeVector3Operator::get_y,
             &TypeFieldReflectionOparator::TypeVector3Operator::getClassName,
             &TypeFieldReflectionOparator::TypeVector3Operator::getFieldName_y,
             &TypeFieldReflectionOparator::TypeVector3Operator::getFieldTypeName_y,
-            &TypeFieldReflectionOparator::TypeVector3Operator::isArray_y);
+            &TypeFieldReflectionOparator::TypeVector3Operator::isArray_y,
+            meta_tags_y
+        );
         REGISTER_FIELD_TO_MAP("Vector3", f_field_function_tuple_y);
+        std::unordered_map<std::string, std::string> meta_tags_z;
+        
+
         FieldFunctionTuple* f_field_function_tuple_z=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeVector3Operator::set_z,
             &TypeFieldReflectionOparator::TypeVector3Operator::get_z,
             &TypeFieldReflectionOparator::TypeVector3Operator::getClassName,
             &TypeFieldReflectionOparator::TypeVector3Operator::getFieldName_z,
             &TypeFieldReflectionOparator::TypeVector3Operator::getFieldTypeName_z,
-            &TypeFieldReflectionOparator::TypeVector3Operator::isArray_z);
+            &TypeFieldReflectionOparator::TypeVector3Operator::isArray_z,
+            meta_tags_z
+        );
         REGISTER_FIELD_TO_MAP("Vector3", f_field_function_tuple_z);
         
         

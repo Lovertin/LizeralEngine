@@ -6,3 +6,5 @@
 #include "Rigidbody/RigidBodyComponent.h"
 #include "Transform/TransformComponent.h"
 #include "Light/DirectionalLightComponent.h"
+#include "EditorOnly/EditorOnlyComponent.h"
+#include "Name/NameComponent.h"

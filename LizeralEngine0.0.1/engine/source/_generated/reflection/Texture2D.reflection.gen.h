@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Texture2D*)instance);
         }
         // base class
-        static int getTexture2DBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Resource,static_cast<Texture2D*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getTexture2DBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Resource, static_cast<Texture2D*>(instance)));
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_Path(){ return "m_Path";}
@@ -40,13 +37,18 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Texture2D(){
+        std::unordered_map<std::string, std::string> meta_tags_m_Path;
+        meta_tags_m_Path.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_Path=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTexture2DOperator::set_m_Path,
             &TypeFieldReflectionOparator::TypeTexture2DOperator::get_m_Path,
             &TypeFieldReflectionOparator::TypeTexture2DOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTexture2DOperator::getFieldName_m_Path,
             &TypeFieldReflectionOparator::TypeTexture2DOperator::getFieldTypeName_m_Path,
-            &TypeFieldReflectionOparator::TypeTexture2DOperator::isArray_m_Path);
+            &TypeFieldReflectionOparator::TypeTexture2DOperator::isArray_m_Path,
+            meta_tags_m_Path
+        );
         REGISTER_FIELD_TO_MAP("Texture2D", f_field_function_tuple_m_Path);
         
         

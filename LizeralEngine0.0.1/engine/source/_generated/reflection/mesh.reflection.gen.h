@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Mesh*)instance);
         }
         // base class
-        static int getMeshBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getMeshBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         

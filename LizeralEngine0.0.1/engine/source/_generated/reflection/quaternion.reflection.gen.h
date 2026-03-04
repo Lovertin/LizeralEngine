@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Quaternion*)instance);
         }
         // base class
-        static int getQuaternionBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getQuaternionBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_w(){ return "w";}
@@ -64,37 +64,57 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Quaternion(){
+        std::unordered_map<std::string, std::string> meta_tags_w;
+        
+
         FieldFunctionTuple* f_field_function_tuple_w=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeQuaternionOperator::set_w,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::get_w,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getClassName,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldName_w,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldTypeName_w,
-            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_w);
+            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_w,
+            meta_tags_w
+        );
         REGISTER_FIELD_TO_MAP("Quaternion", f_field_function_tuple_w);
+        std::unordered_map<std::string, std::string> meta_tags_x;
+        
+
         FieldFunctionTuple* f_field_function_tuple_x=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeQuaternionOperator::set_x,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::get_x,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getClassName,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldName_x,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldTypeName_x,
-            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_x);
+            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_x,
+            meta_tags_x
+        );
         REGISTER_FIELD_TO_MAP("Quaternion", f_field_function_tuple_x);
+        std::unordered_map<std::string, std::string> meta_tags_y;
+        
+
         FieldFunctionTuple* f_field_function_tuple_y=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeQuaternionOperator::set_y,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::get_y,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getClassName,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldName_y,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldTypeName_y,
-            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_y);
+            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_y,
+            meta_tags_y
+        );
         REGISTER_FIELD_TO_MAP("Quaternion", f_field_function_tuple_y);
+        std::unordered_map<std::string, std::string> meta_tags_z;
+        
+
         FieldFunctionTuple* f_field_function_tuple_z=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeQuaternionOperator::set_z,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::get_z,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getClassName,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldName_z,
             &TypeFieldReflectionOparator::TypeQuaternionOperator::getFieldTypeName_z,
-            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_z);
+            &TypeFieldReflectionOparator::TypeQuaternionOperator::isArray_z,
+            meta_tags_z
+        );
         REGISTER_FIELD_TO_MAP("Quaternion", f_field_function_tuple_z);
         
         

@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Vector2*)instance);
         }
         // base class
-        static int getVector2BaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getVector2BaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_x(){ return "x";}
@@ -46,21 +46,31 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Vector2(){
+        std::unordered_map<std::string, std::string> meta_tags_x;
+        
+
         FieldFunctionTuple* f_field_function_tuple_x=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeVector2Operator::set_x,
             &TypeFieldReflectionOparator::TypeVector2Operator::get_x,
             &TypeFieldReflectionOparator::TypeVector2Operator::getClassName,
             &TypeFieldReflectionOparator::TypeVector2Operator::getFieldName_x,
             &TypeFieldReflectionOparator::TypeVector2Operator::getFieldTypeName_x,
-            &TypeFieldReflectionOparator::TypeVector2Operator::isArray_x);
+            &TypeFieldReflectionOparator::TypeVector2Operator::isArray_x,
+            meta_tags_x
+        );
         REGISTER_FIELD_TO_MAP("Vector2", f_field_function_tuple_x);
+        std::unordered_map<std::string, std::string> meta_tags_y;
+        
+
         FieldFunctionTuple* f_field_function_tuple_y=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeVector2Operator::set_y,
             &TypeFieldReflectionOparator::TypeVector2Operator::get_y,
             &TypeFieldReflectionOparator::TypeVector2Operator::getClassName,
             &TypeFieldReflectionOparator::TypeVector2Operator::getFieldName_y,
             &TypeFieldReflectionOparator::TypeVector2Operator::getFieldTypeName_y,
-            &TypeFieldReflectionOparator::TypeVector2Operator::isArray_y);
+            &TypeFieldReflectionOparator::TypeVector2Operator::isArray_y,
+            meta_tags_y
+        );
         REGISTER_FIELD_TO_MAP("Vector2", f_field_function_tuple_y);
         
         

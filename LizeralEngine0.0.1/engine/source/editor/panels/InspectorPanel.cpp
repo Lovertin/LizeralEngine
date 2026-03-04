@@ -1,52 +1,90 @@
 #include "InspectorPanel.h"
-// #include "runtime/function/ecs/entity.h"
+#include "editor/factory/ComponentUIFactory/ComponentUIFactory.h"
+#include "runtime/function/ecs/components/componentAll.h"
+#include <iostream>
 
-namespace Lizeral{
+namespace Lizeral {
 
-    InspectorPanel::InspectorPanel(QWidget* parent) : QWidget(parent), m_CurrentEntity(nullptr) {
-        m_MainLayout = new QVBoxLayout(this);
-        m_MainLayout->setAlignment(Qt::AlignTop);
-        m_MainLayout->setSpacing(10);
-    }
+    InspectorPanel::InspectorPanel(QWidget* parent) : QWidget(parent) {
+        // 最外层布局，永远不销毁
+        QVBoxLayout* outerLayout = new QVBoxLayout(this);
+        outerLayout->setContentsMargins(0, 0, 0, 0);
 
-    void InspectorPanel::BindEntity(Entity* entity) {
-        if (m_CurrentEntity == entity) return;
+        // 创建第一代内容容器
+        m_ContentWidget = new QWidget(this);
+        m_MainLayout = new QVBoxLayout(m_ContentWidget);
+        m_MainLayout->setAlignment(Qt::AlignTop); 
         
-        m_CurrentEntity = entity;
-        ClearPanel(); 
-
-        if (!m_CurrentEntity) return;
-
-
-        QGroupBox* testBox = new QGroupBox("Entity Header", this);
-        QVBoxLayout* testLayout = new QVBoxLayout(testBox);
-        testLayout->addWidget(new QLabel("Entity ID: 42", testBox));
-        testLayout->addWidget(new QLabel("Name: Test GameObject", testBox));
-        m_MainLayout->addWidget(testBox);
-        
-        QWidget* dummyComp = ComponentUIFactory::CreateWidgetFor(nullptr, this); // 触发兜底UI
-        m_MainLayout->addWidget(dummyComp);
-        // ----------------------------------------
+        outerLayout->addWidget(m_ContentWidget);
     }
-
-    // 必须加上这个空实现，否则会报错
+    
     void InspectorPanel::ClearPanel() {
-        // 如果 Layout 为空，直接返回
+        // std::cout << "[InspectorPanel] Bulletproof Clearing Start..." << std::endl;
         if (!m_MainLayout) return;
 
         QLayoutItem* item;
-        // 循环取出 Layout 中的第一个元素，直到取空
+        
+        // 1. Loop through the layout, removing items from front to back
         while ((item = m_MainLayout->takeAt(0)) != nullptr) {
-            // 如果这个元素包含 Widget
+            // 2. If the item contains a widget
             if (QWidget* widget = item->widget()) {
-                // 安全删除 Widget
+                // 彻底断开与界面的连接
+                widget->setParent(nullptr); 
+                widget->hide(); 
+                
+                // 延迟到事件循环清理，极其安全
                 widget->deleteLater(); 
             }
-            // 如果这个元素包含子 Layout，你也需要递归清理（当前简单起见先不写递归）
-            
-            // 删除 LayoutItem 本身
-            delete item;
+            // 3. We MUST delete the QLayoutItem wrapper itself.
+            delete item; 
         }
+        // std::cout << "[InspectorPanel] Bulletproof Clearing Finished." << std::endl;
     }
 
-}
+    void InspectorPanel::BindEntity(Lizeral::Entity entity) {
+        // 防止重复绑定导致无意义的重绘
+        if (entity == m_CurrentEntity) return;
+
+        ClearPanel();
+        m_CurrentEntity = entity;
+        
+        if (entity == Lizeral::null_entity || !m_Registry) return;
+
+        // ==========================================================
+        // 核心魔法：查询 ECS 并动态桥接反射系统
+        // ==========================================================
+        auto tryDrawComponent = [&](auto* dummy, const std::string& typeName) {
+            using ComponentType = std::remove_pointer_t<decltype(dummy)>;
+
+            // 1. 去 ECS 里查，这个实体有没有这个组件？
+            if (m_Registry->has<ComponentType>(entity)) {
+                // 2. 拿到真实的内存地址
+                void* instance = &m_Registry->get<ComponentType>(entity);
+                
+                // 3. 拿到反射元数据
+                Reflection::TypeMeta meta = Reflection::TypeMeta::newMetaFromName(typeName);
+                if (meta.isValid()) {
+                    // 4. 丢给组件工厂去画大框框，注意父节点要传 m_ContentWidget
+                    QWidget* compWidget = ComponentUIFactory::CreateComponentWidget(meta, instance, m_ContentWidget);
+                    if (compWidget) {
+                        m_MainLayout->addWidget(compWidget);
+                    }
+                }
+            }
+        };
+
+        // 依次排查并绘制所有已知的组件
+        // （这里的顺序，就是 Inspector 面板里自上而下的显示顺序）
+        tryDrawComponent((NameComponent*)nullptr, "NameComponent");
+        tryDrawComponent((TransformComponent*)nullptr, "TransformComponent");
+        tryDrawComponent((RigidBodyComponent*)nullptr, "RigidBodyComponent");
+        tryDrawComponent((ColliderComponent*)nullptr,  "ColliderComponent");
+        tryDrawComponent((CameraComponent*)nullptr,    "CameraComponent");
+        tryDrawComponent((CameraControlComponent*)nullptr, "CameraControlComponent");
+        tryDrawComponent((DirectionLightComponent*)nullptr, "DirectionLightComponent");
+        tryDrawComponent((ModelComponent*)nullptr,     "ModelComponent");
+
+        // 在最底部加个弹簧，把所有组件往上顶
+        m_MainLayout->addStretch(); 
+    }
+} // namespace Lizeral

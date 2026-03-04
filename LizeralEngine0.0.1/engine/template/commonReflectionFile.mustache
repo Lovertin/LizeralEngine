@@ -20,15 +20,14 @@ namespace Reflection{
             return PSerializer::write(*({{class_name}}*)instance);
         }
         // base class
-        static int get{{class_name}}BaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = {{class_base_class_size}};
-            {{#class_has_base}}out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
+        static std::vector<ReflectionInstance> get{{class_name}}BaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            {{#class_has_base}}
             {{#class_base_class_defines}}
-               out_list[i] = TypeMetaDef({{class_base_class_name}},static_cast<{{class_name}}*>(instance));
+            out_list.push_back(TypeMetaDef({{class_base_class_name}}, static_cast<{{class_name}}*>(instance)));
             {{/class_base_class_defines}}
-            }{{/class_has_base}}
-            return count;
+            {{/class_has_base}}
+            return out_list;
         }
         // fields
         {{#class_field_defines}}static const char* getFieldName_{{class_field_name}}(){ return "{{class_field_name}}";}
@@ -68,13 +67,23 @@ namespace Reflection{
 }//namespace ArrayReflectionOperator{{/vector_exist}}
 
     void TypeWrapperRegister_{{class_name}}(){
-        {{#class_field_defines}}FieldFunctionTuple* f_field_function_tuple_{{class_field_name}}=new FieldFunctionTuple(
+        {{#class_field_defines}}
+        std::unordered_map<std::string, std::string> meta_tags_{{class_field_name}};
+        {{#class_field_has_meta}}
+        {{#class_field_meta_list}}
+        meta_tags_{{class_field_name}}.insert({"{{meta_key}}", "{{meta_value}}"});
+        {{/class_field_meta_list}}
+        {{/class_field_has_meta}}
+
+        FieldFunctionTuple* f_field_function_tuple_{{class_field_name}}=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::Type{{class_name}}Operator::set_{{class_field_name}},
             &TypeFieldReflectionOparator::Type{{class_name}}Operator::get_{{class_field_name}},
             &TypeFieldReflectionOparator::Type{{class_name}}Operator::getClassName,
             &TypeFieldReflectionOparator::Type{{class_name}}Operator::getFieldName_{{class_field_name}},
             &TypeFieldReflectionOparator::Type{{class_name}}Operator::getFieldTypeName_{{class_field_name}},
-            &TypeFieldReflectionOparator::Type{{class_name}}Operator::isArray_{{class_field_name}});
+            &TypeFieldReflectionOparator::Type{{class_name}}Operator::isArray_{{class_field_name}},
+            meta_tags_{{class_field_name}}
+        );
         REGISTER_FIELD_TO_MAP("{{class_name}}", f_field_function_tuple_{{class_field_name}});
         {{/class_field_defines}}
         

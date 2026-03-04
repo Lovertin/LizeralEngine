@@ -5,6 +5,7 @@
 #include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
 #include "_generated\serializer\TextureCube.serializer.gen.h"
 #include "_generated\serializer\ModelComponent.serializer.gen.h"
+#include "_generated\serializer\NameComponent.serializer.gen.h"
 #include "_generated\serializer\Mesh.serializer.gen.h"
 #include "_generated\serializer\quaternion.serializer.gen.h"
 #include "_generated\serializer\DirectionalLightComponent.serializer.gen.h"

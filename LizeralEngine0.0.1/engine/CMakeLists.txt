@@ -40,12 +40,6 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/glfw)
 add_subdirectory(3rdparty/bullet)
 
-# =============================================================
-# 3. 解决 static_assert 问题：白名单选取源码
-# =============================================================
-# 我们不再 GLOB_RECURSE 整个 source 目录，而是只抓取物理引擎真正需要的。
-# 这样可以绝对避开 'meta/serializer' 和 'tool/parser' 里的报错代码。
-
 # A. 核心数学库 (Math)
 file(GLOB_RECURSE SRC_MATH "source/runtime/core/math/*.cpp")
 
@@ -130,6 +124,28 @@ add_subdirectory(source/runtime/core/vendor/assimp)
 
 # 包含 Assimp 的全局头文件路径，这样你在代码里才能 #include <assimp/Importer.hpp>
 include_directories(source/runtime/core/vendor/assimp/include)
+
+# 针对 assimp 目标禁用未初始化变量警告
+if(MINGW OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0"))
+    # 检查 assimp 的实际目标名称
+    if(TARGET assimp)
+        target_compile_options(assimp PRIVATE 
+            -Wno-error=maybe-uninitialized
+            -Wno-maybe-uninitialized
+        )
+        message(STATUS "Applied GCC 13+ compatibility fixes to assimp")
+    elseif(TARGET assimp::assimp)
+        # 如果是别名目标，不能直接使用 target_compile_options
+        # 改为使用 set_target_properties 为源文件设置属性
+        get_target_property(ASSIMP_SOURCES assimp::assimp SOURCES)
+        if(ASSIMP_SOURCES)
+            set_source_files_properties(${ASSIMP_SOURCES} PROPERTIES
+                COMPILE_FLAGS "-Wno-error=maybe-uninitialized -Wno-maybe-uninitialized"
+            )
+            message(STATUS "Applied GCC 13+ compatibility fixes to assimp sources")
+        endif()
+    endif()
+endif()
 
 
 set(CMAKE_AUTOMOC ON)

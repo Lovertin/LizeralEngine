@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(DirectionLightComponent*)instance);
         }
         // base class
-        static int getDirectionLightComponentBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Component,static_cast<DirectionLightComponent*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getDirectionLightComponentBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Component, static_cast<DirectionLightComponent*>(instance)));
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_color(){ return "m_color";}
@@ -58,29 +55,44 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_DirectionLightComponent(){
+        std::unordered_map<std::string, std::string> meta_tags_m_color;
+        meta_tags_m_color.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_color=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::set_m_color,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::get_m_color,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getFieldName_m_color,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getFieldTypeName_m_color,
-            &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::isArray_m_color);
+            &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::isArray_m_color,
+            meta_tags_m_color
+        );
         REGISTER_FIELD_TO_MAP("DirectionLightComponent", f_field_function_tuple_m_color);
+        std::unordered_map<std::string, std::string> meta_tags_m_intensity;
+        meta_tags_m_intensity.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_intensity=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::set_m_intensity,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::get_m_intensity,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getFieldName_m_intensity,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getFieldTypeName_m_intensity,
-            &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::isArray_m_intensity);
+            &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::isArray_m_intensity,
+            meta_tags_m_intensity
+        );
         REGISTER_FIELD_TO_MAP("DirectionLightComponent", f_field_function_tuple_m_intensity);
+        std::unordered_map<std::string, std::string> meta_tags_m_isGlobal;
+        meta_tags_m_isGlobal.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_isGlobal=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::set_m_isGlobal,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::get_m_isGlobal,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getFieldName_m_isGlobal,
             &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::getFieldTypeName_m_isGlobal,
-            &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::isArray_m_isGlobal);
+            &TypeFieldReflectionOparator::TypeDirectionLightComponentOperator::isArray_m_isGlobal,
+            meta_tags_m_isGlobal
+        );
         REGISTER_FIELD_TO_MAP("DirectionLightComponent", f_field_function_tuple_m_isGlobal);
         
         

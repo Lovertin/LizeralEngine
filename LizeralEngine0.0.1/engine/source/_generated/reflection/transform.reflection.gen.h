@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Transform*)instance);
         }
         // base class
-        static int getTransformBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getTransformBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_position(){ return "m_position";}
@@ -55,29 +55,44 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Transform(){
+        std::unordered_map<std::string, std::string> meta_tags_m_position;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_position=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTransformOperator::set_m_position,
             &TypeFieldReflectionOparator::TypeTransformOperator::get_m_position,
             &TypeFieldReflectionOparator::TypeTransformOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTransformOperator::getFieldName_m_position,
             &TypeFieldReflectionOparator::TypeTransformOperator::getFieldTypeName_m_position,
-            &TypeFieldReflectionOparator::TypeTransformOperator::isArray_m_position);
+            &TypeFieldReflectionOparator::TypeTransformOperator::isArray_m_position,
+            meta_tags_m_position
+        );
         REGISTER_FIELD_TO_MAP("Transform", f_field_function_tuple_m_position);
+        std::unordered_map<std::string, std::string> meta_tags_m_scale;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_scale=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTransformOperator::set_m_scale,
             &TypeFieldReflectionOparator::TypeTransformOperator::get_m_scale,
             &TypeFieldReflectionOparator::TypeTransformOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTransformOperator::getFieldName_m_scale,
             &TypeFieldReflectionOparator::TypeTransformOperator::getFieldTypeName_m_scale,
-            &TypeFieldReflectionOparator::TypeTransformOperator::isArray_m_scale);
+            &TypeFieldReflectionOparator::TypeTransformOperator::isArray_m_scale,
+            meta_tags_m_scale
+        );
         REGISTER_FIELD_TO_MAP("Transform", f_field_function_tuple_m_scale);
+        std::unordered_map<std::string, std::string> meta_tags_m_rotation;
+        
+
         FieldFunctionTuple* f_field_function_tuple_m_rotation=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTransformOperator::set_m_rotation,
             &TypeFieldReflectionOparator::TypeTransformOperator::get_m_rotation,
             &TypeFieldReflectionOparator::TypeTransformOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTransformOperator::getFieldName_m_rotation,
             &TypeFieldReflectionOparator::TypeTransformOperator::getFieldTypeName_m_rotation,
-            &TypeFieldReflectionOparator::TypeTransformOperator::isArray_m_rotation);
+            &TypeFieldReflectionOparator::TypeTransformOperator::isArray_m_rotation,
+            meta_tags_m_rotation
+        );
         REGISTER_FIELD_TO_MAP("Transform", f_field_function_tuple_m_rotation);
         
         

@@ -1,3 +1,3 @@
 "C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\LizeralParser.dir/objects.a
-C:\PROGRA~1\mingw64\bin\ar.exe qc CMakeFiles\LizeralParser.dir/objects.a @CMakeFiles\LizeralParser.dir\objects1.rsp
-C:\PROGRA~1\mingw64\bin\G__~1.EXE  -O2 -Wl,--whole-archive CMakeFiles\LizeralParser.dir/objects.a -Wl,--no-whole-archive -o "C:\Lizeral Engine\LizeralEngine0.0.1\bin\LizeralParser.exe" -Wl,--out-implib,libLizeralParser.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\LizeralParser.dir\linkLibs.rsp
+C:\Qt\Tools\mingw1310_64\bin\ar.exe qc CMakeFiles\LizeralParser.dir/objects.a @CMakeFiles\LizeralParser.dir\objects1.rsp
+C:\Qt\Tools\mingw1310_64\bin\g++.exe  -O2 -Wl,--whole-archive CMakeFiles\LizeralParser.dir/objects.a -Wl,--no-whole-archive -o "C:\Lizeral Engine\LizeralEngine0.0.1\bin\LizeralParser.exe" -Wl,--out-implib,libLizeralParser.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\LizeralParser.dir\linkLibs.rsp

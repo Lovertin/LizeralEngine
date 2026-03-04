@@ -51,6 +51,19 @@ namespace Generator
             filed_define.set("class_field_display_name", field->m_display_name);
             bool is_vector = field->m_type.find(vector_prefix) == 0;
             filed_define.set("class_field_is_vector", is_vector);
+
+            Mustache::data meta_list(Mustache::data::type::list);
+            const auto& properties = field->getMetaData().getProperties();
+            for (const auto& pair : properties)
+            {
+                Mustache::data meta_item;
+                meta_item.set("meta_key", pair.first);
+                meta_item.set("meta_value", pair.second);
+                meta_list.push_back(meta_item);
+            }
+            filed_define.set("class_field_meta_list", meta_list); 
+            filed_define.set("class_field_has_meta", properties.size() > 0);
+
             feild_defs.push_back(filed_define);
         }
     }

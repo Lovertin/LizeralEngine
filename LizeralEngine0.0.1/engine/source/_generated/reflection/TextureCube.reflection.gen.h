@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(TextureCube*)instance);
         }
         // base class
-        static int getTextureCubeBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Resource,static_cast<TextureCube*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getTextureCubeBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Resource, static_cast<TextureCube*>(instance)));
+            return out_list;
         }
         // fields
         

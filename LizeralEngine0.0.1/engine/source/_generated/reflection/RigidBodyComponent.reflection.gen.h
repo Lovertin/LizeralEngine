@@ -17,13 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(RigidBodyComponent*)instance);
         }
         // base class
-        static int getRigidBodyComponentBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 1;
-            out_list = new ReflectionInstance[count];
-            for (int i=0;i<count;++i){
-               out_list[i] = TypeMetaDef(Lizeral::Component,static_cast<RigidBodyComponent*>(instance));
-            }
-            return count;
+        static std::vector<ReflectionInstance> getRigidBodyComponentBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
+            out_list.push_back(TypeMetaDef(Lizeral::Component, static_cast<RigidBodyComponent*>(instance)));
+            return out_list;
         }
         // fields
         static const char* getFieldName_m_mass(){ return "m_mass";}
@@ -67,37 +64,57 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_RigidBodyComponent(){
+        std::unordered_map<std::string, std::string> meta_tags_m_mass;
+        meta_tags_m_mass.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_mass=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::set_m_mass,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::get_m_mass,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldName_m_mass,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldTypeName_m_mass,
-            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_mass);
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_mass,
+            meta_tags_m_mass
+        );
         REGISTER_FIELD_TO_MAP("RigidBodyComponent", f_field_function_tuple_m_mass);
+        std::unordered_map<std::string, std::string> meta_tags_m_friction;
+        meta_tags_m_friction.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_friction=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::set_m_friction,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::get_m_friction,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldName_m_friction,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldTypeName_m_friction,
-            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_friction);
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_friction,
+            meta_tags_m_friction
+        );
         REGISTER_FIELD_TO_MAP("RigidBodyComponent", f_field_function_tuple_m_friction);
+        std::unordered_map<std::string, std::string> meta_tags_m_is_kinematic;
+        meta_tags_m_is_kinematic.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_is_kinematic=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::set_m_is_kinematic,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::get_m_is_kinematic,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldName_m_is_kinematic,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldTypeName_m_is_kinematic,
-            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_is_kinematic);
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_is_kinematic,
+            meta_tags_m_is_kinematic
+        );
         REGISTER_FIELD_TO_MAP("RigidBodyComponent", f_field_function_tuple_m_is_kinematic);
+        std::unordered_map<std::string, std::string> meta_tags_m_restitution;
+        meta_tags_m_restitution.insert({"Enable", ""});
+
         FieldFunctionTuple* f_field_function_tuple_m_restitution=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::set_m_restitution,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::get_m_restitution,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getClassName,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldName_m_restitution,
             &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::getFieldTypeName_m_restitution,
-            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_restitution);
+            &TypeFieldReflectionOparator::TypeRigidBodyComponentOperator::isArray_m_restitution,
+            meta_tags_m_restitution
+        );
         REGISTER_FIELD_TO_MAP("RigidBodyComponent", f_field_function_tuple_m_restitution);
         
         

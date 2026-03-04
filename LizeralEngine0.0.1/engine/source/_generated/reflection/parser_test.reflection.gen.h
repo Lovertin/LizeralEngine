@@ -17,10 +17,10 @@ namespace TypeFieldReflectionOparator{
             return PSerializer::write(*(Test*)instance);
         }
         // base class
-        static int getTestBaseClassReflectionInstanceList(ReflectionInstance* &out_list, void* instance){
-            int count = 0;
+        static std::vector<ReflectionInstance> getTestBaseClassReflectionInstanceList(void* instance){
+            std::vector<ReflectionInstance> out_list;
             
-            return count;
+            return out_list;
         }
         // fields
         static const char* getFieldName_x(){ return "x";}
@@ -64,37 +64,57 @@ namespace TypeFieldReflectionOparator{
 
 
     void TypeWrapperRegister_Test(){
+        std::unordered_map<std::string, std::string> meta_tags_x;
+        
+
         FieldFunctionTuple* f_field_function_tuple_x=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTestOperator::set_x,
             &TypeFieldReflectionOparator::TypeTestOperator::get_x,
             &TypeFieldReflectionOparator::TypeTestOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldName_x,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldTypeName_x,
-            &TypeFieldReflectionOparator::TypeTestOperator::isArray_x);
+            &TypeFieldReflectionOparator::TypeTestOperator::isArray_x,
+            meta_tags_x
+        );
         REGISTER_FIELD_TO_MAP("Test", f_field_function_tuple_x);
+        std::unordered_map<std::string, std::string> meta_tags_y;
+        
+
         FieldFunctionTuple* f_field_function_tuple_y=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTestOperator::set_y,
             &TypeFieldReflectionOparator::TypeTestOperator::get_y,
             &TypeFieldReflectionOparator::TypeTestOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldName_y,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldTypeName_y,
-            &TypeFieldReflectionOparator::TypeTestOperator::isArray_y);
+            &TypeFieldReflectionOparator::TypeTestOperator::isArray_y,
+            meta_tags_y
+        );
         REGISTER_FIELD_TO_MAP("Test", f_field_function_tuple_y);
+        std::unordered_map<std::string, std::string> meta_tags_z;
+        
+
         FieldFunctionTuple* f_field_function_tuple_z=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTestOperator::set_z,
             &TypeFieldReflectionOparator::TypeTestOperator::get_z,
             &TypeFieldReflectionOparator::TypeTestOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldName_z,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldTypeName_z,
-            &TypeFieldReflectionOparator::TypeTestOperator::isArray_z);
+            &TypeFieldReflectionOparator::TypeTestOperator::isArray_z,
+            meta_tags_z
+        );
         REGISTER_FIELD_TO_MAP("Test", f_field_function_tuple_z);
+        std::unordered_map<std::string, std::string> meta_tags_s;
+        
+
         FieldFunctionTuple* f_field_function_tuple_s=new FieldFunctionTuple(
             &TypeFieldReflectionOparator::TypeTestOperator::set_s,
             &TypeFieldReflectionOparator::TypeTestOperator::get_s,
             &TypeFieldReflectionOparator::TypeTestOperator::getClassName,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldName_s,
             &TypeFieldReflectionOparator::TypeTestOperator::getFieldTypeName_s,
-            &TypeFieldReflectionOparator::TypeTestOperator::isArray_s);
+            &TypeFieldReflectionOparator::TypeTestOperator::isArray_s,
+            meta_tags_s
+        );
         REGISTER_FIELD_TO_MAP("Test", f_field_function_tuple_s);
         
         
