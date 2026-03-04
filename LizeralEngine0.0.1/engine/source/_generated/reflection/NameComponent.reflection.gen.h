@@ -38,7 +38,7 @@ namespace TypeFieldReflectionOparator{
 
     void TypeWrapperRegister_NameComponent(){
         std::unordered_map<std::string, std::string> meta_tags_m_name;
-        meta_tags_m_name.insert({"UI", "text"});
+        meta_tags_m_name.insert({"UI", "Headline"});
         meta_tags_m_name.insert({"Enable", ""});
 
         FieldFunctionTuple* f_field_function_tuple_m_name=new FieldFunctionTuple(

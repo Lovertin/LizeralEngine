@@ -16,7 +16,7 @@ namespace Lizeral{
         void setName(const std::string& name) { m_name = name; }
         
     private:
-        META(Enable,UI:text)
+        META(Enable,UI:Headline)
         std::string m_name{"Empty Entity"};
     };
 }

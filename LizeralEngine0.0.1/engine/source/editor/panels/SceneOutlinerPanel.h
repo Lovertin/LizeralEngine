@@ -3,6 +3,8 @@
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QMenu>
+#include <QMessageBox>
+#include <QAction>
 
 // 包含你的 ECS 核心
 #include "runtime/function/ecs/entity.h"

@@ -4,8 +4,7 @@
 
 // 请根据你的实际路径修改以下两个头文件
 #include "editor/selection/EditorSelection.h" 
-#include "runtime/function/ecs/components/Name/NameComponent.h" 
-#include "runtime/function/ecs/components/EditorOnly/EditorOnlyComponent.h"\
+#include "runtime/function/ecs/components/componentAll.h"
 
 #include <iostream>
 
@@ -70,22 +69,87 @@ namespace Lizeral {
         if (!m_Registry) return;
 
         QMenu contextMenu(this);
-        QAction* createEntityAction = contextMenu.addAction("Create Empty Entity");
+        contextMenu.setStyleSheet("QMenu { background-color: #333333; color: white; border: 1px solid #555555; } QMenu::item:selected { background-color: #4CAF50; }");
 
-        // 在鼠标点击的全局屏幕位置弹出菜单，并阻塞等待用户选择
+        // ==========================================
+        // 第一步：先检测鼠标点在了哪里，并组装所有菜单项
+        // ==========================================
+        QAction* deleteEntityAction = nullptr;
+        QTreeWidgetItem* clickedItem = m_TreeWidget->itemAt(pos);
+        
+        // 1. 如果点中了一个实体，增加“删除”选项
+        if (clickedItem) {
+            deleteEntityAction = contextMenu.addAction("Delete Entity");
+            // 这里我们用样式表覆盖一下，让删除按钮变红
+            contextMenu.setStyleSheet(contextMenu.styleSheet() + " QAction#DeleteAction { color: #ff6666; font-weight: bold; }");
+            deleteEntityAction->setObjectName("DeleteAction");
+            contextMenu.addSeparator(); // 加一条分割线
+        }
+
+        // 2. 组装“创建”预设实体的菜单项
+        QAction* createEmptyAction = contextMenu.addAction("Create Empty Entity");
+        QMenu* object3DMenu = contextMenu.addMenu("3D Object");
+        QAction* createCubeAction = object3DMenu->addAction("Cube");
+        QMenu* lightMenu = contextMenu.addMenu("Light");
+        QAction* createDirLightAction = lightMenu->addAction("Directional Light");
+        QAction* createCameraAction = contextMenu.addAction("Camera");
+
+        // ==========================================
+        // 第二步：将菜单显示在屏幕上，并阻塞等待用户点击
+        // ==========================================
         QAction* selectedAction = contextMenu.exec(m_TreeWidget->mapToGlobal(pos));
 
-        if (selectedAction == createEntityAction) {
-            // 使用 Qt::QueuedConnection 确保完全推迟到下一帧的主线程事件循环中执行
-            QMetaObject::invokeMethod(this, [this]() {
-                // std::cout << "Creating new entity in main thread..." << std::endl;
+        // ==========================================
+        // 第三步：根据用户的点击，执行对应的底层逻辑
+        // ==========================================
+        if (!selectedAction) return; // 用户什么都没点，点击了旁边取消了菜单
+
+        if (selectedAction == deleteEntityAction && clickedItem) {
+            // --- 处理实体删除 ---
+            uint32_t entityId = clickedItem->data(0, Qt::UserRole).toUInt();
+            Lizeral::Entity targetEntity = static_cast<Lizeral::Entity>(entityId);
+
+            QMessageBox::StandardButton reply = QMessageBox::question(this, "Delete Entity", 
+                "Delete '" + clickedItem->text(0) + "' forever?", QMessageBox::Yes | QMessageBox::No);
+            
+            if (reply == QMessageBox::Yes) {
+                // 如果删除的是当前正选中的实体，要清空右侧 Inspector 面板
+                if (EditorSelection::Get().GetSelected() == targetEntity) {
+                    EditorSelection::Get().SelectEntity(Lizeral::null_entity);
+                }
+                
+                // 1. 底层彻底销毁实体（调用你刚写的 destroy）
+                m_Registry->destroy(targetEntity);
+                
+                // 2. 刷新左侧大纲树
+                Refresh();
+            }
+        } 
+        else {
+            // --- 处理实体创建 ---
+            QMetaObject::invokeMethod(this, [this, selectedAction, createEmptyAction, createCubeAction, createDirLightAction, createCameraAction]() {
+                
                 Lizeral::Entity newEntity = m_Registry->create();
-                m_Registry->emplace<NameComponent>(newEntity, "New Entity");
-                
-                // std::cout << "Starting Refresh..." << std::endl;
-                Refresh(); // 此时再清理树节点
-                
-                EditorSelection::Get().SelectEntity(newEntity);
+                m_Registry->emplace<TransformComponent>(newEntity); // 都有 Transform
+
+                if (selectedAction == createEmptyAction) {
+                    m_Registry->emplace<NameComponent>(newEntity, "Empty Entity");
+                } else if (selectedAction == createCubeAction) {
+                    m_Registry->emplace<NameComponent>(newEntity, "Cube");
+                    m_Registry->emplace<RigidBodyComponent>(newEntity);
+                    m_Registry->emplace<ColliderComponent>(newEntity);
+                } else if (selectedAction == createDirLightAction) {
+                    m_Registry->emplace<NameComponent>(newEntity, "Directional Light");
+                    m_Registry->emplace<DirectionLightComponent>(newEntity);
+                } else if (selectedAction == createCameraAction) {
+                    m_Registry->emplace<NameComponent>(newEntity, "Camera");
+                    m_Registry->emplace<CameraComponent>(newEntity);
+                    m_Registry->emplace<CameraControlComponent>(newEntity);
+                }
+
+                Refresh(); // 刷新左侧树
+                EditorSelection::Get().SelectEntity(newEntity); // 通知右侧 Inspector 选中它
+
             }, Qt::QueuedConnection);
         }
     }

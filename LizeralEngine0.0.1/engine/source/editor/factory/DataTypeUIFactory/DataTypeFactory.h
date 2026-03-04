@@ -5,6 +5,7 @@
 #include <memory>
 // 请确保这里包含了你的反射系统头文件，因为我们需要用到 FieldAccessor
 #include "runtime/core/meta/reflection/reflection.h"
+#include "editor/selection/EditorSelection.h"
 
 namespace Lizeral {
 

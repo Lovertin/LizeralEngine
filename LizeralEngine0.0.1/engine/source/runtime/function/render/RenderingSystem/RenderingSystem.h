@@ -25,6 +25,8 @@ namespace Lizeral {
         // const int NUM_CASCADES = shadowCascadeLevels.size(); // 3 级级联
         const int NUM_CASCADES = 4;
 
+        unsigned int m_DefaultFBO = 0; // 默认为 0，兼容 Sandbox
+
     public:
         RenderingSystem() = default;
         ~RenderingSystem() { Shutdown(); }
@@ -44,6 +46,8 @@ namespace Lizeral {
             const CameraComponent& cam, 
             const Matrix4x4& camView, 
             const Vector3& lightDir) ;
+
+        void SetDefaultFBO(unsigned int fbo) { m_DefaultFBO = fbo; }
         
     };
 

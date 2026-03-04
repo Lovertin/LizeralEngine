@@ -27,6 +27,8 @@ namespace Lizeral {
     signals:
         void OnEntitySelected(Lizeral::Entity entity);
 
+        void OnEntityDataModified(Lizeral::Entity entity);
+
     private:
         // --- 单例模式的严谨防御：私有化构造函数 ---
         explicit EditorSelection(QObject* parent = nullptr) : QObject(parent) {}

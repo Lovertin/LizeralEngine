@@ -55,7 +55,7 @@ namespace Lizeral {
         }
 
         // 解绑 FBO，恢复默认状态
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_DefaultFBO);
     }
 
     void RenderingSystem::Tick(Registry& registry, float deltaTime) {
@@ -160,7 +160,7 @@ namespace Lizeral {
         // ========================================================
         // 阶段 4：颜色渲染管线 (Color Pass)
         // ========================================================
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); // 切回屏幕
+        glBindFramebuffer(GL_FRAMEBUFFER, m_DefaultFBO); // 切回屏幕
         glViewport(0, 0, 1280, 720); // 恢复屏幕分辨率
 
         glEnable(GL_DEPTH_TEST);

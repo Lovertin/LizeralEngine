@@ -50,6 +50,18 @@ namespace Lizeral {
             return get_pool<T>()->has(entity);
         }
 
+        template<typename T>
+        void remove(Entity entity) {
+            get_pool<T>()->remove(entity);
+        }
+
+        // 【新增】：彻底销毁实体！遍历所有组件池并将其拔除
+        void destroy(Entity entity) {
+            for (auto& pair : m_pools) {
+                pair.second->remove(entity);
+            }
+        }
+
         // 核心：创建视图
         template<typename... Components>
         View<Components...> view() {
