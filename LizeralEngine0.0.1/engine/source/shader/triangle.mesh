@@ -1,0 +1,46 @@
+#version 460
+// 开启 Mesh Shader 和 BDA (Buffer Reference) 扩展
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+
+// 核心并发设计：我们派 3 个线程 (Local Size = 3) 去处理这个 Meshlet
+layout(local_size_x = 3, local_size_y = 1, local_size_z = 1) in;
+// 声明我们最多输出 3 个顶点和 1 个三角形
+layout(triangles, max_vertices = 3, max_primitives = 1) out;
+
+// 1. 定义我们马上要在 C++ 里写的顶点数据结构
+struct Vertex {
+    vec3 pos;
+    vec3 color;
+};
+
+// 2. 将 BDA 裸指针强转为包含 Vertex 数组的 Buffer
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer {
+    Vertex vertices[];
+};
+
+// 3. 用 8 字节的小纸条 (Push Constant) 接收 CPU 传来的 0x9000000
+layout(push_constant) uniform PushConstants {
+    VertexBuffer vertexBuffer;
+} pc;
+
+// 输出给片元着色器的颜色
+layout(location = 0) out vec3 fragColor[];
+
+void main() {
+    // 告诉光栅化器：我们准备好要发射 3 个顶点和 1 个图元了
+    SetMeshOutputsEXT(3, 1); 
+
+    // 获取当前线程的 ID (只可能是 0, 1, 2)
+    uint tid = gl_LocalInvocationID.x;
+
+    // ★ 暴力美学：3 个线程同时拿着 BDA 指针，去显存里抢自己对应的那个顶点数据！
+    gl_MeshVerticesEXT[tid].gl_Position = vec4(pc.vertexBuffer.vertices[tid].pos, 1.0);
+    fragColor[tid] = pc.vertexBuffer.vertices[tid].color;
+
+    // 只需要派 1 个线程 (代表线程 0) 把这 3 个顶点连成一个三角形
+    if (tid == 0) {
+        gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
+    }
+}

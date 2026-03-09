@@ -3,7 +3,7 @@
 #include "runtime/function/ecs/components/Camera/CameraComponent.h"
 #include "runtime/function/ecs/components/Transform/TransformComponent.h"
 #include "runtime/function/input/input.h"
-#include <GLFW/glfw3.h> // 必须包含 GLFW 以使用 glfwSetInputMode
+// #include <GLFW/glfw3.h> // 必须包含 GLFW 以使用 glfwSetInputMode
 
 #include "runtime/core/math/vector2.h"
 
@@ -13,21 +13,15 @@ namespace Lizeral{
 
     CameraControlSystem::~CameraControlSystem(){}
 
-    void CameraControlSystem::Tick(Registry& registry, GLFWwindow* window) {
+    void CameraControlSystem::Tick(float deltaTime, Registry& registry) {
         auto& input = Input::GetInstance();
 
-        // 1. 处理状态切换 (按下和松开的瞬间)
+        // 1. 处理状态切换 (按下瞬间)
         if (input.GetMouseButtonDown(MouseButton::Right)) {
-            // 刚按下的第一帧：隐藏光标并锁定
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            // 【删除】：隐藏光标的代码已经移交给了 Qt 的 EngineViewportWidget 去做了！
             
-            // 【关键】重置鼠标第一帧标记，防止出现巨大的镜头跳跃
-            // （如果你的 Input 类没公开这个函数，也可以用现有的 ResetMouse）
+            // 重置鼠标第一帧标记，防止出现巨大的镜头跳跃
             input.ResetMouse(); 
-        }
-        else if (input.GetMouseButtonUp(MouseButton::Right)) {
-            // 松开的瞬间：恢复显示光标
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
 
         // 2. 处理持续的逻辑 (按住的过程中)
@@ -40,7 +34,8 @@ namespace Lizeral{
                 auto& cameraControl = view.get<CameraControlComponent>(entity);
 
                 UpdateCameraDir(input, trans, cameraControl);
-                UpdateCameraPosForFree(input, trans, cameraControl);
+                // 【修改】：把真实的 deltaTime 传进去
+                UpdateCameraPosForFree(input, trans, cameraControl, deltaTime); 
             }
         }
     }
@@ -62,8 +57,8 @@ namespace Lizeral{
         trans.setRotation(qYaw * qPitch);
     }
 
-    void CameraControlSystem::UpdateCameraPosForFree(Input& input, TransformComponent& trans, CameraControlComponent& cameraController){
-        float dt = 0.016f; // 这里应该从 Tick 传入 deltaTime
+    void CameraControlSystem::UpdateCameraPosForFree(Input& input, TransformComponent& trans, CameraControlComponent& cameraController, float dt){
+        // 【修改】：使用传进来的真实 dt，而不是硬编码 0.016f
         float velocity = cameraController.getMoveSpeed() * dt;
 
         if (input.GetKey(Key::LEFT_SHIFT)) velocity = cameraController.getSpeedMutipier() * dt;
@@ -73,7 +68,6 @@ namespace Lizeral{
         Vector3 right   = q.getRightVector();
 
         Vector3 worldUp(0, 1, 0);
-
         Vector3 moveDir(0, 0, 0);
 
         // WASD - 沿着相机的局部坐标系移动
@@ -82,7 +76,7 @@ namespace Lizeral{
         if (input.GetKey(Key::D)) moveDir += right;
         if (input.GetKey(Key::A)) moveDir -= right;
 
-        // QE - 沿着世界坐标系垂直升降 (UE 风格)
+        // QE - 沿着世界坐标系垂直升降
         if (input.GetKey(Key::Q)) moveDir += worldUp;
         if (input.GetKey(Key::E)) moveDir -= worldUp;
 

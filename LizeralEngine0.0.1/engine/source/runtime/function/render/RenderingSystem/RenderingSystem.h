@@ -2,6 +2,10 @@
 #include <glad/glad.h>
 #include "runtime/function/ecs/registry.h"
 #include "runtime/function/res_type/shader/shader.h"
+#include "runtime/function/res_type/Texture/Texture2D.h"
+#include "runtime/function/physics/physicsDebug/PhysicsDebugDrawer.h"
+#include "runtime/function/physics/PhysicsSystem.h"
+
 #include <iostream>
 
 namespace Lizeral{
@@ -27,6 +31,16 @@ namespace Lizeral {
 
         unsigned int m_DefaultFBO = 0; // 默认为 0，兼容 Sandbox
 
+        int m_viewX = 0, m_viewY = 0, m_viewW = 1920, m_viewH = 1080;
+
+        std::shared_ptr<Shader> m_skyboxShader;
+        std::shared_ptr<Texture2D> m_skyboxTexture; // 直接使用资源系统！
+
+        unsigned int m_cubeVAO = 0;
+        unsigned int m_cubeVBO = 0;
+
+        void SetupSkyboxCube();
+
     public:
         RenderingSystem() = default;
         ~RenderingSystem() { Shutdown(); }
@@ -48,6 +62,10 @@ namespace Lizeral {
             const Vector3& lightDir) ;
 
         void SetDefaultFBO(unsigned int fbo) { m_DefaultFBO = fbo; }
+
+        void SetViewport(int x, int y, int w, int h) {
+            m_viewX = x; m_viewY = y; m_viewW = w; m_viewH = h;
+        }
         
     };
 

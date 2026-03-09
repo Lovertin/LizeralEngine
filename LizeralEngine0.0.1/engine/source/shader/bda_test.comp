@@ -1,0 +1,29 @@
+#version 460
+// 开启 Vulkan 的 Buffer Reference (BDA) 
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+
+// 定义施工队大小：每个 Workgroup 有 256 个线程 (工人)
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+// 定义显存数据的布局，并声明它是一个 buffer_reference (C++ 里的指针)
+layout(buffer_reference, scalar, buffer_reference_align = 4) buffer IntArray {
+    int values[]; // 这是一个长度未知的数组，直接映射到你的 50MB 显存
+};
+
+// 小纸条 (Push Constant)，用来接收 CPU 传过来的 64位 地址
+layout(push_constant) uniform PushConstants {
+    IntArray dataAddress; // Shader 会把传进来的 64位 整数自动当成指针
+} pc;
+
+void main() {
+    // 获取当前工人的全局编号 (比如 0, 1, 2, 3...)
+    uint index = gl_GlobalInvocationID.x;
+    
+    // 我们在这个测试里只处理前 4 个数字，防止越界
+    if (index < 4) {
+        // 直接拿着地址去显存里读取数据，加 1，然后再写回显存！
+        // 你的 114 会变成 115，514 会变成 515！
+        pc.dataAddress.values[index] += 1; 
+    }
+}

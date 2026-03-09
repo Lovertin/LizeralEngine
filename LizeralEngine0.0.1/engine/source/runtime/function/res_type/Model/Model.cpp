@@ -108,12 +108,6 @@ namespace Lizeral {
             }
         }
 
-        // ==========================================
-        // 3. 材质处理 (暂时传入 nullptr，解耦渲染)
-        // ==========================================
-        // 真正的商业引擎会在这里读取 Assimp 的材质，并生成对应的 PBRMaterial。
-        // 但为了保证本次重构的安全着陆，我们先不自动加载贴图，
-        // 我们返回 nullptr，允许你在外部统一绑定 Shader。
         auto pbrMat = std::make_shared<PBRMaterial>();
 
         if (mesh->mMaterialIndex >= 0) {

@@ -7,6 +7,7 @@
 #include "runtime/function/ecs/registry.h"
 #include "runtime/function/ecs/components/component.h" // 包含脏标记定义
 #include "runtime/function/physics/phsicsEntityheaders.h"
+// #include "editor/selection/EditorSelection.h"
 
 // 前置声明，减少编译依赖
 namespace Lizeral {
@@ -37,6 +38,8 @@ namespace Lizeral {
 
         void DebugDrawWorld();
 
+        PhysicsScene* getScene() { return m_scene; }
+
     private:
         PhysicsScene* m_scene { nullptr };
 
@@ -54,7 +57,7 @@ namespace Lizeral {
         void CreateBody(Registry& registry,Entity entity, RigidBodyComponent& rb, const TransformComponent& t, const ColliderComponent& c);
 
         // 3. 数据同步 (Game -> Physics)：处理脏标记
-        void SyncDirtyData(RigidBodyComponent& rb, const TransformComponent& t, ColliderComponent& c);
+        void SyncDirtyData(RigidBodyComponent& rb, TransformComponent& t, ColliderComponent& c);
 
         // 4. 结果回写 (Physics -> Game)：将模拟结果写回组件
         void SyncTransformBack(const RigidBodyComponent& rb, TransformComponent& t,const ColliderComponent& c);

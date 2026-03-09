@@ -15,7 +15,6 @@ namespace Lizeral {
         Sphere,
         Capsule,
         ConvexHull
-        // 以后可以加 Cylinder, Mesh, Convex 等
     };
 
     REFLECTION_TYPE(ColliderComponent)
@@ -23,9 +22,6 @@ namespace Lizeral {
         REFLECTION_BODY(ColliderComponent)
 
     public:
-        // ========================================================
-        // 宏绑定：反射修改后自动设置脏标记
-        // ========================================================
         BEGIN_REFLECTION_UPDATED()
             REFLECTION_BIND_DIRTY("m_type",     COLLIDER_DIRTY_TYPE)
             REFLECTION_BIND_DIRTY("m_size",     COLLIDER_DIRTY_SIZE)
@@ -33,7 +29,6 @@ namespace Lizeral {
             REFLECTION_BIND_DIRTY("m_height",   COLLIDER_DIRTY_SIZE)
             REFLECTION_BIND_DIRTY("m_offset",   COLLIDER_DIRTY_OFFSET)
         END_REFLECTION_UPDATED()
-        // ========================================================
 
         // --- Setters ---
         void setType(ColliderType type) {
@@ -56,12 +51,15 @@ namespace Lizeral {
             if (m_offset != offset) { m_offset = offset; setDirty(COLLIDER_DIRTY_OFFSET); }
         }
 
+        void setDebug(const bool isDebug){ m_ShowDebug = isDebug; }
+
         // --- Getters ---
         ColliderType getType() const { return m_type; }
         const Vector3& getSize() const { return m_size; }
         float getRadius() const { return m_radius; }
         float getHeight() const { return m_height; }
         const Vector3& getOffset() const { return m_offset; }
+        bool getShowDebug() const {return m_ShowDebug;}
 
     private:
         // 2. 核心数据区
@@ -69,9 +67,6 @@ namespace Lizeral {
         META(Enable)
         ColliderType m_type { ColliderType::Box };
 
-        // Box 的尺寸 (长宽高)
-        // 注意：Bullet 的 BoxShape 构造函数要的是“半长(HalfExtents)”，
-        // 但我们在组件里通常存“全长”，在 System 里除以 2。这样对策划更直观。
         META(Enable)
         Vector3 m_size { 1.0f, 1.0f, 1.0f };
 
@@ -86,5 +81,8 @@ namespace Lizeral {
         // 局部中心偏移 (相对于 Transform 的位置)
         META(Enable)
         Vector3 m_offset { 0.0f, 0.0f, 0.0f };
+
+        META(Enable)
+        bool m_ShowDebug {false};
     };
 }

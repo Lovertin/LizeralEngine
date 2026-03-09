@@ -7,7 +7,8 @@
 #include <QSlider>
 #include <QMouseEvent>
 #include <QCursor>
-
+#include <QPushButton>
+#include <QFileDialog>
 
 #include <sstream>
 #include <iostream>
@@ -348,6 +349,64 @@ namespace Lizeral {
         }
     };
 
+    class AddressStringDrawer : public IPropertyDrawer {
+    public:
+        QWidget* DrawProperty(Reflection::FieldAccessor& accessor, void* instance, QWidget* parent) override {
+            QWidget* widget = new QWidget(parent);
+            QHBoxLayout* hLayout = new QHBoxLayout(widget);
+            hLayout->setContentsMargins(0, 0, 0, 0);
+
+            // 1. 读取底层数据
+            std::string* strPtr = static_cast<std::string*>(accessor.get(instance));
+            std::string currentPath = strPtr ? *strPtr : "";
+
+            // 2. 创建 UI 控件
+            QLabel* nameLabel = new QLabel(QString::fromStdString(accessor.getFieldName()), widget);
+            nameLabel->setMinimumWidth(80); // 对齐 Inspector 标签
+
+            QLineEdit* lineEdit = new QLineEdit(QString::fromStdString(currentPath), widget);
+            lineEdit->setStyleSheet("background-color: #2d2d2d; color: #cccccc; border: 1px solid #444444; border-radius: 2px;");
+
+            QPushButton* browseBtn = new QPushButton("...", widget);
+            browseBtn->setFixedWidth(25);
+            browseBtn->setStyleSheet("background-color: #444444; color: white; border: none; border-radius: 2px;");
+
+            hLayout->addWidget(nameLabel);
+            hLayout->addWidget(lineEdit);
+            hLayout->addWidget(browseBtn);
+
+            // 3. 定义数据写入 Lambda
+            auto updateData = [accessor, instance, lineEdit]() mutable {
+                std::string newStr = lineEdit->text().toStdString();
+                accessor.set(instance, &newStr);
+                
+                // 【极其重要】：在这里你需要通知引擎数据改变了！
+                // 比如调用: Lizeral::EditorSelection::Get().NotifyDataModified();
+                // 或者如果你的 accessor 有内置的触发机制则忽略此条
+            };
+
+            // 4. 双向绑定逻辑
+            // 逻辑 A：用户手动在文本框里输入或粘贴路径，按下回车或失去焦点时
+            QObject::connect(lineEdit, &QLineEdit::editingFinished, updateData);
+
+            // 逻辑 B：用户点击 "..." 浏览按钮时，调出系统文件选择器
+            QObject::connect(browseBtn, &QPushButton::clicked, [lineEdit, updateData, widget]() mutable {
+                // 你可以通过 accessor 获取 Metadata 来限制格式，比如 "Filter:*.glb *.obj"
+                QString filePath = QFileDialog::getOpenFileName(widget, "Select Asset", "", "All Files (*.*)");
+                
+                if (!filePath.isEmpty()) {
+                    // UI 表现
+                    lineEdit->setText(filePath);
+                    // 写入底层数据
+                    updateData();
+                }
+            });
+
+            return widget;
+        }
+    };
+
+
 
     // ==========================================
     // 3. 核心工厂实现
@@ -362,6 +421,7 @@ namespace Lizeral {
         s_DrawerRegistry["bool"] = std::make_unique<BoolDrawer>();
         s_DrawerRegistry["UI=Headline_std::string"] = std::make_unique<HeadlineStringDrawer>();
         s_DrawerRegistry["UI=Slider_Range_Lizeral::Quaternion"] = std::make_unique<RangeQuaternionDrawer>();
+        s_DrawerRegistry["UI=Address_std::string"] = std::make_unique<AddressStringDrawer>();
         
         // TODO: 之后在这里注册 SliderDrawer, QuaternionDrawer 等等...
 

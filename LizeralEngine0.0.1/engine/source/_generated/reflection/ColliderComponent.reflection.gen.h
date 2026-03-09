@@ -68,6 +68,15 @@ namespace TypeFieldReflectionOparator{
         }
         static void* get_m_offset(void* instance){ return static_cast<void*>(&(static_cast<ColliderComponent*>(instance)->m_offset));}
         static bool isArray_m_offset(){ return false; }
+        static const char* getFieldName_m_ShowDebug(){ return "m_ShowDebug";}
+        static const char* getFieldTypeName_m_ShowDebug(){ return "bool";}
+        static void set_m_ShowDebug(void* instance, void* field_value){ 
+            auto* typed_instance = static_cast<ColliderComponent*>(instance);
+            typed_instance->m_ShowDebug = *static_cast<bool*>(field_value);
+            Lizeral::Reflection::TryNotifyReflectionUpdated(typed_instance, "m_ShowDebug");
+        }
+        static void* get_m_ShowDebug(void* instance){ return static_cast<void*>(&(static_cast<ColliderComponent*>(instance)->m_ShowDebug));}
+        static bool isArray_m_ShowDebug(){ return false; }
     };
 }//namespace TypeFieldReflectionOparator
 
@@ -138,6 +147,19 @@ namespace TypeFieldReflectionOparator{
             meta_tags_m_offset
         );
         REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_offset);
+        std::unordered_map<std::string, std::string> meta_tags_m_ShowDebug;
+        meta_tags_m_ShowDebug.insert({"Enable", ""});
+
+        FieldFunctionTuple* f_field_function_tuple_m_ShowDebug=new FieldFunctionTuple(
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::set_m_ShowDebug,
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::get_m_ShowDebug,
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::getClassName,
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldName_m_ShowDebug,
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::getFieldTypeName_m_ShowDebug,
+            &TypeFieldReflectionOparator::TypeColliderComponentOperator::isArray_m_ShowDebug,
+            meta_tags_m_ShowDebug
+        );
+        REGISTER_FIELD_TO_MAP("ColliderComponent", f_field_function_tuple_m_ShowDebug);
         
         
         ClassFunctionTuple* f_class_function_tuple_ColliderComponent=new ClassFunctionTuple(

@@ -89,6 +89,21 @@ namespace Lizeral {
                 continue;
             }
 
+            btRigidBody* body = static_cast<btRigidBody*>(rb.getRuntimeBody());
+            if (body) {
+                // 【极其清爽】：只听从 ColliderComponent 里的标志位！
+                bool shouldDraw = col.getShowDebug();
+
+                int flags = body->getCollisionFlags();
+                if (shouldDraw) {
+                    // 允许绘制
+                    body->setCollisionFlags(flags & ~btCollisionObject::CF_DISABLE_VISUALIZE_OBJECT);
+                } else {
+                    // 禁止绘制
+                    body->setCollisionFlags(flags | btCollisionObject::CF_DISABLE_VISUALIZE_OBJECT);
+                }
+            }
+
             // case 2: 刚体已存在，检查脏标记
             if (rb.isDirty() || trans.isDirty() || col.isDirty()) {
                 SyncDirtyData(rb, trans, col);
@@ -142,8 +157,6 @@ namespace Lizeral {
             outHit.normal = Vector3(callback.m_hitNormalWorld.x(), callback.m_hitNormalWorld.y(), callback.m_hitNormalWorld.z());
             outHit.distance = (outHit.point - start).length();
 
-            // 【关键难点】如何从 Bullet 的 collisionObject 拿到 ECS 的 Entity？
-            // 通常在创建 RigidBody 时，我们需要把 EntityID 存到 UserPointer 里
             const btCollisionObject* obj = callback.m_collisionObject;
             outHit.entity = static_cast<uint32_t>((uintptr_t)obj->getUserPointer()); 
             
@@ -343,7 +356,7 @@ namespace Lizeral {
     // =====================================================================================
     // 数据同步 Game -> Physics (处理脏标记)
     // =====================================================================================
-    void PhysicsSystem::SyncDirtyData(RigidBodyComponent& rb, const TransformComponent& t, ColliderComponent& c) {
+    void PhysicsSystem::SyncDirtyData(RigidBodyComponent& rb, TransformComponent& t, ColliderComponent& c) {
         btRigidBody* body = static_cast<btRigidBody*>(rb.getRuntimeBody());
         if (!body) return;
 
@@ -388,11 +401,14 @@ namespace Lizeral {
 
         // --- B. 处理 Transform (瞬移 / Teleport) ---
         // 只有当 Position 或 Rotation 变脏时才强制设置
-        if (t.isDirty(TRANS_DIRTY_POSITION) || t.isDirty(TRANS_DIRTY_ROTATION)) {
+        if (t.isDirty(TRANS_DIRTY_POSITION) || t.isDirty(TRANS_DIRTY_ROTATION) || c.isDirty()) {
             btTransform tr;
             
-            // 计算 offset (Transform + Collider Offset)
-            Vector3 finalPos = t.getPosition() + c.getOffset();
+            // 【核心修复二】：处理局部旋转偏移！
+            // Offset 是相对于模型中心的局部偏移，必须乘以物体的当前旋转态
+            // 假设你的 Quaternion 已经重载了 operator*(const Vector3&)
+            Vector3 rotatedOffset = t.getRotation() * c.getOffset();
+            Vector3 finalPos = t.getPosition() + rotatedOffset;
             
             tr.setOrigin(ToBtVector3(finalPos));
             tr.setRotation(ToBtQuaternion(t.getRotation()));
@@ -402,7 +418,7 @@ namespace Lizeral {
                 body->getMotionState()->setWorldTransform(tr);
             }
             
-            // 瞬移后必须唤醒，否则物体可能悬空静止
+            // 只要位置发生了突变，就必须唤醒物理休眠，否则会在空中静止
             body->activate(true);
         }
 
@@ -422,13 +438,36 @@ namespace Lizeral {
             }
         }
 
-        // 清除 Transform 的所有脏标记
-        // 注意：因为我们是 const TransformComponent& t 传入的，
-        // 这里假设 TransformComponent 的 clearDirty 是 mutable 的，或者你需要移除 const
-        // 实际上在 Tick 中获取的是引用 auto& t，所以可以修改。
-        // 为了编译通过，你需要确保 SyncDirtyData 的参数不是 const，或者 clearDirty 是 const 方法。
-        // 修正：去掉 SyncDirtyData 参数里的 const
-        // (我在下面的修正建议里去掉 const)
+        if (c.isDirty()) {
+            btCollisionShape* oldShape = body->getCollisionShape();
+            
+            // 重新调用你的工厂方法，根据新的 Size/Radius 造一个全新的外壳
+            // 假设你之前有个 Entity m_owner 可以传，或者这里调用不需要 Entity 的版本
+            btCollisionShape* newShape = CreateShape(c); 
+            
+            // 继承原本的 LocalScaling
+            newShape->setLocalScaling(oldShape->getLocalScaling());
+            
+            // 把新外壳套上去
+            body->setCollisionShape(newShape);
+
+            // 外壳变了，必须重新计算惯性张量！
+            if (rb.getMass() > 0.0f) {
+                btVector3 inertia(0, 0, 0);
+                newShape->calculateLocalInertia(rb.getMass(), inertia);
+                body->setMassProps(rb.getMass(), inertia);
+                body->updateInertiaTensor();
+            }
+            body->activate(true);
+
+            // 销毁旧外壳，防止内存泄漏 (如果你的 scene 统一管理了，这里需要相应处理)
+            // delete oldShape; 
+        }
+
+        rb.clearDirty(0xFFFFFFFF);
+        t.clearDirty(0xFFFFFFFF);
+        c.clearDirty(0xFFFFFFFF);
+        
     }
 
     // =====================================================================================

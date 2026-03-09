@@ -1,28 +1,42 @@
-// Material.h
 #pragma once
 
 #include <memory>
+#include <string>
 #include "runtime/function/res_type/shader/shader.h"
+#include "runtime/core/meta/reflection/reflection.h" // 【新增】：引入反射宏
 
 namespace Lizeral {
 
-    class Material {
+    REFLECTION_TYPE(Material)
+    CLASS(Material, WhiteListFields) {
+        REFLECTION_BODY(Material)
     protected:
-        // 每个材质实例都必须绑定一个具体的 Shader
+        // ==========================================
+        // 【运行时数据】：不反射，只在内存中起作用
+        // ==========================================
         std::shared_ptr<Shader> m_Shader;
 
     public:
+        // ==========================================
+        // 【反射数据】：供 UI 显示和场景保存的路径
+        // ==========================================
+        META(Enable)
+        std::string m_VertShaderPath;
+        
+        META(Enable)
+        std::string m_FragShaderPath;
+
         Material() = default;
         Material(std::shared_ptr<Shader> shader) : m_Shader(shader) {}
         
-        // 虚析构函数，保证派生类被正确清理
         virtual ~Material() = default;
 
-        // ==========================================
-        // 核心接口：子类必须实现该方法。
-        // 在这里执行 shader->Bind()，并把特有的 Uniform 送进 GPU。
-        // ==========================================
-        virtual void BindAndApply() = 0;
+        // 核心接口
+        virtual void BindAndApply(){}
+
+        // 【新增】：根据反射的路径，真正去加载 Shader
+        // 可以放在 cpp 里实现，需要调用 ResourceManager
+        void LoadShader(); 
 
         // Getter / Setter
         void SetShader(std::shared_ptr<Shader> shader) { m_Shader = shader; }

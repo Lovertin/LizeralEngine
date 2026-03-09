@@ -1,27 +1,24 @@
 #pragma once
 #include "runtime/core/math/vector2.h"
-#include <GLFW/glfw3.h>
+// 【彻底删除】：#include <GLFW/glfw3.h>
 
 namespace Lizeral{
+
+    // 【新增】：定义我们自己引擎的最大按键和鼠标键数量
+    constexpr int MAX_KEYS = 512;
+    constexpr int MAX_MOUSE_BUTTONS = 8;
+
+    // 【重构】：不再依赖 GLFW 宏，直接使用干净的枚举值
     enum class Key{
-        W=GLFW_KEY_W,
-        A=GLFW_KEY_A,
-        S=GLFW_KEY_S,
-        D=GLFW_KEY_D,
-        E=GLFW_KEY_E,
-        Q=GLFW_KEY_Q,
-        ESC=GLFW_KEY_ESCAPE,
-        SPACE=GLFW_KEY_SPACE,
-        R=GLFW_KEY_R,
-        LEFT_SHIFT=GLFW_KEY_LEFT_SHIFT,
-        DOWN=GLFW_KEY_DOWN,
-        UP=GLFW_KEY_UP
+        W = 0, A, S, D, E, Q, 
+        ESC, SPACE, R, LEFT_SHIFT, DOWN, UP
+        // 未来如果需要更多按键，直接往下加即可
     };
 
     enum class MouseButton {
-        Left = GLFW_MOUSE_BUTTON_LEFT,
-        Right = GLFW_MOUSE_BUTTON_RIGHT,
-        Middle = GLFW_MOUSE_BUTTON_MIDDLE
+        Left = 0, 
+        Right, 
+        Middle
     };
 
     class Input{
@@ -36,7 +33,8 @@ namespace Lizeral{
             return instance;
         }
 
-        void Init(GLFWwindow* window);
+        // 【删除】：void Init(GLFWwindow* window);
+        
         void Tick();
 
         // 键盘
@@ -55,34 +53,34 @@ namespace Lizeral{
         // 核心：这一帧鼠标移动了多少 (dx, dy)
         Vector2 GetMouseDelta();
 
-        //重置鼠标状态 
+        // 重置鼠标状态 
         void ResetMouse();
 
+        // 被动接收模式的接口（专供 Qt 等外部窗口系统调用）
+        void SetKeyDown(Key key, bool isDown);
+        void SetMouseButtonDown(MouseButton button, bool isDown);
+        void SetMousePosition(float x, float y);
+        void SetMouseScroll(float delta);
 
     private:
-        //私有构造函数
+        // 私有构造函数
         Input();
         ~Input() = default;
 
-        // GLFW 回调函数 (必须是 static)
-        static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-        static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-        static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-        static void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
-        //回调查询是否选中当前窗口
-        static void WindowFocusCallback(GLFWwindow* window, int focused);
-
-    private:
-        bool m_keys[GLFW_KEY_LAST];      // 当前帧键盘
-        bool m_lastKeys[GLFW_KEY_LAST];  // 上一帧键盘
+        // 【彻底删除】：所有静态的 GLFW Callbacks
         
-        bool m_mouseButtons[GLFW_MOUSE_BUTTON_LAST];
-        bool m_lastMouseButtons[GLFW_MOUSE_BUTTON_LAST];
+    private:
+        // 替换为我们自己的常量
+        bool m_keys[MAX_KEYS] = {false};       
+        bool m_lastKeys[MAX_KEYS] = {false};   
+        
+        bool m_mouseButtons[MAX_MOUSE_BUTTONS] = {false};
+        bool m_lastMouseButtons[MAX_MOUSE_BUTTONS] = {false};
 
-        Vector2 m_mousePos;
-        Vector2 m_mouseDelta;
-        float m_scrollDelta;
+        Vector2 m_mousePos{0.0f, 0.0f};
+        Vector2 m_mouseDelta{0.0f, 0.0f};
+        float m_scrollDelta{0.0f};
 
-        bool s_firstMouseInput;
+        bool s_firstMouseInput{true};
     };
 }

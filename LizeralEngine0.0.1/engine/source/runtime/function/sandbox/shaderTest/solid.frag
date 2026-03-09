@@ -4,7 +4,7 @@ out vec4 FragColor;
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
-in vec4 FragPosViewSpace; // 【新增】：接收观察空间坐标
+in vec4 FragPosViewSpace; // 接收观察空间坐标
 
 // --- 摄像机与光照 ---
 uniform vec3 u_camPos;
@@ -24,9 +24,6 @@ uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_PrefilterMap; 
 uniform bool u_UseIBL;
 
-// ==========================================
-// 【新增】：CSM 级联阴影专用 Uniform
-// ==========================================
 uniform mat4 u_lightSpaceMatrices[4];     // 级联矩阵数组
 uniform float u_cascadePlaneDistances[4]; // 级联分割深度
 uniform int u_cascadeCount;               // 级联层数
@@ -82,12 +79,11 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-// 【彻底重写】：CSM 阴影计算核心
 float ShadowCalculation(vec3 fragPosWorld, vec3 N, vec3 L) {
-    // 1. 获取像素离摄像机的距离 (OpenGL 观察空间 Z 是负数，取绝对值)
+    // 1. 获取像素离摄像机的距离
     float depthValue = abs(FragPosViewSpace.z);
 
-    // 2. 智能选层：看看像素落在哪个级联区间
+    // 2. 智能选层
     int layer = -1;
     for (int i = 0; i < u_cascadeCount; ++i) {
         if (depthValue < u_cascadePlaneDistances[i]) {
@@ -95,44 +91,44 @@ float ShadowCalculation(vec3 fragPosWorld, vec3 N, vec3 L) {
             break;
         }
     }
-    // 如果比最远的一层还要远，就用最后一层
     if (layer == -1) {
         layer = u_cascadeCount - 1;
     }
 
-    // 3. 拿到该层对应的太阳矩阵，计算裁剪空间坐标
-    vec4 fragPosLightSpace = u_lightSpaceMatrices[layer] * vec4(fragPosWorld, 1.0);
+    float normalOffsetScale = 0.05; // 基础偏移量，可根据你的场景大小微调
+    if (layer == 1) normalOffsetScale *= 1.5;
+    else if (layer == 2) normalOffsetScale *= 2.0;
+    else if (layer == 3) normalOffsetScale *= 3.0;
+
+    // 光线越是倾斜照射表面，需要的法线偏移越大
+    vec3 offsetPos = fragPosWorld + N * normalOffsetScale * (1.0 - dot(N, L));
+
+    // 3. 用偏移后的坐标拿到该层对应的太阳矩阵
+    vec4 fragPosLightSpace = u_lightSpaceMatrices[layer] * vec4(offsetPos, 1.0);
     
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
-    // 超出该视锥体外围，默认没有阴影
     if(projCoords.z > 1.0)
         return 0.0;
 
     float currentDepth = projCoords.z;
-    
-    // 动态 Bias (越远的层级，矩阵包围盒越大，需要的 bias 容错率也该适度变大)
-    float baseBias = max(0.002 * (1.0 - dot(N, L)), 0.0005);
-    
-    // 随着级联层数(layer)变大，矩阵范围变大，bias也需要适度翻倍
-    float bias = baseBias;
+
+    float bias = 0.0005;
     if (layer == 1) bias *= 1.2;
     else if (layer == 2) bias *= 1.5;
     else if (layer == 3) bias *= 2.0;
 
-    // 4. 泊松圆盘 PCF (注意 texture() 从 Array 中采样的语法：第三个参数是 layer)
+    // 4. 泊松圆盘 PCF
     float shadow = 0.0;
-    // textureSize 获取 2DArray 会返回 ivec3(width, height, layers)，所以取 xy
     vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0).xy); 
     
     float filterRadius = 2.0; 
-    if (layer == 1) filterRadius *= 0.5;  // 第 1 层面积大，偏移量减半
+    if (layer == 1) filterRadius *= 0.5;  
     else if (layer == 2) filterRadius *= 0.25; 
     else if (layer == 3) filterRadius *= 0.1;
 
     for(int i = 0; i < 16; i++) {
-        // vec3(uv.x, uv.y, layerIndex)
         float pcfDepth = texture(shadowMap, vec3(projCoords.xy + poissonDisk[i] * texelSize * filterRadius, float(layer))).r; 
         shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
     }

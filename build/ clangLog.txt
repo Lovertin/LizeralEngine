@@ -185,6 +185,21 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Material/Material.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/shader/shader.h \
   assimp/Importer.hpp assimp/scene.h assimp/postprocess.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/resource/resourceManager/resourceManager.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\mutex \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_chrono.hpp \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\ratio \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\thread \
+  C:\Program\ Files\ (x86)\Windows\ Kits\10\Include\10.0.26100.0\ucrt\process.h \
+  C:\Program\ Files\ (x86)\Windows\ Kits\10\Include\10.0.26100.0\ucrt\corecrt_startup.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\vcruntime_startup.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\fstream \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_filebuf.hpp \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\istream \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Material/PBRMaterial.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/Texture2D.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/TextureCube.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Rigidbody/RigidBodyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Transform/TransformComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Light/DirectionalLightComponent.h \
@@ -199,8 +214,6 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Transform/TransformComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/component_pool.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\iostream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\istream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\ostream \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/entity.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/registry.h \
@@ -209,7 +222,6 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\typeindex \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/view.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/input/input.h \
-  GLFW/glfw3.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/phsicsEntityheaders.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/physicsDebug/PhysicsDebugDrawer.h \
   LinearMath/btIDebugDraw.h \
@@ -219,13 +231,17 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   btBulletDynamicsCommon.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/PhysicsSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/registry.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\editor/selection/EditorSelection.h \
+  QObject \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraControlSystem/CameraControlSystem.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/input/input.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/CameraSystem/CameraSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/RenderingSystem/RenderingSystem.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Texture/Texture2D.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/physics/physicsDebug/PhysicsDebugDrawer.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/physics/PhysicsSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/Material.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/PBRMaterial.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/Texture2D.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/texture/TextureCube.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Model/Mesh.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Model/Model.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/shader/shader.h \
@@ -234,13 +250,4 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/utils/ImportModel.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/res_type/Model/Mesh.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/resource/resource.h \
-  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/resource/resourceManager/resourceManager.h \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\mutex \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_chrono.hpp \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\ratio \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\thread \
-  C:\Program\ Files\ (x86)\Windows\ Kits\10\Include\10.0.26100.0\ucrt\process.h \
-  C:\Program\ Files\ (x86)\Windows\ Kits\10\Include\10.0.26100.0\ucrt\corecrt_startup.h \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\vcruntime_startup.h \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\fstream \
-  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\__msvc_filebuf.hpp
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/resource/resourceManager/resourceManager.h

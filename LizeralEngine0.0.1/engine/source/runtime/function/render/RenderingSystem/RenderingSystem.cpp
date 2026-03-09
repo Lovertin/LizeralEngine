@@ -1,20 +1,28 @@
 #include "RenderingSystem.h"
 #include "runtime/function/ecs/components/componentAll.h"
 #include "runtime/function/res_type/Material/PBRMaterial.h"
+#include "runtime/resource/resourceManager/resourceManager.h"
 #include "runtime/core/math/matrix4.h"
 #include "runtime/core/math/vector3.h"
+// #include "runtime/function/physics/physicsDebug/PhysicsDebugDrawer.h"
 
 namespace Lizeral {
 
     void RenderingSystem::Initialize() {
+
         m_shadowShader = std::make_shared<Shader>(
             "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\shadow.vert", 
             "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\shadow.frag"
         );
 
-        // ==========================================
-        // 【核心】：创建 CSM Shadow Map Array FBO
-        // ==========================================
+        m_skyboxShader = std::make_shared<Shader>(
+            "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\skybox.vert", 
+            "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\skybox.frag"
+        );
+
+        SetupSkyboxCube();
+
+        m_skyboxTexture = ResourceManager::GetInstance().Load<Texture2D>("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\citrus_orchard_road_puresky_4k.hdr");
 
         // 1. 生成帧缓冲对象 (FBO)
         glGenFramebuffers(1, &m_depthMapFBO);
@@ -95,11 +103,8 @@ namespace Lizeral {
                 auto& sunTransform = registry.get<TransformComponent>(entity);
                 lightDirToSun = sunTransform.getForward(); // 动态获取朝向
 
-                lightColor = light.getColor() * light.getIntensity(); // 动态获取光强
-                // lightColor = Vector3(3.0f, 3.0f, 3.0f);
-                // lightDirToSun = Vector3(1.5f, 1.0f, 1.5f);
-                // lightDirToSun.normalise();
-                break; // 只取第一个全局光
+                lightColor = light.getColor() * light.getIntensity(); 
+                break;
             }
         }
 
@@ -161,7 +166,7 @@ namespace Lizeral {
         // 阶段 4：颜色渲染管线 (Color Pass)
         // ========================================================
         glBindFramebuffer(GL_FRAMEBUFFER, m_DefaultFBO); // 切回屏幕
-        glViewport(0, 0, 1280, 720); // 恢复屏幕分辨率
+        glViewport(m_viewX, m_viewY, m_viewW, m_viewH); // 恢复屏幕分辨率
 
         glEnable(GL_DEPTH_TEST);
         glCullFace(GL_BACK); // 颜色渲染必须恢复背面剔除
@@ -169,13 +174,31 @@ namespace Lizeral {
         for (auto entity : modelView) {
             auto& t = modelView.get<TransformComponent>(entity);
             auto& m = modelView.get<ModelComponent>(entity);
+
+            if (m.m_ModelPath != m.m_LastLoadedModelPath) {
+                m.LoadResources(); // 重新生成 m_Model 指针
+            }
+
             if (!m.m_Model) continue;
 
             Matrix4x4 modelMatrix = t.getMatrix();
+            auto& meshes = m.m_Model->GetMeshes();
 
-            for (auto& mesh : m.m_Model->GetMeshes()) {
+            for (size_t i = 0; i < meshes.size(); ++i) {
+                auto& mesh = meshes[i];
+
+                // =====================================================
+                // 【核心绝杀】：材质优先级判定！
+                // 优先使用当前组件上的覆盖材质，没有才用模型自带的材质
+                // =====================================================
+                std::shared_ptr<Lizeral::Material> activeMat = mesh.m_Material; 
                 
-                auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(mesh.m_Material);
+                if (i < m.m_OverrideMaterials.size() && m.m_OverrideMaterials[i] != nullptr) {
+                    activeMat = m.m_OverrideMaterials[i]; 
+                }
+
+                auto pbrMat = std::dynamic_pointer_cast<PBRMaterial>(activeMat);
+                // 如果当前材质没有挂载 Shader，直接跳过不画！
                 if (!pbrMat || !pbrMat->GetShader()) continue; 
 
                 auto shader = pbrMat->GetShader();
@@ -192,23 +215,43 @@ namespace Lizeral {
 
                 // --- 4.2 注入 CSM 数据！ ---
                 shader->SetUniform1i("u_cascadeCount", lightSpaceMatrices.size());
-                
-                for (size_t i = 0; i < lightSpaceMatrices.size(); ++i) {
-                    shader->SetUniformMat4f("u_lightSpaceMatrices[" + std::to_string(i) + "]", lightSpaceMatrices[i]);
-                    if (i < shadowCascadeLevels.size()) {
-                        shader->SetUniform1f("u_cascadePlaneDistances[" + std::to_string(i) + "]", shadowCascadeLevels[i]);
+                for (size_t j = 0; j < lightSpaceMatrices.size(); ++j) {
+                    shader->SetUniformMat4f("u_lightSpaceMatrices[" + std::to_string(j) + "]", lightSpaceMatrices[j]);
+                    if (j < shadowCascadeLevels.size()) {
+                        shader->SetUniform1f("u_cascadePlaneDistances[" + std::to_string(j) + "]", shadowCascadeLevels[j]);
                     }
                 }
 
-                // --- 4.3 绑定纹理数组 ---
+                // --- 4.3 绑定阴影纹理数组 ---
                 glActiveTexture(GL_TEXTURE7); 
-                glBindTexture(GL_TEXTURE_2D_ARRAY, m_depthMapArray); // 极其关键：GL_TEXTURE_2D_ARRAY
+                glBindTexture(GL_TEXTURE_2D_ARRAY, m_depthMapArray); 
                 shader->SetUniform1i("shadowMap", 7);
 
-                // --- 4.4 渲染网格 ---
+                // --- 4.4 绑定自己的 PBR 贴图和参数，并渲染网格 ---
                 pbrMat->BindAndApply();
                 mesh.Draw(); 
             }
+        }
+
+        if (m_cubeVAO != 0 && m_skyboxTexture) {
+            glDepthFunc(GL_LEQUAL);   // 骗过深度测试
+            glDisable(GL_CULL_FACE);  // 我们在天空盒内部，不需要剔除
+
+            m_skyboxShader->Bind();
+            m_skyboxShader->SetUniformMat4f("view", viewMatrix);
+            m_skyboxShader->SetUniformMat4f("projection", projMatrix);
+
+            // 绑定 Texture2D
+            m_skyboxTexture->Bind(0); 
+            m_skyboxShader->SetUniform1i("equirectangularMap", 0);
+
+            glBindVertexArray(m_cubeVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+            glBindVertexArray(0);
+
+            // 恢复环境
+            glDepthFunc(GL_LESS); 
+            glEnable(GL_CULL_FACE);
         }
 
         glUseProgram(0);
@@ -219,10 +262,6 @@ namespace Lizeral {
             glDeleteFramebuffers(1, &m_depthMapFBO);
             m_depthMapFBO = 0;
         }
-        // if (m_depthMap != 0) {
-        //     glDeleteTextures(1, &m_depthMap);
-        //     m_depthMap = 0;
-        // }
     }
 
 
@@ -323,5 +362,31 @@ namespace Lizeral {
     return lightProjection * lightView;
 }
 
+
+void RenderingSystem::SetupSkyboxCube() {
+    float skyboxVertices[] = {
+        // positions          
+        -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f
+    };
+    glGenVertexArrays(1, &m_cubeVAO);
+    glGenBuffers(1, &m_cubeVBO);
+    glBindVertexArray(m_cubeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_cubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glBindVertexArray(0);
+}
 
 } // namespace Lizeral

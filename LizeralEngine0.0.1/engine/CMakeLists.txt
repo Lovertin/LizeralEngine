@@ -10,6 +10,13 @@ set(CMAKE_PREFIX_PATH "C:/Qt/6.10.0/mingw_64" ${CMAKE_PREFIX_PATH})
 
 find_package(Qt6 COMPONENTS Core Gui Widgets OpenGLWidgets REQUIRED)
 
+find_package(Vulkan REQUIRED)
+if(Vulkan_FOUND)
+    message(STATUS "====== Vulkan SDK Found! ======")
+    message(STATUS "Vulkan Include Dir: ${Vulkan_INCLUDE_DIRS}")
+    message(STATUS "Vulkan Library: ${Vulkan_LIBRARIES}")
+endif()
+
 # 二进制输出目录
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/bin)
@@ -158,7 +165,8 @@ target_include_directories(LizeralEditor PRIVATE
     source                      
     source/runtime              
     3rdparty/glfw/include       
-    3rdparty/json11             
+    3rdparty/json11   
+    ${Vulkan_INCLUDE_DIRS}      
 )
 
 target_link_libraries(LizeralEditor PUBLIC
@@ -171,6 +179,7 @@ target_link_libraries(LizeralEditor PUBLIC
     Qt6::Gui 
     Qt6::Widgets 
     Qt6::OpenGLWidgets
+    Vulkan::Vulkan
 )
 
 if(WIN32)
@@ -189,6 +198,7 @@ target_include_directories(LizeralPhysicsSandbox PRIVATE
     source/runtime              # 允许 #include "core/..."
     3rdparty/glfw/include       # GLFW
     3rdparty/json11             # json11.hpp
+    ${Vulkan_INCLUDE_DIRS}
 )
 
 # 链接库
@@ -197,6 +207,11 @@ target_link_libraries(LizeralPhysicsSandbox PUBLIC
     glfw
     bullet
     assimp      # 【关键】链接本地编译好的 Assimp
+    Qt6::Core 
+    Qt6::Gui 
+    Qt6::Widgets 
+    Qt6::OpenGLWidgets
+    Vulkan::Vulkan
 )
 
 if(WIN32)
