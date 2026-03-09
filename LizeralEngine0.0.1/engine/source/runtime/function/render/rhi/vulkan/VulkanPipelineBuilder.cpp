@@ -65,9 +65,11 @@ namespace Lizeral {
         // 7. 默认深度测试：关闭 (画基本 UI 或三角形时不需要)
         m_depthStencil = {};
         m_depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        m_depthStencil.depthTestEnable = VK_FALSE;
-        m_depthStencil.depthWriteEnable = VK_FALSE;
-        m_depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        m_depthStencil.depthTestEnable = VK_TRUE;           // 开启深度测试
+        m_depthStencil.depthWriteEnable = VK_TRUE;          // 允许写入深度缓冲（极其重要，否则前面的挡不住后面的）
+        m_depthStencil.depthCompareOp = VK_COMPARE_OP_LESS; // 深度值越小（越近）越优先显示
+        m_depthStencil.depthBoundsTestEnable = VK_FALSE;
+        m_depthStencil.stencilTestEnable = VK_FALSE;
     }
 
     VulkanPipelineBuilder& VulkanPipelineBuilder::AddShaderStage(VkShaderStageFlagBits stage, VkShaderModule shaderModule) {
@@ -130,16 +132,30 @@ namespace Lizeral {
         return *this;
     }
 
-    VkPipeline VulkanPipelineBuilder::Build(VulkanDevice* device, VkRenderPass renderPass) {
+    VkPipeline VulkanPipelineBuilder::Build(VulkanDevice* device, VkFormat colorFormat, VkFormat depthFormat) {
         if (m_pipelineLayout == VK_NULL_HANDLE) {
             throw std::runtime_error("Cannot build pipeline: Pipeline Layout is null!");
         }
 
+        // =========================================================
+        // ★ 动态渲染核心魔法：告诉管线我们要画什么格式的图片
+        // =========================================================
+        VkPipelineRenderingCreateInfo renderingInfo{};
+        renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachmentFormats = &colorFormat;
+        renderingInfo.depthAttachmentFormat = depthFormat;
+
         // 最终组装装配线！
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.pNext = &renderingInfo; // ★ 挂载动态渲染格式信息！
+
+        // ★ 就是这里！刚刚因为缩略写法不小心丢失的代码：
         pipelineInfo.stageCount = static_cast<uint32_t>(m_shaderStages.size());
-        pipelineInfo.pStages = m_shaderStages.data();
+        pipelineInfo.pStages = m_shaderStages.data();  // 把 Shader 数组传给管线！
+
+        // 其他状态机装配
         pipelineInfo.pVertexInputState = &m_vertexInputInfo;
         pipelineInfo.pInputAssemblyState = &m_inputAssembly;
         pipelineInfo.pViewportState = &m_viewportState;
@@ -147,18 +163,19 @@ namespace Lizeral {
         pipelineInfo.pMultisampleState = &m_multisampling;
         pipelineInfo.pDepthStencilState = &m_depthStencil;
         pipelineInfo.pColorBlendState = &m_colorBlending;
-        pipelineInfo.pDynamicState = &m_dynamicStateInfo; // ★ 接入动态状态
+        pipelineInfo.pDynamicState = &m_dynamicStateInfo; 
 
         pipelineInfo.layout = m_pipelineLayout;
-        pipelineInfo.renderPass = renderPass; // 以后改成 Dynamic Rendering 时这里会变
-        pipelineInfo.subpass = 0;             // 目前只用第一个子通道
+
+        pipelineInfo.renderPass = VK_NULL_HANDLE; 
+        pipelineInfo.subpass = 0;             
 
         VkPipeline graphicsPipeline = VK_NULL_HANDLE;
         if (vkCreateGraphicsPipelines(device->GetNativeDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create graphics pipeline!");
         }
 
-        std::cout << "[VulkanPipeline] Graphics Pipeline built successfully with " << m_shaderStages.size() << " stages." << std::endl;
+        std::cout << "[VulkanPipeline] Graphics Pipeline built successfully for Dynamic Rendering!" << std::endl;
         return graphicsPipeline;
     }
 

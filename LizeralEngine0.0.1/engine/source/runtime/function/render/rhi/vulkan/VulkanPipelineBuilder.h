@@ -41,7 +41,7 @@ namespace Lizeral {
 
         // --- 终极兵工厂产出 ---
         // 传入 Device 和 RenderPass，正式将所有状态“焊死”成一条物理硬件管线！
-        VkPipeline Build(VulkanDevice* device, VkRenderPass renderPass);
+        VkPipeline Build(VulkanDevice* device, VkFormat colorFormat, VkFormat depthFormat); //dynamic type
 
     private:
         std::vector<VkPipelineShaderStageCreateInfo> m_shaderStages;

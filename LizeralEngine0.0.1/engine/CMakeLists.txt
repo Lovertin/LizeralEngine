@@ -84,6 +84,14 @@ file(GLOB_RECURSE SRC_VENFOR "source/runtime/core/vendor/stb_image/*.cpp")
 file(GLOB_RECURSE SRC_EDITOR CONFIGURE_DEPENDS "source/editor/*.cpp" "source/editor/*.h")
 
 
+file(GLOB MESHOPTIMIZER_SOURCES "3rdparty/meshopitimizer/src/*.cpp")
+
+
+add_library(meshoptimizer STATIC ${MESHOPTIMIZER_SOURCES})
+
+
+target_include_directories(meshoptimizer PUBLIC "3rdparty/meshopitimizer/src")
+
 
 # E. 聚合物理沙盒源文件
 set(PHYSICS_SANDBOX_SOURCES 
@@ -180,6 +188,7 @@ target_link_libraries(LizeralEditor PUBLIC
     Qt6::Widgets 
     Qt6::OpenGLWidgets
     Vulkan::Vulkan
+    meshoptimizer
 )
 
 if(WIN32)
@@ -212,6 +221,7 @@ target_link_libraries(LizeralPhysicsSandbox PUBLIC
     Qt6::Widgets 
     Qt6::OpenGLWidgets
     Vulkan::Vulkan
+    meshoptimizer
 )
 
 if(WIN32)

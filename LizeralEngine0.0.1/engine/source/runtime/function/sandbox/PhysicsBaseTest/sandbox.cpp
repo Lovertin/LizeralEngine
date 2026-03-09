@@ -9,28 +9,27 @@
 
 #include "runtime/function/render/rhi/vulkan/VulkanContext.h"
 #include "runtime/function/render/rhi/vulkan/VulkanDevice.h"
-#include "runtime/function/render/VulkanRenderer/VulkanRenderer.h" // ★ 引入我们的渲染调度器
+#include "runtime/function/render/VulkanRenderer/VulkanRenderer.h"
 #include "runtime/function/render/rhi/vulkan/VulkanPipelineBuilder.h"
-#include "runtime/function/render/rhi/vulkan/VulkanRenderPass.h"
+
+// 引入我们的 Meshlet 兵工厂
+#include "runtime/function/render/MeshletBuilder/MeshletModelBuilder.h" 
 
 const uint32_t WIDTH = 1280;
 const uint32_t HEIGHT = 720;
 
-// ★ 请把这里换成你编译出的 .spv 文件所在的文件夹绝对路径
+// ★ 请根据你的实际路径修改这里！
 #define SHADER_DIR "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/shader/"
+#define MODEL_PATH "C:/Lizeral Engine/LizeralEngine0.0.1/asset/mazda_glb.glb"
 
 // ====================================================================
-// 顶点结构体与 BDA 显存分配器 (保持不变)
+// 泛型 BDA 分配器
 // ====================================================================
-struct Vertex {
-    float pos[3];
-    float color[3];
-};
-
-uint64_t createBDAVertexBuffer(VkDevice device, VkPhysicalDevice physicalDevice, const std::vector<Vertex>& vertices, VkBuffer& outBuffer, VkDeviceMemory& outMemory) {
+template <typename T>
+uint64_t createBDABuffer(VkDevice device, VkPhysicalDevice physicalDevice, const std::vector<T>& data, VkBuffer& outBuffer, VkDeviceMemory& outMemory) {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = vertices.size() * sizeof(Vertex);
+    bufferInfo.size = data.size() * sizeof(T);
     bufferInfo.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     vkCreateBuffer(device, &bufferInfo, nullptr, &outBuffer);
@@ -62,9 +61,9 @@ uint64_t createBDAVertexBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
     vkAllocateMemory(device, &allocInfo, nullptr, &outMemory);
     vkBindBufferMemory(device, outBuffer, outMemory, 0);
 
-    void* data;
-    vkMapMemory(device, outMemory, 0, bufferInfo.size, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferInfo.size);
+    void* mappedData;
+    vkMapMemory(device, outMemory, 0, bufferInfo.size, 0, &mappedData);
+    memcpy(mappedData, data.data(), (size_t)bufferInfo.size);
     vkUnmapMemory(device, outMemory);
 
     VkBufferDeviceAddressInfo addressInfo{};
@@ -72,6 +71,16 @@ uint64_t createBDAVertexBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
     addressInfo.buffer = outBuffer;
     return vkGetBufferDeviceAddress(device, &addressInfo);
 }
+
+// ====================================================================
+// GPU 任务信使
+// ====================================================================
+struct PushConstants {
+    float transform[4];     // x, y, z 偏移量， w 为统一缩放
+    uint64_t vertexBuffer;  // 全局顶点数组物理地址
+    uint64_t meshletBuffer; // Meshlet 描述符数组物理地址
+    uint64_t indexBuffer;   // 微型索引数组物理地址
+};
 
 std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -104,8 +113,8 @@ int main() {
     try {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); 
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // ★ 设为 TRUE，测试我们渲染器的自动缩放功能！
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Lizeral Engine - Renderer Powered", nullptr, nullptr);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "Lizeral Engine - Dynamic Rendering & Meshlet", nullptr, nullptr);
 
         Lizeral::VulkanContext vulkanContext;
         uint32_t glfwExtensionCount = 0;
@@ -121,38 +130,47 @@ int main() {
             
             auto CmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(vulkanDevice.GetNativeDevice(), "vkCmdDrawMeshTasksEXT");
             if (!CmdDrawMeshTasksEXT) {
-                throw std::runtime_error("Failed to load vkCmdDrawMeshTasksEXT!");
+                throw std::runtime_error("Failed to load vkCmdDrawMeshTasksEXT! Please ensure Vulkan 1.2+ and VK_EXT_mesh_shader are enabled.");
             }
 
             // ====================================================================
-            // 1. 准备 BDA 顶点数据
+            // 1. 资产管线发力：加载模型并用 MeshOptimizer 切分
             // ====================================================================
-            std::vector<Vertex> triangleVertices = {
-                {{ 0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-                {{ 0.5f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-                {{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}} 
-            };
-            VkBuffer vertexBuffer;
-            VkDeviceMemory vertexMemory;
-            uint64_t bdaPointer = createBDAVertexBuffer(vulkanDevice.GetNativeDevice(), vulkanContext.GetPhysicalDevice(), triangleVertices, vertexBuffer, vertexMemory);
+            Lizeral::MeshletModelBuilder builder;
+            if (!builder.LoadAndSliceModel(MODEL_PATH)) {
+                throw std::runtime_error("Failed to load or slice model!");
+            }
 
             // ====================================================================
-            // 2. 引擎系统启动：创建渲染器！
+            // 2. 分配 BDA 显存并装填通讯包
             // ====================================================================
+            VkBuffer vBuf, mBuf, iBuf;
+            VkDeviceMemory vMem, mMem, iMem;
+            
+            uint64_t vAddr = createBDABuffer(vulkanDevice.GetNativeDevice(), vulkanContext.GetPhysicalDevice(), builder.GetVertices(), vBuf, vMem);
+            uint64_t mAddr = createBDABuffer(vulkanDevice.GetNativeDevice(), vulkanContext.GetPhysicalDevice(), builder.GetMeshlets(), mBuf, mMem);
+            uint64_t iAddr = createBDABuffer(vulkanDevice.GetNativeDevice(), vulkanContext.GetPhysicalDevice(), builder.GetMicroIndices(), iBuf, iMem);
+
+            PushConstants pushData{};
+            pushData.transform[0] = 0.0f;    
+            pushData.transform[1] = 0.0f;    
+            pushData.transform[2] = 0.0f;    
+            pushData.transform[3] = 10.5f;  // ★ 之前测试出能完美看见侧脸的缩放系数
+            pushData.vertexBuffer = vAddr;
+            pushData.meshletBuffer = mAddr;
+            pushData.indexBuffer = iAddr;
+            
             Lizeral::VulkanRenderer renderer(&vulkanContext, &vulkanDevice, window);
 
-            // ====================================================================
-            // 3. 准备管线
-            // ====================================================================
-            auto meshShaderCode = readFile(std::string(SHADER_DIR) + "triangle_mesh.spv"); 
-            auto fragShaderCode = readFile(std::string(SHADER_DIR) + "triangle_frag.spv");
+            auto meshShaderCode = readFile(std::string(SHADER_DIR) + "car_mesh.spv"); 
+            auto fragShaderCode = readFile(std::string(SHADER_DIR) + "car_frag.spv");
             VkShaderModule meshShaderModule = createShaderModule(vulkanDevice.GetNativeDevice(), meshShaderCode);
             VkShaderModule fragShaderModule = createShaderModule(vulkanDevice.GetNativeDevice(), fragShaderCode);
 
             VkPushConstantRange pushConstantRange{};
             pushConstantRange.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
             pushConstantRange.offset = 0;
-            pushConstantRange.size = sizeof(uint64_t); 
+            pushConstantRange.size = sizeof(PushConstants); 
 
             VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
             pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -161,59 +179,61 @@ int main() {
             VkPipelineLayout pipelineLayout;
             vkCreatePipelineLayout(vulkanDevice.GetNativeDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout);
 
-            Lizeral::VulkanPipelineBuilder builder;
-            VkPipeline graphicsPipeline = builder
+            Lizeral::VulkanPipelineBuilder builderPipeline;
+            
+            // ★ 解放的管线：不传 RenderPass，只传两个格式！
+            VkPipeline graphicsPipeline = builderPipeline
                 .AddShaderStage(VK_SHADER_STAGE_MESH_BIT_EXT, meshShaderModule) 
                 .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule)
                 .SetPipelineLayout(pipelineLayout)
-                .Build(&vulkanDevice, renderer.GetSwapChainRenderPass()->GetNativeRenderPass()); // ★ 直接向 Renderer 要 RenderPass！
+                .Build(&vulkanDevice, renderer.GetSwapchainFormat(), VK_FORMAT_D32_SFLOAT);
 
             vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), fragShaderModule, nullptr);
             vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), meshShaderModule, nullptr);
 
-            std::cout << "\n[Sandbox] Entering Render Loop! Mesh Shader Activated!" << std::endl;
+            std::cout << "\n[Sandbox] Entering Dynamic Rendering Loop! SIMT Power UNLEASHED!" << std::endl;
             
             // ====================================================================
-            // ★ 4. 极致清爽的现代引擎主循环
+            // 4. 次世代动态渲染主循环
             // ====================================================================
             while (!glfwWindowShouldClose(window)) {
                 glfwPollEvents();
 
-                // 【步骤 A】：请求开启一帧 (底层帮你搞定同步锁、获取图片等所有脏活累活)
                 VkCommandBuffer cmd = renderer.BeginFrame();
                 
-                // 如果窗口被最小化，BeginFrame 会返回 NULL，此时跳过绘制
                 if (cmd != VK_NULL_HANDLE) {
                     
-                    // 【步骤 B】：开启最终上屏的 RenderPass
-                    renderer.BeginSwapChainRenderPass(cmd);
+                    // ★ 动态渲染开启！随叫随到，指哪画哪！
+                    renderer.BeginRendering(cmd);
                     
-                    // ============================================
-                    // ★ 这里就是未来填充游戏渲染逻辑 (ECS遍历) 的地方！
                     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-                    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT, 0, sizeof(uint64_t), &bdaPointer);
-                    CmdDrawMeshTasksEXT(cmd, 1, 1, 1);
-                    // ============================================
+                    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT, 0, sizeof(PushConstants), &pushData);
+                    
+                    // 极致并发发射
+                    CmdDrawMeshTasksEXT(cmd, builder.GetMeshlets().size(), 1, 1);
 
-                    // 【步骤 C】：结束 RenderPass
-                    renderer.EndSwapChainRenderPass(cmd);
+                    // ★ 动态渲染结束！
+                    renderer.EndRendering(cmd);
 
-                    // 【步骤 D】：请求结束一帧 (底层帮你提交 Queue 和 Present)
                     renderer.EndFrame();
                 }
             }
             
-            // ====================================================================
-            // 5. 优雅退出与清理
-            // ====================================================================
             vkDeviceWaitIdle(vulkanDevice.GetNativeDevice());
             
+            // ====================================================================
+            // 5. 资源清理
+            // ====================================================================
             vkDestroyPipeline(vulkanDevice.GetNativeDevice(), graphicsPipeline, nullptr);
             vkDestroyPipelineLayout(vulkanDevice.GetNativeDevice(), pipelineLayout, nullptr);
-            vkDestroyBuffer(vulkanDevice.GetNativeDevice(), vertexBuffer, nullptr);
-            vkFreeMemory(vulkanDevice.GetNativeDevice(), vertexMemory, nullptr);
             
-        } // Renderer 等底层核心对象在此被自动安全释放
+            vkDestroyBuffer(vulkanDevice.GetNativeDevice(), vBuf, nullptr);
+            vkFreeMemory(vulkanDevice.GetNativeDevice(), vMem, nullptr);
+            vkDestroyBuffer(vulkanDevice.GetNativeDevice(), mBuf, nullptr);
+            vkFreeMemory(vulkanDevice.GetNativeDevice(), mMem, nullptr);
+            vkDestroyBuffer(vulkanDevice.GetNativeDevice(), iBuf, nullptr);
+            vkFreeMemory(vulkanDevice.GetNativeDevice(), iMem, nullptr);
+        } 
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
     } catch (const std::exception& e) {

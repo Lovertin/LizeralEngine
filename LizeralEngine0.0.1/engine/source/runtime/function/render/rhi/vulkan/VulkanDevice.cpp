@@ -84,32 +84,35 @@ namespace Lizeral {
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.samplerAnisotropy = VK_TRUE; 
 
+        // 1. Mesh Shader 特性
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshFeatures{};
+        meshFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+        meshFeatures.meshShader = VK_TRUE; 
+        meshFeatures.taskShader = VK_TRUE; 
+
+        // 2. Vulkan 1.3 特性
+        VkPhysicalDeviceVulkan13Features features13{};
+        features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+        features13.dynamicRendering = VK_TRUE; // ★ 必须开启：动态渲染
+        features13.synchronization2 = VK_TRUE; // ★ 必须开启：同步 2.0 (供 vkCmdPipelineBarrier2 使用)
+        features13.maintenance4 = VK_TRUE;
+        features13.pNext = &meshFeatures;      // ★ 链条第 1 环：1.3 连向 MeshShader
+
+        // 3. Vulkan 1.2 特性
         VkPhysicalDeviceVulkan12Features features12{};
         features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
         features12.bufferDeviceAddress = VK_TRUE; 
         features12.scalarBlockLayout = VK_TRUE;
-
-        VkPhysicalDeviceVulkan13Features features13{};
-        features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-        features13.maintenance4 = VK_TRUE;
-
-        // 新增：2. 开启 Vulkan 扩展的 Mesh Shader 特性
-        VkPhysicalDeviceMeshShaderFeaturesEXT meshFeatures{};
-        meshFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-        meshFeatures.meshShader = VK_TRUE; // 开启 Mesh Shader
-        meshFeatures.taskShader = VK_TRUE; // 顺便把 Task Shader 也开了，以后剔除用
-        
-        // 核心魔法：把特性像铁链一样串起来传给 Vulkan (pNext 链)
-        features13.pNext = &meshFeatures;
-        features12.pNext = &meshFeatures;  // 把 meshFeatures 挂在 features12 后面
+        features12.pNext = &features13;        // ★ 链条第 2 环：1.2 连向 1.3
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.pEnabledFeatures = &deviceFeatures;
-
-        createInfo.pNext = &features12; 
+        
+        // ★ 最终提交链条的头部 (features12)，Vulkan 会顺藤摸瓜读取完所有的特性
+        createInfo.pNext = &features12;
 
 
         // ★ 新增：为了在窗口上画图，必须开启 Swapchain (交换链) 扩展！

@@ -32,6 +32,7 @@ namespace Lizeral {
         
         // 获取所有轮播图的“相框”，之后我们在渲染时需要把它们绑定到 Framebuffer 上
         const std::vector<VkImageView>& GetImageViews() const { return m_imageViews; }
+        const std::vector<VkImage>& GetNativeImages() const { return m_images; }
 
     private:
         VulkanContext* m_context { nullptr };
