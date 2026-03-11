@@ -34,7 +34,7 @@ namespace Lizeral {
 
     class MeshletModelBuilder {
     public:
-        bool LoadAndSliceModel(const std::string& filepath);
+        bool LoadAndSliceModel(const std::string& filepath, uint32_t globalTextureOffset = 0);
 
         const std::vector<MeshletVertex>& GetVertices() const { return m_vertices; }
         const std::vector<uint32_t>& GetMicroIndices() const { return m_microIndices; }
@@ -44,6 +44,7 @@ namespace Lizeral {
         // 新增：获取模型内所有的贴图字节流 (索引对应材质 ID)
         const std::vector<std::vector<unsigned char>>& GetAllTextures() const { return m_allTextures; }
         const std::vector<MaterialData>& GetMaterials() const { return m_materials; }
+
 
     private:
         std::vector<MeshletVertex> m_vertices;

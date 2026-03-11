@@ -16,12 +16,14 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Ind
 
 layout(push_constant) uniform PushConstants {
     mat4 mvp;
+    mat4 model;
     uint64_t vBuf;
     uint64_t mBuf;
     uint64_t iBuf;
     uint64_t bBuf;
     uint64_t matBuf;
     uint totalMeshlets;
+    uint textureOffset;
 } pc;
 
 // 找回快递包裹！
@@ -50,7 +52,7 @@ void main() {
         
         gl_MeshVerticesEXT[tid].gl_Position = pc.mvp * vec4(vertex.pos, 1.0);
         
-        fragNormal[tid] = vertex.normal;
+        fragNormal[tid] = normalize(mat3(pc.model) * vertex.normal);
         fragUV[tid] = vertex.uv;
         fragTexID[tid] = meshlet.textureID; // 传递身份证
     }

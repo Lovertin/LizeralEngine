@@ -20,12 +20,12 @@ namespace Lizeral {
         0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
     };
 
-    bool MeshletModelBuilder::LoadAndSliceModel(const std::string& filepath) {
+    bool MeshletModelBuilder::LoadAndSliceModel(const std::string& filepath , uint32_t globalTextureOffset) {
         std::cout << "\n[MeshletBuilder] Loading model: " << filepath << "..." << std::endl;
 
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(filepath, 
-            aiProcess_Triangulate | aiProcess_GenSmoothNormals | 
+            aiProcess_Triangulate | aiProcess_GenNormals | 
             aiProcess_FlipUVs | aiProcess_PreTransformVertices
         );
 
@@ -159,7 +159,7 @@ namespace Lizeral {
                 descriptor.triangleOffset = currentGlobalTriangleCount + static_cast<uint32_t>(m_microIndices.size() - currentGlobalTriangleCount);
                 descriptor.vertexCount = m.vertex_count;
                 descriptor.triangleCount = m.triangle_count;
-                descriptor.textureID = materialID; // ★ 给这个 Meshlet 发放终身绑定的贴图 ID！
+                descriptor.textureID = globalTextureOffset + materialID;; // ★ 给这个 Meshlet 发放终身绑定的贴图 ID！
                 m_meshlets.push_back(descriptor);
 
                 meshopt_Bounds bounds = meshopt_computeMeshletBounds(

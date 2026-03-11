@@ -14,6 +14,7 @@
 #include "_generated\reflection\DirectionalLightComponent.reflection.gen.h"
 #include "_generated\reflection\vector3.reflection.gen.h"
 #include "_generated\reflection\color.reflection.gen.h"
+#include "_generated\reflection\VulkanModelComponent.reflection.gen.h"
 #include "_generated\reflection\vector4.reflection.gen.h"
 #include "_generated\reflection\axis_aligned.reflection.gen.h"
 #include "_generated\reflection\CameraControlComponent.reflection.gen.h"
@@ -41,6 +42,7 @@ namespace Reflection{
     TypeWrappersRegister::DirectionLightComponent();
     TypeWrappersRegister::Vector3();
     TypeWrappersRegister::Color();
+    TypeWrappersRegister::VulkanModelComponent();
     TypeWrappersRegister::Vector4();
     TypeWrappersRegister::AxisAlignedBox();
     TypeWrappersRegister::CameraControlComponent();

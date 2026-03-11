@@ -41,6 +41,15 @@ namespace TypeFieldReflectionOparator{
         }
         static void* get_m_OverrideMaterialPaths(void* instance){ return static_cast<void*>(&(static_cast<ModelComponent*>(instance)->m_OverrideMaterialPaths));}
         static bool isArray_m_OverrideMaterialPaths(){ return true; }
+        static const char* getFieldName_m_UseGlobalMaterial(){ return "m_UseGlobalMaterial";}
+        static const char* getFieldTypeName_m_UseGlobalMaterial(){ return "bool";}
+        static void set_m_UseGlobalMaterial(void* instance, void* field_value){ 
+            auto* typed_instance = static_cast<ModelComponent*>(instance);
+            typed_instance->m_UseGlobalMaterial = *static_cast<bool*>(field_value);
+            Lizeral::Reflection::TryNotifyReflectionUpdated(typed_instance, "m_UseGlobalMaterial");
+        }
+        static void* get_m_UseGlobalMaterial(void* instance){ return static_cast<void*>(&(static_cast<ModelComponent*>(instance)->m_UseGlobalMaterial));}
+        static bool isArray_m_UseGlobalMaterial(){ return false; }
     };
 }//namespace TypeFieldReflectionOparator
 namespace ArrayReflectionOperator{
@@ -95,6 +104,19 @@ namespace ArrayReflectionOperator{
             meta_tags_m_OverrideMaterialPaths
         );
         REGISTER_FIELD_TO_MAP("ModelComponent", f_field_function_tuple_m_OverrideMaterialPaths);
+        std::unordered_map<std::string, std::string> meta_tags_m_UseGlobalMaterial;
+        meta_tags_m_UseGlobalMaterial.insert({"Enable", ""});
+
+        FieldFunctionTuple* f_field_function_tuple_m_UseGlobalMaterial=new FieldFunctionTuple(
+            &TypeFieldReflectionOparator::TypeModelComponentOperator::set_m_UseGlobalMaterial,
+            &TypeFieldReflectionOparator::TypeModelComponentOperator::get_m_UseGlobalMaterial,
+            &TypeFieldReflectionOparator::TypeModelComponentOperator::getClassName,
+            &TypeFieldReflectionOparator::TypeModelComponentOperator::getFieldName_m_UseGlobalMaterial,
+            &TypeFieldReflectionOparator::TypeModelComponentOperator::getFieldTypeName_m_UseGlobalMaterial,
+            &TypeFieldReflectionOparator::TypeModelComponentOperator::isArray_m_UseGlobalMaterial,
+            meta_tags_m_UseGlobalMaterial
+        );
+        REGISTER_FIELD_TO_MAP("ModelComponent", f_field_function_tuple_m_UseGlobalMaterial);
         
         ArrayFunctionTuple* f_array_tuple_stdSSvectorLstdSSstringR = new  ArrayFunctionTuple(
             &ArrayReflectionOperator::ArraystdSSvectorLstdSSstringROperator::set,

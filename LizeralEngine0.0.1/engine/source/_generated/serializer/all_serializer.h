@@ -13,6 +13,7 @@
 #include "_generated\serializer\DirectionalLightComponent.serializer.gen.h"
 #include "_generated\serializer\vector3.serializer.gen.h"
 #include "_generated\serializer\color.serializer.gen.h"
+#include "_generated\serializer\VulkanModelComponent.serializer.gen.h"
 #include "_generated\serializer\vector4.serializer.gen.h"
 #include "_generated\serializer\axis_aligned.serializer.gen.h"
 #include "_generated\serializer\CameraControlComponent.serializer.gen.h"

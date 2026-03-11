@@ -12,12 +12,14 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Bou
 
 layout(push_constant) uniform PushConstants {
     mat4 mvp;
+    mat4 model;
     uint64_t vBuf; 
     uint64_t mBuf; 
     uint64_t iBuf;
     BoundsBuffer bBuf;
     uint64_t matBuf;
     uint totalMeshlets;
+    uint textureOffset;
 } pc;
 
 struct TaskPayload { uint meshletIndices[64]; };

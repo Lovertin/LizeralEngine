@@ -12,6 +12,7 @@
 #include "_generated\serializer\DirectionalLightComponent.serializer.gen.h"
 #include "_generated\serializer\vector3.serializer.gen.h"
 #include "_generated\serializer\color.serializer.gen.h"
+#include "_generated\serializer\VulkanModelComponent.serializer.gen.h"
 #include "_generated\serializer\vector4.serializer.gen.h"
 #include "_generated\serializer\axis_aligned.serializer.gen.h"
 #include "_generated\serializer\CameraControlComponent.serializer.gen.h"
@@ -157,6 +158,7 @@ namespace Lizeral{
         }
         ret_context.insert_or_assign("OverrideMaterialPaths",m_OverrideMaterialPaths_json);
         
+        ret_context.insert_or_assign("UseGlobalMaterial", PSerializer::write(instance.m_UseGlobalMaterial));
         return  PJson(ret_context);
     }
     template<>
@@ -173,6 +175,9 @@ namespace Lizeral{
             for (size_t index=0; index < array_m_OverrideMaterialPaths.size();++index){
                 PSerializer::read(array_m_OverrideMaterialPaths[index], instance.m_OverrideMaterialPaths[index]);
             }
+        }
+        if(!json_context["UseGlobalMaterial"].is_null()){
+            PSerializer::read(json_context["UseGlobalMaterial"], instance.m_UseGlobalMaterial);
         }
         return instance;
     }
@@ -346,6 +351,25 @@ namespace Lizeral{
         }
         if(!json_context["b"].is_null()){
             PSerializer::read(json_context["b"], instance.b);
+        }
+        return instance;
+    }
+    template<>
+    PJson PSerializer::write(const VulkanModelComponent& instance){
+        PJson::object  ret_context;
+        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
+        assert(json_context_0.is_object());
+        auto&& json_context_map_0 = json_context_0.object_items();
+        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
+        ret_context.insert_or_assign("ModelPath", PSerializer::write(instance.m_ModelPath));
+        return  PJson(ret_context);
+    }
+    template<>
+    VulkanModelComponent& PSerializer::read(const PJson& json_context, VulkanModelComponent& instance){
+        assert(json_context.is_object());
+        PSerializer::read(json_context,*(Lizeral::Component*)&instance);
+        if(!json_context["ModelPath"].is_null()){
+            PSerializer::read(json_context["ModelPath"], instance.m_ModelPath);
         }
         return instance;
     }

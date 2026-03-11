@@ -24,18 +24,23 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Mat
 
 layout(push_constant) uniform PushConstants {
     mat4 mvp;
+    mat4 model;
     uint64_t vBuf;
     uint64_t mBuf;
     uint64_t iBuf;
     uint64_t bBuf;
     uint64_t matBuf;
     uint totalMeshlets;
+    uint textureOffset;
 } pc;
 
 void main() {
+    
     // 1. 获取材质数据
     MaterialBuffer matBuf = MaterialBuffer(pc.matBuf);
-    Material mat = matBuf.m[fragTexID];
+    // ★ 修复：减去当前模型的偏移量，拿到局部材质 ID
+    uint localMatID = fragTexID - pc.textureOffset; 
+    Material mat = matBuf.m[localMatID];
 
     // 2. 无绑定贴图采样
     uint texIndex = fragTexID % 1024; 
