@@ -1,9 +1,53 @@
 #version 460
+#extension GL_EXT_nonuniform_qualifier : require 
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
 layout(location = 0) in vec3 fragNormal;
-layout(location = 0) out vec4 outColor;
+layout(location = 1) in vec2 fragUV;
+layout(location = 2) flat in uint fragTexID;
+
+layout(location = 0) out vec4 outAlbedoMetallic; // RT0
+layout(location = 1) out vec4 outNormalRoughness; // RT1
+
+layout(binding = 0) uniform sampler2D GlobalTextures[1024]; 
+
+struct Material {
+    vec4 baseColorFactor;
+    float metallicFactor;
+    float roughnessFactor;
+    vec2 padding;
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
+
+layout(push_constant) uniform PushConstants {
+    mat4 mvp;
+    uint64_t vBuf;
+    uint64_t mBuf;
+    uint64_t iBuf;
+    uint64_t bBuf;
+    uint64_t matBuf;
+    uint totalMeshlets;
+} pc;
 
 void main() {
-    // ★ 强制把法线转成 RGB 颜色，如果画出来了，绝对是色彩斑斓的，不可能黑屏！
-    vec3 color = normalize(fragNormal) * 0.5 + 0.5; 
-    outColor = vec4(color, 1.0);
+    // 1. 获取材质数据
+    MaterialBuffer matBuf = MaterialBuffer(pc.matBuf);
+    Material mat = matBuf.m[fragTexID];
+
+    // 2. 无绑定贴图采样
+    uint texIndex = fragTexID % 1024; 
+    vec4 texColor = texture(GlobalTextures[nonuniformEXT(texIndex)], fragUV);
+
+    // 3. 计算 PBR 基础参数
+    vec4 albedo = texColor * mat.baseColorFactor;
+
+    // ★ 4. 暴力填入 G-Buffer，光照计算被彻底剥离到下一个 Pass！
+    // RT0: RGB 存颜色，Alpha 存金属度
+    outAlbedoMetallic = vec4(albedo.rgb, mat.metallicFactor);
+    
+    // RT1: RGB 存法线(记得归一化)，Alpha 存粗糙度
+    outNormalRoughness = vec4(normalize(fragNormal), mat.roughnessFactor);
 }

@@ -83,6 +83,7 @@ namespace Lizeral {
 
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.samplerAnisotropy = VK_TRUE; 
+        deviceFeatures.shaderInt64 = VK_TRUE;
 
         // 1. Mesh Shader 特性
         VkPhysicalDeviceMeshShaderFeaturesEXT meshFeatures{};
@@ -93,17 +94,32 @@ namespace Lizeral {
         // 2. Vulkan 1.3 特性
         VkPhysicalDeviceVulkan13Features features13{};
         features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-        features13.dynamicRendering = VK_TRUE; // ★ 必须开启：动态渲染
-        features13.synchronization2 = VK_TRUE; // ★ 必须开启：同步 2.0 (供 vkCmdPipelineBarrier2 使用)
+        features13.dynamicRendering = VK_TRUE; 
+        features13.synchronization2 = VK_TRUE; 
         features13.maintenance4 = VK_TRUE;
-        features13.pNext = &meshFeatures;      // ★ 链条第 1 环：1.3 连向 MeshShader
+        features13.pNext = &meshFeatures;      // 链条第 1 环
 
         // 3. Vulkan 1.2 特性
         VkPhysicalDeviceVulkan12Features features12{};
         features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
         features12.bufferDeviceAddress = VK_TRUE; 
         features12.scalarBlockLayout = VK_TRUE;
-        features12.pNext = &features13;        // ★ 链条第 2 环：1.2 连向 1.3
+
+        features12.descriptorIndexing = VK_TRUE;                              // 允许描述符索引
+        features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;       // 允许 Shader 中使用非均匀索引
+        features12.descriptorBindingPartiallyBound = VK_TRUE;                 // 允许数组没填满也能正常运行
+        features12.runtimeDescriptorArray = VK_TRUE;
+        
+        features12.pNext = &features13;        // 链条第 2 环
+
+        // ========================================================
+        // ★ 4. 新增：Vulkan 1.1 特性 (开启 Multiview)
+        // 专门为了消除 Task/Mesh Shader 编译带来的 MultiView 验证报错！
+        // ========================================================
+        VkPhysicalDeviceVulkan11Features features11{};
+        features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+        features11.multiview = VK_TRUE;
+        features11.pNext = &features12;        // 链条第 3 环
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -111,11 +127,11 @@ namespace Lizeral {
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.pEnabledFeatures = &deviceFeatures;
         
-        // ★ 最终提交链条的头部 (features12)，Vulkan 会顺藤摸瓜读取完所有的特性
-        createInfo.pNext = &features12;
+        // ★ 最终提交链条的头部改为 features11！
+        createInfo.pNext = &features11;
 
 
-        // ★ 新增：为了在窗口上画图，必须开启 Swapchain (交换链) 扩展！
+        // 为了在窗口上画图，必须开启 Swapchain (交换链) 扩展！
         const std::vector<const char*> deviceExtensions = { 
             VK_KHR_SWAPCHAIN_EXTENSION_NAME ,
             VK_EXT_MESH_SHADER_EXTENSION_NAME

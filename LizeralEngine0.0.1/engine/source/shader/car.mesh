@@ -2,64 +2,66 @@
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-layout(triangles, max_vertices = 64, max_primitives = 126) out;
+layout(triangles, max_vertices = 64, max_primitives = 124) out;
 
 struct Vertex { vec3 pos; vec3 normal; vec2 uv; };
-struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; };
+struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; uint textureID; };
 
-layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer  { Vertex v[]; };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer { Vertex v[]; };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MeshletBuffer { Meshlet m[]; };
-layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer IndexBuffer   { uint i[]; };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer IndexBuffer { uint i[]; };
 
 layout(push_constant) uniform PushConstants {
-    vec4 transform; 
-    VertexBuffer vBuf;
-    MeshletBuffer mBuf;
-    IndexBuffer iBuf;
+    mat4 mvp;
+    uint64_t vBuf;
+    uint64_t mBuf;
+    uint64_t iBuf;
+    uint64_t bBuf;
+    uint64_t matBuf;
+    uint totalMeshlets;
 } pc;
 
+// 找回快递包裹！
+struct TaskPayload { uint meshletIndices[64]; };
+taskPayloadSharedEXT TaskPayload payload;
+
 layout(location = 0) out vec3 fragNormal[];
+layout(location = 1) out vec2 fragUV[];
+layout(location = 2) flat out uint fragTexID[];
 
 void main() {
-    uint meshletID = gl_WorkGroupID.x;
+    //从包裹里拿到真正存活的 meshletID，而不是自己算！
+    uint meshletID = payload.meshletIndices[gl_WorkGroupID.x]; 
     uint tid = gl_LocalInvocationID.x;
-    Meshlet meshlet = pc.mBuf.m[meshletID];
+
+    if (meshletID >= pc.totalMeshlets) return;
+
+    MeshletBuffer mBuf = MeshletBuffer(pc.mBuf);
+    Meshlet meshlet = mBuf.m[meshletID];
 
     SetMeshOutputsEXT(meshlet.vCount, meshlet.tCount);
 
     if (tid < meshlet.vCount) {
-        Vertex vertex = pc.vBuf.v[meshlet.vOff + tid];
+        VertexBuffer vBuf = VertexBuffer(pc.vBuf);
+        Vertex vertex = vBuf.v[meshlet.vOff + tid];
         
-        // 1. 乘以缩放比例
-        vec3 pos = vertex.pos * pc.transform.w;
-        
-        // ==========================================
-        // ★ 坐标系大挪移：强制侧视图 + 翻转修正！
-        // ==========================================
-        // 提取原本的深度(Z)作为屏幕的左右(X)，实现侧视！
-        float screenX = pos.z;  
-        
-        // 提取原本的上下(Y)加个负号，解决上下颠倒！
-        float screenY = -pos.y; 
-
-        // 加上 PushConstant 传进来的 xy 偏移量
-        screenX += pc.transform.x;
-        screenY += pc.transform.y;
-        
-        // 输出到屏幕 (Z 依然固定 0.5 防裁剪)
-        gl_MeshVerticesEXT[tid].gl_Position = vec4(screenX, screenY, 0.5, 1.0); 
+        gl_MeshVerticesEXT[tid].gl_Position = pc.mvp * vec4(vertex.pos, 1.0);
         
         fragNormal[tid] = vertex.normal;
+        fragUV[tid] = vertex.uv;
+        fragTexID[tid] = meshlet.textureID; // 传递身份证
     }
 
+    IndexBuffer iBuf = IndexBuffer(pc.iBuf);
     for (uint i = tid; i < meshlet.tCount; i += 64) {
         uint indexOffset = meshlet.tOff + i * 3;
         gl_PrimitiveTriangleIndicesEXT[i] = uvec3(
-            pc.iBuf.i[indexOffset + 0],
-            pc.iBuf.i[indexOffset + 1],
-            pc.iBuf.i[indexOffset + 2]
+            iBuf.i[indexOffset + 0], 
+            iBuf.i[indexOffset + 1], 
+            iBuf.i[indexOffset + 2]
         );
     }
 }

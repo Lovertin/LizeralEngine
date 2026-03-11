@@ -55,9 +55,6 @@ namespace Lizeral {
 
         m_swapchain = std::make_unique<VulkanSwapchain>(m_context, m_device, m_device->GetSurface(), width, height);
 
-        // =========================================================
-        // 分配深度贴图 (Depth Image)
-        // =========================================================
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -257,7 +254,7 @@ namespace Lizeral {
         colorBarrier.srcAccessMask = 0;
         colorBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
         colorBarrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-        colorBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorBarrier.oldLayout = m_swapchain->GetImageLayout(m_imageIndex); 
         colorBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         colorBarrier.image = m_swapchain->GetNativeImages()[m_imageIndex]; 
         colorBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
@@ -339,6 +336,7 @@ namespace Lizeral {
         depInfo.imageMemoryBarrierCount = 1;
         depInfo.pImageMemoryBarriers = &presentBarrier;
         vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+        m_swapchain->SetImageLayout(m_imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     }
 
 } // namespace Lizeral

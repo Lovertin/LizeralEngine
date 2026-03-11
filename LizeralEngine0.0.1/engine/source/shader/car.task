@@ -1,0 +1,96 @@
+#version 460
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_KHR_shader_subgroup_ballot : require // ★ 开启子组投票！
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct MeshletBounds { vec3 center; float radius; };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer BoundsBuffer { MeshletBounds b[]; };
+
+layout(push_constant) uniform PushConstants {
+    mat4 mvp;
+    uint64_t vBuf; 
+    uint64_t mBuf; 
+    uint64_t iBuf;
+    BoundsBuffer bBuf;
+    uint64_t matBuf;
+    uint totalMeshlets;
+} pc;
+
+struct TaskPayload { uint meshletIndices[64]; };
+taskPayloadSharedEXT TaskPayload payload;
+
+// 全局只需要一个总计数器
+shared uint s_visibleCount;
+
+void main() {
+    uint tid = gl_LocalInvocationID.x;
+    uint meshletID = gl_GlobalInvocationID.x;
+
+    if (tid == 0) s_visibleCount = 0;
+    barrier();
+
+    // 1. 每个线程独立提取平面 (GPU 算这个极快)
+    mat4 m = transpose(pc.mvp);
+    vec4 planes[6];
+    planes[0] = m[3] + m[0]; // Left
+    planes[1] = m[3] - m[0]; // Right
+    planes[2] = m[3] + m[1]; // Bottom
+    planes[3] = m[3] - m[1]; // Top
+    planes[4] = m[2]; // Near (OpenGL)
+    planes[5] = m[3] - m[2]; // Far
+    for (int i = 0; i < 6; i++) planes[i] /= length(planes[i].xyz);
+
+    // 2. 视锥体剔除测试
+    bool visible = false;
+    if (meshletID < pc.totalMeshlets) {
+        visible = true; 
+        MeshletBounds bounds = pc.bBuf.b[meshletID];
+        for (int i = 0; i < 6; i++) {
+            if (dot(planes[i].xyz, bounds.center) + planes[i].w < -bounds.radius) {
+                visible = false; break;
+            }
+        }
+    }
+
+    // ========================================================
+    // ★ 3. 核心黑科技：Subgroup 协同作战
+    // ========================================================
+    // 将小队里(32人)的存活状态压成一个二进制掩码
+    uvec4 ballot = subgroupBallot(visible);
+    
+    // 小队总共有多少人存活？
+    uint subgroupCount = subgroupBallotBitCount(ballot);
+    
+    // 我在小队里排第几？
+    uint subgroupLocalIdx = subgroupBallotExclusiveBitCount(ballot);
+
+    // 选举一个队长去拿总偏移量
+    uint subgroupOffset = 0;
+    if (subgroupElect()) {
+        // 只有队长(1人)执行昂贵的原子加法
+        subgroupOffset = atomicAdd(s_visibleCount, subgroupCount);
+    }
+    // 队长把拿到的偏移量广播给小队所有人
+    subgroupOffset = subgroupBroadcastFirst(subgroupOffset);
+
+    // 计算我最终的绝对位置
+    uint finalIdx = subgroupOffset + subgroupLocalIdx;
+
+    // 4. 精确填入快递包
+    if (visible) {
+        payload.meshletIndices[finalIdx] = meshletID;
+    }
+
+    // ========================================================
+    // 5. 等待所有小队装车完毕，由 0 号线程统一发车！
+    // ========================================================
+    barrier(); // ★ 必须等所有人装完车！
+    
+    if (tid == 0) {
+        EmitMeshTasksEXT(s_visibleCount, 1, 1);
+    }
+}

@@ -34,6 +34,9 @@ namespace Lizeral {
         const std::vector<VkImageView>& GetImageViews() const { return m_imageViews; }
         const std::vector<VkImage>& GetNativeImages() const { return m_images; }
 
+        VkImageLayout GetImageLayout(uint32_t index) const { return m_imageLayouts[index]; }
+        void SetImageLayout(uint32_t index, VkImageLayout layout) { m_imageLayouts[index] = layout; }
+
     private:
         VulkanContext* m_context { nullptr };
         VulkanDevice* m_device { nullptr };
@@ -45,6 +48,7 @@ namespace Lizeral {
 
         std::vector<VkImage> m_images;         // 交换链里的原生图片
         std::vector<VkImageView> m_imageViews; // 图片的视图（相框）
+        std::vector<VkImageLayout> m_imageLayouts;
 
         // 内部初始化流程
         SwapChainSupportDetails querySwapChainSupport();

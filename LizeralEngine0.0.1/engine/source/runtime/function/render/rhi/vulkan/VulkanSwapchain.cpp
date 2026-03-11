@@ -141,6 +141,7 @@ namespace Lizeral {
         // 获取显卡自动帮我们分配好的那几张图片的把柄
         vkGetSwapchainImagesKHR(m_device->GetNativeDevice(), m_swapchain, &imageCount, nullptr);
         m_images.resize(imageCount);
+        m_imageLayouts.resize(imageCount, VK_IMAGE_LAYOUT_UNDEFINED);
         vkGetSwapchainImagesKHR(m_device->GetNativeDevice(), m_swapchain, &imageCount, m_images.data());
 
         std::cout << "[VulkanSwapchain] Swapchain created successfully! Images count: " << imageCount << std::endl;
