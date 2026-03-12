@@ -10,6 +10,9 @@ layout(triangles, max_vertices = 64, max_primitives = 124) out;
 struct Vertex { vec3 pos; vec3 normal; vec2 uv; };
 struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; uint textureID; };
 
+layout(location = 3) out vec4 fragCurrentPosClip[];
+layout(location = 4) out vec4 fragPrevPosClip[];
+
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer { Vertex v[]; };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MeshletBuffer { Meshlet m[]; };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer IndexBuffer { uint i[]; };
@@ -17,6 +20,7 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Ind
 layout(push_constant) uniform PushConstants {
     mat4 mvp;
     mat4 model;
+    mat4 prevMvp;
     uint64_t vBuf;
     uint64_t mBuf;
     uint64_t iBuf;
@@ -24,6 +28,7 @@ layout(push_constant) uniform PushConstants {
     uint64_t matBuf;
     uint totalMeshlets;
     uint textureOffset;
+    vec2 jitter;
 } pc;
 
 // 找回快递包裹！
@@ -49,8 +54,18 @@ void main() {
     if (tid < meshlet.vCount) {
         VertexBuffer vBuf = VertexBuffer(pc.vBuf);
         Vertex vertex = vBuf.v[meshlet.vOff + tid];
+
+        vec4 unjitteredClipPos = pc.mvp * vec4(vertex.pos, 1.0);
+    
+        // 2. 将纯净的坐标传给 Velocity 计算 (保证速度无误差)
+        fragCurrentPosClip[tid] = unjitteredClipPos;
+        fragPrevPosClip[tid]    = pc.prevMvp * vec4(vertex.pos, 1.0);
         
-        gl_MeshVerticesEXT[tid].gl_Position = pc.mvp * vec4(vertex.pos, 1.0);
+        // ★ 3. 数学魔法：应用 Jitter 偏移，用来画这帧的真实几何体位置！
+        vec4 jitteredClipPos = unjitteredClipPos;
+        jitteredClipPos.xy += pc.jitter * jitteredClipPos.w; // 手动偏移
+        
+        gl_MeshVerticesEXT[tid].gl_Position = jitteredClipPos;
         
         fragNormal[tid] = normalize(mat3(pc.model) * vertex.normal);
         fragUV[tid] = vertex.uv;

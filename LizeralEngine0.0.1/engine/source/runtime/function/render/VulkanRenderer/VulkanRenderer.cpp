@@ -292,7 +292,7 @@ namespace Lizeral {
         depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        depthAttachment.clearValue.depthStencil = {1.0f, 0};
+        depthAttachment.clearValue.depthStencil = {0.0f, 0};
 
         VkRenderingInfo renderInfo{};
         renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -319,7 +319,7 @@ namespace Lizeral {
 
         vkCmdEndRendering(commandBuffer);
 
-        // ★ 画完了，手动把颜色图片变形为“展示模式 (PRESENT)”
+        // 画完了，手动把颜色图片变形为“展示模式 (PRESENT)”
         VkImageMemoryBarrier2 presentBarrier{};
         presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
         presentBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;

@@ -1,7 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 
 namespace Lizeral {
+
+    class VulkanBLAS;
+
     // 纯数据结构，没有任何 Vulkan/OpenGL 的杂质
     struct VulkanModelResource {
         uint64_t vAddr = 0;         // 顶点缓冲 BDA
@@ -14,6 +18,7 @@ namespace Lizeral {
         // 记录一下这个模型占用了全局贴图池的多少张图，方便以后清理
         uint32_t textureOffset = 0; 
         uint32_t textureCount = 0;  
+        std::shared_ptr<VulkanBLAS> blas;
 
         bool IsValid() const { return vAddr != 0; }
     };

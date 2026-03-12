@@ -8,6 +8,11 @@ layout(location = 0) in vec3 fragNormal;
 layout(location = 1) in vec2 fragUV;
 layout(location = 2) flat in uint fragTexID;
 
+layout(location = 3) in vec4 fragCurrentPosClip;
+layout(location = 4) in vec4 fragPrevPosClip;
+
+layout(location = 2) out vec2 outVelocity;
+
 layout(location = 0) out vec4 outAlbedoMetallic; // RT0
 layout(location = 1) out vec4 outNormalRoughness; // RT1
 
@@ -25,6 +30,7 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Mat
 layout(push_constant) uniform PushConstants {
     mat4 mvp;
     mat4 model;
+    mat4 prevMvp;
     uint64_t vBuf;
     uint64_t mBuf;
     uint64_t iBuf;
@@ -32,6 +38,7 @@ layout(push_constant) uniform PushConstants {
     uint64_t matBuf;
     uint totalMeshlets;
     uint textureOffset;
+    vec2 jitter;
 } pc;
 
 void main() {
@@ -46,13 +53,21 @@ void main() {
     uint texIndex = fragTexID % 1024; 
     vec4 texColor = texture(GlobalTextures[nonuniformEXT(texIndex)], fragUV);
 
+    vec2 currentNDC = fragCurrentPosClip.xy / fragCurrentPosClip.w;
+    vec2 prevNDC = fragPrevPosClip.xy / fragPrevPosClip.w;
+
+    vec2 currentUV = currentNDC * 0.5 + 0.5;
+    vec2 prevUV = prevNDC * 0.5 + 0.5;
+
+    outVelocity = currentUV - prevUV;
+
     // 3. 计算 PBR 基础参数
     vec4 albedo = texColor * mat.baseColorFactor;
 
     // ★ 4. 暴力填入 G-Buffer，光照计算被彻底剥离到下一个 Pass！
     // RT0: RGB 存颜色，Alpha 存金属度
     outAlbedoMetallic = vec4(albedo.rgb, mat.metallicFactor);
-    
+
     // RT1: RGB 存法线(记得归一化)，Alpha 存粗糙度
     outNormalRoughness = vec4(normalize(fragNormal), mat.roughnessFactor);
 }

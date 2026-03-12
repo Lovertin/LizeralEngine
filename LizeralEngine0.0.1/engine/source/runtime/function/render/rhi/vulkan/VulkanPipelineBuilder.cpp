@@ -129,7 +129,7 @@ namespace Lizeral {
             throw std::runtime_error("Failed to create graphics pipeline!");
         }
 
-        std::cout << "[VulkanPipeline] Graphics Pipeline built successfully for Dynamic Rendering!" << std::endl;
+        std::cout << "[VulkanPipeline] Pipeline built successfully for Dynamic Rendering!" << std::endl;
         return graphicsPipeline;
     }
 

@@ -36,7 +36,7 @@ void main() {
     float depth = texture(samplerDepth, inUV).r;
     
     // 背景剔除 (如果是天空，直接输出天空蓝渐变)
-    if (depth >= 1.0) {
+    if (depth <= 0.0) {
         vec3 bg = mix(vec3(0.1, 0.2, 0.3), vec3(0.01, 0.02, 0.05), inUV.y);
         outColor = vec4(bg, 1.0);
         return;

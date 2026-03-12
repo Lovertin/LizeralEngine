@@ -119,6 +119,23 @@ namespace Lizeral{
 
             return Ray(origin, rayDir);
         }
+
+        // 构建无限远反向深度的透视投影矩阵 (假设为右手坐标系，相机看向 -Z)
+        Matrix4x4 BuildPerspectiveInfiniteReverseZ(float fov, float aspect, float zNear) {
+            Matrix4x4 result; 
+            float tanHalfFovy = std::tan(fov * 0.5f);
+            
+            result[0][0] = 1.0f / (aspect * tanHalfFovy);
+            result[1][1] = 1.0f / tanHalfFovy; 
+
+            result[2][2] = 0.0f;  
+            result[2][3] = zNear; 
+
+            result[3][2] = -1.0f; 
+            result[3][3] = 0.0f;  
+            
+            return result;
+        }
     
     private:
         META(Enable)

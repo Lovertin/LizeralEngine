@@ -72,6 +72,8 @@ file(GLOB_RECURSE SRC_INPUT "source/runtime/function/input/*.cpp")
 file(GLOB_RECURSE SRC_RENDER "source/runtime/function/render/*.cpp")
 
 # 3. res_type 系统 (用于资源管理)
+file(GLOB_RECURSE VULKAN_SRC_TYPE "source/runtime/function/Vulkan_res_type/*.cpp")
+
 file(GLOB_RECURSE SRC_TYPE "source/runtime/function/res_type/*.cpp")
 
 # 4. Resource 系统 (用于资源管理)
@@ -102,6 +104,7 @@ set(PHYSICS_SANDBOX_SOURCES
     ${SRC_INPUT}
     ${SRC_RENDER}
     ${SRC_TYPE}
+    ${VULKAN_SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
     "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
@@ -115,6 +118,7 @@ set(EDITOR_SOURCES
     ${SRC_INPUT}  
     ${SRC_RENDER} 
     ${SRC_TYPE}
+    ${VULKAN_SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
     ${SRC_META}      

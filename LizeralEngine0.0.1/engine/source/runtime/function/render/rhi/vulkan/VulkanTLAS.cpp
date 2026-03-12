@@ -1,0 +1,182 @@
+#include "VulkanTLAS.h"
+#include "runtime/function/render/rhi/vulkan/VulkanDevice.h"
+#include "runtime/function/render/rhi/vulkan/VulkanContext.h"
+#include <stdexcept>
+#include <cstring>
+
+namespace Lizeral {
+
+    VulkanTLAS::VulkanTLAS(VulkanDevice* device) : m_device(device) {
+        loadRTFunctions();
+    }
+
+    VulkanTLAS::~VulkanTLAS() {
+        cleanup();
+    }
+
+    void VulkanTLAS::cleanup() {
+        VkDevice logicalDevice = m_device->GetNativeDevice();
+
+        if (m_tlasHandle != VK_NULL_HANDLE) {
+            pfn_vkDestroyAccelerationStructureKHR(logicalDevice, m_tlasHandle, nullptr);
+            m_tlasHandle = VK_NULL_HANDLE;
+        }
+        if (m_tlasBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(logicalDevice, m_tlasBuffer, nullptr);
+            vkFreeMemory(logicalDevice, m_tlasMemory, nullptr);
+            m_tlasBuffer = VK_NULL_HANDLE;
+        }
+        if (m_instanceBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(logicalDevice, m_instanceBuffer, nullptr);
+            vkFreeMemory(logicalDevice, m_instanceMemory, nullptr);
+            m_instanceBuffer = VK_NULL_HANDLE;
+        }
+        if (m_scratchBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(logicalDevice, m_scratchBuffer, nullptr);
+            vkFreeMemory(logicalDevice, m_scratchMemory, nullptr);
+            m_scratchBuffer = VK_NULL_HANDLE;
+        }
+        m_maxInstanceCount = 0;
+    }
+
+    void VulkanTLAS::Build(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances) {
+        if (instances.empty()) return;
+
+        VkDevice logicalDevice = m_device->GetNativeDevice();
+        uint32_t instanceCount = static_cast<uint32_t>(instances.size());
+
+        // 1. 如果实例数量增加了，我们需要重新分配更大的 Instance Buffer
+        if (instanceCount > m_maxInstanceCount) {
+            cleanup(); // 粗暴但安全的做法：清理旧的，重新分配
+            m_maxInstanceCount = instanceCount * 2; // 预留一倍空间，避免频繁分配
+
+            VkDeviceSize instanceBufferSize = sizeof(VkAccelerationStructureInstanceKHR) * m_maxInstanceCount;
+            // 实例缓冲需要能被 CPU 写入 (HOST_VISIBLE)，且能被当做 AS 构建输入 (BUILD_INPUT_READ_ONLY)
+            allocateBuffer(
+                instanceBufferSize, 
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                m_instanceBuffer, m_instanceMemory, &m_instanceAddress
+            );
+        }
+
+        // 2. 将实例数据从 CPU 拷贝到 GPU
+        void* mappedData;
+        vkMapMemory(logicalDevice, m_instanceMemory, 0, sizeof(VkAccelerationStructureInstanceKHR) * instanceCount, 0, &mappedData);
+        memcpy(mappedData, instances.data(), sizeof(VkAccelerationStructureInstanceKHR) * instanceCount);
+        vkUnmapMemory(logicalDevice, m_instanceMemory);
+
+        // 3. 告诉 GPU 我们的 TLAS 几何数据是从刚才的 Instance Buffer 里读取的
+        VkAccelerationStructureGeometryKHR geometry{};
+        geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+        geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+        geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+        geometry.geometry.instances.arrayOfPointers = VK_FALSE; // 我们传的是结构体数组，不是指针数组
+        geometry.geometry.instances.data.deviceAddress = m_instanceAddress;
+
+        // 4. 获取构建 TLAS 所需的显存大小
+        VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+        buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+        buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        buildInfo.geometryCount = 1;
+        buildInfo.pGeometries = &geometry;
+
+        VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+        pfn_vkGetAccelerationStructureBuildSizesKHR(logicalDevice, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instanceCount, &sizeInfo);
+
+        // 5. 分配 TLAS 本体缓冲和 Scratch (草稿纸) 缓冲
+        if (m_tlasBuffer == VK_NULL_HANDLE) {
+            allocateBuffer(
+                sizeInfo.accelerationStructureSize,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                m_tlasBuffer, m_tlasMemory
+            );
+
+            VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+            createInfo.buffer = m_tlasBuffer;
+            createInfo.size = sizeInfo.accelerationStructureSize;
+            createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+            pfn_vkCreateAccelerationStructureKHR(logicalDevice, &createInfo, nullptr, &m_tlasHandle);
+        }
+
+        // 每次构建可能需要不同的草稿纸大小，稳妥起见我们每次重新分配 (生产环境可以复用最大值)
+        if (m_scratchBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(logicalDevice, m_scratchBuffer, nullptr);
+            vkFreeMemory(logicalDevice, m_scratchMemory, nullptr);
+        }
+        VkDeviceAddress scratchAddress;
+        allocateBuffer(
+            sizeInfo.buildScratchSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            m_scratchBuffer, m_scratchMemory, &scratchAddress
+        );
+
+        // 6. 录制构建命令
+        buildInfo.dstAccelerationStructure = m_tlasHandle;
+        buildInfo.scratchData.deviceAddress = scratchAddress;
+
+        VkAccelerationStructureBuildRangeInfoKHR buildRange{};
+        buildRange.primitiveCount = instanceCount;
+        buildRange.primitiveOffset = 0;
+        buildRange.firstVertex = 0;
+        buildRange.transformOffset = 0;
+        const VkAccelerationStructureBuildRangeInfoKHR* pBuildRange = &buildRange;
+
+        // ★ 注意：这里是把构建命令录制到传入的 cmd 里！
+        pfn_vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, &pBuildRange);
+    }
+
+    void VulkanTLAS::allocateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory, VkDeviceAddress* outAddress) {
+        VkDevice logicalDevice = m_device->GetNativeDevice();
+
+        VkBufferCreateInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bufferInfo.size = size;
+        bufferInfo.usage = usage;
+        vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &outBuffer);
+
+        VkMemoryRequirements memReqs;
+        vkGetBufferMemoryRequirements(logicalDevice, outBuffer, &memReqs);
+
+        VkPhysicalDeviceMemoryProperties memProps;
+        vkGetPhysicalDeviceMemoryProperties(m_device->GetContext()->GetPhysicalDevice(), &memProps);
+        uint32_t memTypeIndex = 0;
+        for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
+            if ((memReqs.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & properties) == properties) {
+                memTypeIndex = i; break;
+            }
+        }
+
+        VkMemoryAllocateFlagsInfo allocFlagsInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        allocInfo.allocationSize = memReqs.size;
+        allocInfo.memoryTypeIndex = memTypeIndex;
+        allocInfo.pNext = &allocFlagsInfo;
+
+        if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &outMemory) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate memory for TLAS!");
+        }
+        vkBindBufferMemory(logicalDevice, outBuffer, outMemory, 0);
+
+        if (outAddress != nullptr) {
+            VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+            addressInfo.buffer = outBuffer;
+            *outAddress = vkGetBufferDeviceAddress(logicalDevice, &addressInfo);
+        }
+    }
+
+    void VulkanTLAS::loadRTFunctions() {
+        VkDevice device = m_device->GetNativeDevice();
+        pfn_vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR");
+        pfn_vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR");
+        pfn_vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR");
+        pfn_vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR");
+        pfn_vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR");
+    }
+
+}
