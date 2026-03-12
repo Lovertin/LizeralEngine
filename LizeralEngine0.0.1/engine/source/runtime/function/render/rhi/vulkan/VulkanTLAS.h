@@ -5,41 +5,43 @@
 namespace Lizeral {
 
     class VulkanDevice;
-    class VulkanCommandPool;
 
     class VulkanTLAS {
     public:
-        VulkanTLAS(VulkanDevice* device);
+        // 增加 maxFrames 参数，默认 2（对应 Ping-Pong）
+        VulkanTLAS(VulkanDevice* device, uint32_t maxFrames = 2);
         ~VulkanTLAS();
 
         // 禁用拷贝
         VulkanTLAS(const VulkanTLAS&) = delete;
         VulkanTLAS& operator=(const VulkanTLAS&) = delete;
 
-        // 核心方法：传入一组实例，构建 TLAS
-        // cmd: 用于录制构建命令的 CommandBuffer
-        void Build(VkCommandBuffer cmd, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
+        // ★ 核心改变：传入当前的 frameIndex，决定使用哪一套缓冲
+        void Build(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
 
-        VkAccelerationStructureKHR GetHandle() const { return m_tlasHandle; }
+        VkAccelerationStructureKHR GetHandle(uint32_t frameIndex) const { 
+            return m_tlasHandle[frameIndex % m_maxFrames]; 
+        }
 
     private:
         VulkanDevice* m_device{ nullptr };
+        uint32_t m_maxFrames{ 2 };
 
-        // TLAS 显存缓冲
-        VkBuffer m_tlasBuffer{ VK_NULL_HANDLE };
-        VkDeviceMemory m_tlasMemory{ VK_NULL_HANDLE };
-        VkAccelerationStructureKHR m_tlasHandle{ VK_NULL_HANDLE };
+        // ★ 全部变成数组，支持多重缓冲
+        std::vector<VkBuffer> m_tlasBuffer;
+        std::vector<VkDeviceMemory> m_tlasMemory;
+        std::vector<VkAccelerationStructureKHR> m_tlasHandle;
 
-        // 实例数据的缓冲 (存在 GPU 上，供 TLAS 读取)
-        VkBuffer m_instanceBuffer{ VK_NULL_HANDLE };
-        VkDeviceMemory m_instanceMemory{ VK_NULL_HANDLE };
-        VkDeviceAddress m_instanceAddress{ 0 };
+        std::vector<VkBuffer> m_instanceBuffer;
+        std::vector<VkDeviceMemory> m_instanceMemory;
+        std::vector<VkDeviceAddress> m_instanceAddress;
 
-        // 草稿纸缓冲
-        VkBuffer m_scratchBuffer{ VK_NULL_HANDLE };
-        VkDeviceMemory m_scratchMemory{ VK_NULL_HANDLE };
+        std::vector<VkBuffer> m_scratchBuffer;
+        std::vector<VkDeviceMemory> m_scratchMemory;
 
-        uint32_t m_maxInstanceCount{ 0 }; // 记录当前缓冲容量，避免频繁重新分配
+        // 记录每个帧缓冲的当前容量
+        std::vector<uint32_t> m_maxInstanceCount; 
+        std::vector<VkDeviceSize> m_currentTlasSize; 
 
         void loadRTFunctions();
         void allocateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory, VkDeviceAddress* outAddress = nullptr);

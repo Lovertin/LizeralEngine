@@ -289,7 +289,7 @@ int main() {
             std::vector<VkDescriptorImageInfo> g_GlobalImageInfos;
             std::vector<BufferAllocation> g_AllocatedBuffers; // 统一记录并回收所有 BDA 缓冲
 
-            VulkanTLAS tlas(&vulkanDevice);
+            VulkanTLAS tlas(&vulkanDevice,2);
 
             //加载模型的万用lambda函数
             auto getOrLoadModel = [&](const std::string& path) -> Lizeral::VulkanModelResource {
@@ -679,57 +679,6 @@ int main() {
 
             std::cout << "[Sandbox] Building TLAS..." << std::endl;
 
-            std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
-            uint32_t customInstanceId = 0;
-
-            auto renderView = registry.view<TransformComponent, VulkanModelComponent>();
-            for (auto entity : renderView) {
-                auto& transform = renderView.get<TransformComponent>(entity);
-                auto& modelComp = renderView.get<VulkanModelComponent>(entity);
-                if (!modelComp.IsLoaded()) continue;
-
-                const Lizeral::VulkanModelResource& res = g_ModelCache[modelComp.getVulkanModelPath()];
-                if (!res.blas) continue;
-
-                Matrix4x4 modelMat = transform.getMatrix();
-                VkTransformMatrixKHR vkTransform{};
-                vkTransform.matrix[0][0] = modelMat[0][0]; vkTransform.matrix[0][1] = modelMat[0][1]; vkTransform.matrix[0][2] = modelMat[0][2]; vkTransform.matrix[0][3] = modelMat[0][3];
-                vkTransform.matrix[1][0] = modelMat[1][0]; vkTransform.matrix[1][1] = modelMat[1][1]; vkTransform.matrix[1][2] = modelMat[1][2]; vkTransform.matrix[1][3] = modelMat[1][3];
-                vkTransform.matrix[2][0] = modelMat[2][0]; vkTransform.matrix[2][1] = modelMat[2][1]; vkTransform.matrix[2][2] = modelMat[2][2]; vkTransform.matrix[2][3] = modelMat[2][3];
-
-                VkAccelerationStructureInstanceKHR instance{};
-                instance.transform = vkTransform;
-                instance.instanceCustomIndex = customInstanceId++; 
-                instance.mask = 0xFF; 
-                instance.instanceShaderBindingTableRecordOffset = 0; 
-                instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR; 
-                instance.accelerationStructureReference = res.blas->GetDeviceAddress();
-
-                tlasInstances.push_back(instance);
-            }
-
-            if (!tlasInstances.empty()) {
-                // 借用你写好的 VulkanCommandBuffer 类来做一次性提交
-                Lizeral::VulkanCommandBuffer tlasCmd(&vulkanDevice, &resourceCommandPool);
-                tlasCmd.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-                tlas.Build(tlasCmd.GetNativeBuffer(), tlasInstances);
-
-                // 加一个内存屏障，确保 TLAS 完全建好
-                VkMemoryBarrier memoryBarrier{};
-                memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-                memoryBarrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-                memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-                vkCmdPipelineBarrier(tlasCmd.GetNativeBuffer(), 
-                    VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 
-                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
-                    0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
-
-                tlasCmd.End();
-                tlasCmd.SubmitAndIdle(); // 暴力等待 GPU 彻底建完 TLAS
-                std::cout << "[Sandbox] TLAS Built Successfully!" << std::endl;
-            }
-
             std::cout<<"enter main loop"<<std::endl;
 
             while (!glfwWindowShouldClose(window)) {
@@ -780,6 +729,50 @@ int main() {
                 VkCommandBuffer cmd = renderer.BeginFrame();
 
                 if (cmd != VK_NULL_HANDLE) {
+
+                    std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+                    uint32_t customInstanceId = 0;
+
+                    auto renderView = registry.view<TransformComponent, VulkanModelComponent>();
+                    for (auto entity : renderView) {
+                        auto& transform = renderView.get<TransformComponent>(entity);
+                        auto& modelComp = renderView.get<VulkanModelComponent>(entity);
+                        if (!modelComp.IsLoaded()) continue;
+
+                        const Lizeral::VulkanModelResource& res = g_ModelCache[modelComp.getVulkanModelPath()];
+                        if (!res.blas) continue;
+
+                        Matrix4x4 modelMat = transform.getMatrix(); // 获取最新矩阵（哪怕玛莎拉蒂正在移动！）
+                        VkTransformMatrixKHR vkTransform{};
+                        // 拷贝矩阵...
+                        vkTransform.matrix[0][0] = modelMat[0][0]; vkTransform.matrix[0][1] = modelMat[0][1]; vkTransform.matrix[0][2] = modelMat[0][2]; vkTransform.matrix[0][3] = modelMat[0][3];
+                        vkTransform.matrix[1][0] = modelMat[1][0]; vkTransform.matrix[1][1] = modelMat[1][1]; vkTransform.matrix[1][2] = modelMat[1][2]; vkTransform.matrix[1][3] = modelMat[1][3];
+                        vkTransform.matrix[2][0] = modelMat[2][0]; vkTransform.matrix[2][1] = modelMat[2][1]; vkTransform.matrix[2][2] = modelMat[2][2]; vkTransform.matrix[2][3] = modelMat[2][3];
+
+                        VkAccelerationStructureInstanceKHR instance{};
+                        instance.transform = vkTransform;
+                        instance.instanceCustomIndex = customInstanceId++; 
+                        instance.mask = 0xFF; 
+                        instance.instanceShaderBindingTableRecordOffset = 0; 
+                        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR; 
+                        instance.accelerationStructureReference = res.blas->GetDeviceAddress();
+
+                        tlasInstances.push_back(instance);
+                    }
+
+                    // 2. 传入 ping 作为 frameIndex，安全构建！
+                    if (!tlasInstances.empty()) {
+                        tlas.Build(cmd, ping, tlasInstances);
+
+                        VkMemoryBarrier memoryBarrier{};
+                        memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                        memoryBarrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+                        memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+                        vkCmdPipelineBarrier(cmd, 
+                            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 
+                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // 未来如果你用 Compute 做光追
+                            0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+                    }
                     
                     // 状态转换：准备写入 G-Buffer
                     VkImageLayout currentLayout = firstFrame ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
