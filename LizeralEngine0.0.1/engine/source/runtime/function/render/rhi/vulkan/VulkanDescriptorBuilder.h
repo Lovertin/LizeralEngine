@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <unordered_map>
+#include <deque>
 
 namespace Lizeral {
 
@@ -21,6 +22,8 @@ namespace Lizeral {
         // 3. 绑定 Buffer (如果将来需要传 UBO / SSBO 可以用到)
         VulkanDescriptorBuilder& BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
 
+        VulkanDescriptorBuilder& BindAccelerationStructure(uint32_t binding, const VkAccelerationStructureKHR* as, VkShaderStageFlags stageFlags);
+
         // ★ 核心构建器 A：包含 Layout、分配专属 Pool，并直接完成数据的 Write
         bool Build(VulkanDevice* device, VkDescriptorSetLayout& outLayout, VkDescriptorPool& outPool, VkDescriptorSet& outSet);
 
@@ -32,6 +35,8 @@ namespace Lizeral {
         std::vector<VkDescriptorBindingFlags> m_bindingFlags;
         std::vector<VkWriteDescriptorSet> m_writes;
         
+        std::deque<VkWriteDescriptorSetAccelerationStructureKHR> m_asWrites;
+
         bool m_useBindless;
     };
 

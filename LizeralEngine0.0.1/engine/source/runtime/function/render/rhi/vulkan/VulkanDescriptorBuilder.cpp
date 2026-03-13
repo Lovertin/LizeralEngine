@@ -135,4 +135,34 @@ namespace Lizeral {
         return true;
     }
 
+    VulkanDescriptorBuilder& VulkanDescriptorBuilder::BindAccelerationStructure(
+        uint32_t binding, const VkAccelerationStructureKHR* as, VkShaderStageFlags stageFlags) 
+    {
+        VkDescriptorSetLayoutBinding layoutBinding{};
+        layoutBinding.binding = binding;
+        layoutBinding.descriptorCount = 1;
+        layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        layoutBinding.stageFlags = stageFlags;
+        m_bindings.push_back(layoutBinding);
+        m_bindingFlags.push_back(0); // 光追不需要 Bindless 的特殊标志
+
+        // 1. 组装专用的 Write 结构体，存入 deque
+        VkWriteDescriptorSetAccelerationStructureKHR asWrite{};
+        asWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+        asWrite.accelerationStructureCount = 1;
+        asWrite.pAccelerationStructures = as; // 填入传入的句柄指针
+        m_asWrites.push_back(asWrite);
+
+        // 2. 组装普通的 Write 结构体，用 pNext 指向刚刚存入 deque 的专用结构体
+        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        write.dstBinding = binding;
+        write.dstArrayElement = 0;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        write.descriptorCount = 1;
+        write.pNext = &m_asWrites.back(); // ★ deque 保证了这里的指针永远安全有效
+        m_writes.push_back(write);
+
+        return *this;
+    }
+
 } // namespace Lizeral
