@@ -57,11 +57,26 @@ struct PushConstants {
     Vector2 jitter;
 };
 
+struct RTInstanceDesc {
+    uint64_t vertexBuffer;
+    uint64_t indexBuffer;
+    uint64_t materialBuffer;
+    uint32_t textureOffset;
+    uint32_t padding[3]; // 保持 16 字节对齐
+};
+
 struct LightingPushConstants {
     Lizeral::Matrix4x4 invViewProj; 
     Lizeral::Matrix4x4 viewProj;
-    Lizeral::Vector3 cameraPos;     
-    float padding;                  
+    Lizeral::Vector3 cameraPos;   
+    float padding;  
+    uint32_t frameIndex;
+    uint32_t padding2;           // 强制对齐
+    uint64_t instanceDescAddr;   // 新增：传递全局台账的 BDA 指针  
+    Vector3 lightDir;   
+    float lightPadding;  
+    Vector3 lightColor;
+    float lightIntensity;             
 };
 
 struct GBufferAttachment {
@@ -321,7 +336,6 @@ int main() {
                     for (uint32_t i = 0; i < m.triangleCount * 3; i++) {
                         // 真正的全局顶点索引 = Meshlet的顶点基础偏移 + 内部微索引
                         globalIndices.push_back(m.vertexOffset + microIndices[m.triangleOffset + i]); 
-                        // 注意：这里使用的是 m.tOff 还是 m.triangleOffset 取决于你 MeshletDescriptor 的成员变量名
                     }
                 }
 
@@ -334,6 +348,7 @@ int main() {
                     VkBuffer blasIBuf;
                     VkDeviceMemory blasIMem;
                     uint64_t blasIAddr = createBDABuffer(vulkanDevice.GetNativeDevice(), vulkanContext.GetPhysicalDevice(), globalIndices, blasIBuf, blasIMem);
+                    res.globalIAddr = blasIAddr;
                     
                     // 登记到销毁清单
                     g_AllocatedBuffers.push_back({blasIBuf, blasIMem});
@@ -345,7 +360,7 @@ int main() {
                         &vulkanDevice, 
                         &resourceCommandPool, 
                         res.vAddr, vertexCount, vertexStride,
-                        blasIAddr, indexCount // ★ 变了！
+                        blasIAddr, indexCount // 变了！
                     );
                 }
 
@@ -363,27 +378,26 @@ int main() {
             Entity cameraEntity = registry.create();
             {
                 auto& t = registry.emplace<TransformComponent>(cameraEntity);
-                t.setPosition(Vector3(0.0f, 2.0f, -8.0f)); 
+                t.setPosition(Vector3(0.0f, 2.0f, 2.0f)); 
                 auto& cam = registry.emplace<CameraComponent>(cameraEntity);
                 cam.setFov(45.0f); cam.setAspect((float)WIDTH / (float)HEIGHT);
                 cam.setzNear(0.001f); cam.setzFar(1000.0f); cam.setMain(true);
                 auto& ctrl = registry.emplace<CameraControlComponent>(cameraEntity);
                 ctrl.setMoveSpeed(3.0f); ctrl.setSensitivityX(0.1f); ctrl.setSensitivityY(0.1f);
+                ctrl.setSpeedMutiplier(10.0f);
             }
 
             auto roomEntity = registry.create();
             auto& roomTrans = registry.emplace<TransformComponent>(roomEntity);
-            roomTrans.setPosition(Vector3(0.0f, -1.0f, 0.0f));
-            roomTrans.setScale(Vector3(1.0f, 1.0f, 1.0f)); 
-            registry.emplace<VulkanModelComponent>(roomEntity).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/box_with_uv.glb"); 
+            roomTrans.setPosition(Vector3(0.0f, -1.0f, 10.0f));
+            roomTrans.setScale(Vector3(0.05f, 0.05f, 0.05f)); 
+            registry.emplace<VulkanModelComponent>(roomEntity).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/scene_without_window.glb"); 
 
-            for(int i = -1; i <= 1; i++) {
-                auto carEntity = registry.create();
-                auto& carTrans = registry.emplace<TransformComponent>(carEntity);
-                carTrans.setPosition(Vector3(i * 1.0f, 0.3f, 0.0f));
-                carTrans.setScale(Vector3(10.0f, 10.0f, 10.0f));
-                registry.emplace<VulkanModelComponent>(carEntity).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/maserati.glb"); 
-            }
+            auto sponza = registry.create();
+            auto& sponzaTrans = registry.emplace<TransformComponent>(sponza);
+            sponzaTrans.setPosition(Vector3(100.0f, -1.0f, 10.0f));
+            sponzaTrans.setScale(Vector3(1.0f, 1.1f, 1.1f)); 
+            registry.emplace<VulkanModelComponent>(sponza).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/Sponza/Sponza/glTF/Sponza.gltf"); 
 
             // 预热加载
             auto view = registry.view<TransformComponent, VulkanModelComponent>();
@@ -395,12 +409,11 @@ int main() {
                 }
             }
 
-            // =======================================================
-            // ★ 阶段 2：预构建 TLAS (解决 0x0 Handle 崩溃的核心！)
-            // =======================================================
             std::cout << "[Sandbox] Pre-building Ping-Pong TLAS..." << std::endl;
+
             std::vector<VkAccelerationStructureInstanceKHR> initialTlasInstances;
             uint32_t initInstanceId = 0;
+
             for (auto entity : view) {
                 auto& transform = view.get<TransformComponent>(entity);
                 auto& modelComp = view.get<VulkanModelComponent>(entity);
@@ -475,10 +488,14 @@ int main() {
             GBufferAttachment gNormalRoughness = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
             GBufferAttachment gDepth = createAttachment(VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
             GBufferAttachment gVelocity = createAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-            GBufferAttachment gSceneColor = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+            // GBufferAttachment gSceneColor = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+            GBufferAttachment gDirectLight = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+            GBufferAttachment gNoisyGI = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+            GBufferAttachment gDenoisedGI = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
             VkSamplerCreateInfo gSamplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-            gSamplerInfo.magFilter = VK_FILTER_NEAREST; gSamplerInfo.minFilter = VK_FILTER_NEAREST;
+            gSamplerInfo.magFilter = VK_FILTER_LINEAR; gSamplerInfo.minFilter = VK_FILTER_LINEAR;
             gSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
             gSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; gSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; gSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             VkSampler gBufferSampler;
@@ -491,13 +508,38 @@ int main() {
                 { gBufferSampler, gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
             };
 
+            VkDescriptorImageInfo denoiseInfos[5] = {
+                { gBufferSampler, gNoisyGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { gBufferSampler, gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { gBufferSampler, gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { gBufferSampler, gDirectLight.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },   // 新增
+                { gBufferSampler, gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } // 新增
+            };
+
             GBufferAttachment gHistory[2]; 
             gHistory[0] = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
             gHistory[1] = createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
-            VkDescriptorImageInfo taaInfos0[3] = { { gBufferSampler, gSceneColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, { gBufferSampler, gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, { gBufferSampler, gHistory[1].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } };
-            VkDescriptorImageInfo taaInfos1[3] = { { gBufferSampler, gSceneColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, { gBufferSampler, gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, { gBufferSampler, gHistory[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } };
+            // =======================================================
+            // ★ 给第 0 帧用的 TAA 输入 (读上一帧的 History[1])
+            // =======================================================
+            VkDescriptorImageInfo taaInfos0[3] = { 
+                { gBufferSampler, gDenoisedGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { gBufferSampler, gHistory[1].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 
+                { gBufferSampler, gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }    
+            };
+
+            // =======================================================
+            // ★ 给第 1 帧用的 TAA 输入 (读上一帧的 History[0])
+            // =======================================================
+            VkDescriptorImageInfo taaInfos1[3] = { 
+                { gBufferSampler, gDenoisedGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { gBufferSampler, gHistory[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 
+                { gBufferSampler, gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }    
+            };
+
             VkDescriptorImageInfo blitInfos0[1] = { { gBufferSampler, gHistory[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } };
+
             VkDescriptorImageInfo blitInfos1[1] = { { gBufferSampler, gHistory[1].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } };
 
             // =======================================================
@@ -524,12 +566,39 @@ int main() {
                         .Build(&vulkanDevice, lightingLayouts[1], lightPools[1], lightingSets[1]);
 
             VkDescriptorSetLayout taaLayout0, taaLayout1; VkDescriptorPool taaPool0, taaPool1; VkDescriptorSet taaSet[2];
-            Lizeral::VulkanDescriptorBuilder().BindImage(0, &taaInfos0[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).BindImage(1, &taaInfos0[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).BindImage(2, &taaInfos0[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).Build(&vulkanDevice, taaLayout0, taaPool0, taaSet[0]);
-            Lizeral::VulkanDescriptorBuilder().BindImage(0, &taaInfos1[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).BindImage(1, &taaInfos1[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).BindImage(2, &taaInfos1[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).Build(&vulkanDevice, taaLayout1, taaPool1, taaSet[1]);
+            Lizeral::VulkanDescriptorBuilder()
+                .BindImage(0, &taaInfos0[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(1, &taaInfos0[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(2, &taaInfos0[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(&vulkanDevice, taaLayout0, taaPool0, taaSet[0]);
+
+            Lizeral::VulkanDescriptorBuilder()
+                .BindImage(0, &taaInfos1[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(1, &taaInfos1[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(2, &taaInfos1[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(&vulkanDevice, taaLayout1, taaPool1, taaSet[1]);
 
             VkDescriptorSetLayout blitLayout0, blitLayout1; VkDescriptorPool blitPool0, blitPool1; VkDescriptorSet blitSet[2];
             Lizeral::VulkanDescriptorBuilder().BindImage(0, &blitInfos0[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).Build(&vulkanDevice, blitLayout0, blitPool0, blitSet[0]);
             Lizeral::VulkanDescriptorBuilder().BindImage(0, &blitInfos1[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).Build(&vulkanDevice, blitLayout1, blitPool1, blitSet[1]);
+
+            // 你的代码：给第 0 帧建的卡槽
+            VkDescriptorSetLayout denoiseLayout0, denoiseLayout1; VkDescriptorPool denoisePool0, denoisePool1; VkDescriptorSet denoiseSet[2];
+            Lizeral::VulkanDescriptorBuilder()
+                .BindImage(0, &denoiseInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(1, &denoiseInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(2, &denoiseInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(3, &denoiseInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(4, &denoiseInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(&vulkanDevice, denoiseLayout0, denoisePool0, denoiseSet[0]);
+
+            Lizeral::VulkanDescriptorBuilder()
+                .BindImage(0, &denoiseInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(1, &denoiseInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(2, &denoiseInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(3, &denoiseInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(4, &denoiseInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(&vulkanDevice, denoiseLayout1, denoisePool1, denoiseSet[1]);
 
             // =======================================================
             // ★ 构建所有 Pipeline
@@ -547,9 +616,10 @@ int main() {
             VkShaderModule lightVertModule = createShaderModule(vulkanDevice.GetNativeDevice(), readFile(SHADER_DIR + "lighting_vert.spv"));
             VkShaderModule lightFragModule = createShaderModule(vulkanDevice.GetNativeDevice(), readFile(SHADER_DIR + "lighting_frag.spv"));
             VkPushConstantRange lightPushRange{}; lightPushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; lightPushRange.size = sizeof(LightingPushConstants);
-            VkPipelineLayoutCreateInfo lightPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; lightPipeLayoutInfo.setLayoutCount = 1; lightPipeLayoutInfo.pSetLayouts = &lightingLayouts[0]; lightPipeLayoutInfo.pushConstantRangeCount = 1; lightPipeLayoutInfo.pPushConstantRanges = &lightPushRange; 
+            VkDescriptorSetLayout lightSetLayouts[2] = { lightingLayouts[0], descriptorSetLayout };
+            VkPipelineLayoutCreateInfo lightPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; lightPipeLayoutInfo.setLayoutCount = 2; lightPipeLayoutInfo.pSetLayouts = lightSetLayouts; lightPipeLayoutInfo.pushConstantRangeCount = 1; lightPipeLayoutInfo.pPushConstantRanges = &lightPushRange; 
             VkPipelineLayout lightingPipelineLayout; vkCreatePipelineLayout(vulkanDevice.GetNativeDevice(), &lightPipeLayoutInfo, nullptr, &lightingPipelineLayout);
-            VkPipeline lightingPipeline = VulkanPipelineBuilder().AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, lightVertModule).AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, lightFragModule).SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST).SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE).SetMultisampling(VK_SAMPLE_COUNT_1_BIT).SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS).AddColorBlendAttachment(false).SetPipelineLayout(lightingPipelineLayout).Build(&vulkanDevice, { VK_FORMAT_R16G16B16A16_SFLOAT }, VK_FORMAT_UNDEFINED); 
+            VkPipeline lightingPipeline = VulkanPipelineBuilder().AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, lightVertModule).AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, lightFragModule).SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST).SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE).SetMultisampling(VK_SAMPLE_COUNT_1_BIT).SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS).AddColorBlendAttachment(false).AddColorBlendAttachment(false).SetPipelineLayout(lightingPipelineLayout).Build(&vulkanDevice, { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT }, VK_FORMAT_UNDEFINED);
 
             VkShaderModule taaFragModule = createShaderModule(vulkanDevice.GetNativeDevice(), readFile(SHADER_DIR + "taa_frag.spv"));
             VkPipelineLayoutCreateInfo taaPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; taaPipeLayoutInfo.setLayoutCount = 1; taaPipeLayoutInfo.pSetLayouts = &taaLayout0; 
@@ -561,16 +631,34 @@ int main() {
             VkPipelineLayout blitPipelineLayout; vkCreatePipelineLayout(vulkanDevice.GetNativeDevice(), &blitPipeLayoutInfo, nullptr, &blitPipelineLayout);
             VkPipeline blitPipeline = VulkanPipelineBuilder().AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, lightVertModule).AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, blitFragModule).SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST).SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE).SetMultisampling(VK_SAMPLE_COUNT_1_BIT).SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS).AddColorBlendAttachment(false).SetPipelineLayout(blitPipelineLayout).Build(&vulkanDevice, { renderer.GetSwapchainFormat() }, VK_FORMAT_D32_SFLOAT);
 
+            VkShaderModule denoiseFragModule = createShaderModule(vulkanDevice.GetNativeDevice(), readFile(SHADER_DIR + "denoise_frag.spv"));
+            VkPipelineLayoutCreateInfo denoisePipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
+            denoisePipeLayoutInfo.setLayoutCount = 1; 
+            denoisePipeLayoutInfo.pSetLayouts = &denoiseLayout0; 
+            denoisePipeLayoutInfo.pushConstantRangeCount = 1; 
+            denoisePipeLayoutInfo.pPushConstantRanges = &lightPushRange;
+
+            VkPipelineLayout denoisePipelineLayout; 
+            vkCreatePipelineLayout(vulkanDevice.GetNativeDevice(), &denoisePipeLayoutInfo, nullptr, &denoisePipelineLayout);
+            VkPipeline denoisePipeline = VulkanPipelineBuilder().AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, lightVertModule).AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, denoiseFragModule).SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST).SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE).SetMultisampling(VK_SAMPLE_COUNT_1_BIT).SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS).AddColorBlendAttachment(false).SetPipelineLayout(denoisePipelineLayout).Build(&vulkanDevice, { VK_FORMAT_R16G16B16A16_SFLOAT }, VK_FORMAT_UNDEFINED); // 输出格式匹配 gDenoisedGI
+
             vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), lightVertModule, nullptr); vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), lightFragModule, nullptr);
             vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), fragShaderModule, nullptr); vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), meshShaderModule, nullptr);
             vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), taskShaderModule, nullptr); vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), taaFragModule, nullptr);
-            vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), blitFragModule, nullptr);
+            vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), blitFragModule, nullptr);  vkDestroyShaderModule(vulkanDevice.GetNativeDevice(), denoiseFragModule, nullptr);
 
             auto CmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(vulkanDevice.GetNativeDevice(), "vkCmdDrawMeshTasksEXT");
 
             bool firstFrame = true;
             Matrix4x4 prevViewProj; std::unordered_map<Entity, Matrix4x4> prevModelMats; bool isFirstFrameRun = true;
             static uint32_t frameIndex = 0; float lastTime = glfwGetTime();
+
+            // 预分配 1000 个物体的台账空间
+            std::vector<RTInstanceDesc> dummyInstances(1000); 
+            VkBuffer rtInstBuffer;
+            VkDeviceMemory rtInstMemory;
+            uint64_t rtInstAddr = createBDABuffer(vulkanDevice.GetNativeDevice(), vulkanContext.GetPhysicalDevice(), dummyInstances, rtInstBuffer, rtInstMemory);
+            g_AllocatedBuffers.push_back({rtInstBuffer, rtInstMemory}); // 自动回收
 
             std::cout << "\n[Sandbox] Dynamic Rendering & Ray Tracing Ready! Hold RMB + WASD to move." << std::endl;
 
@@ -611,25 +699,52 @@ int main() {
                 if (cmd != VK_NULL_HANDLE) {
 
                     // 1. 收集实例
+                    RTInstanceDesc* mappedDesc;
+                    vkMapMemory(vulkanDevice.GetNativeDevice(), rtInstMemory, 0, VK_WHOLE_SIZE, 0, (void**)&mappedDesc);
+
                     std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
                     uint32_t customInstanceId = 0;
+
                     for (auto entity : view) { // 借用外面的 view
                         auto& transform = view.get<TransformComponent>(entity);
                         auto& modelComp = view.get<VulkanModelComponent>(entity);
+                        
+                        // 安全检查：是否有模型、是否有 BLAS
                         if (!modelComp.IsLoaded() || !g_ModelCache[modelComp.getVulkanModelPath()].blas) continue;
 
+                        // ★ 关键：在第一个循环里就把 res 取出来！
+                        const auto& res = g_ModelCache[modelComp.getVulkanModelPath()];
+
+                        // ★ 写入光追专属台账
+                        mappedDesc[customInstanceId].vertexBuffer = res.vAddr;
+                        mappedDesc[customInstanceId].indexBuffer  = res.globalIAddr; // 注意：这是上一轮加的专供光追的全局索引！
+                        mappedDesc[customInstanceId].materialBuffer = res.matAddr;
+                        mappedDesc[customInstanceId].textureOffset  = res.textureOffset;
+
+                        // 获取矩阵并转换
                         Matrix4x4 modelMat = transform.getMatrix(); 
                         VkTransformMatrixKHR vkTransform{};
                         vkTransform.matrix[0][0] = modelMat[0][0]; vkTransform.matrix[0][1] = modelMat[0][1]; vkTransform.matrix[0][2] = modelMat[0][2]; vkTransform.matrix[0][3] = modelMat[0][3];
                         vkTransform.matrix[1][0] = modelMat[1][0]; vkTransform.matrix[1][1] = modelMat[1][1]; vkTransform.matrix[1][2] = modelMat[1][2]; vkTransform.matrix[1][3] = modelMat[1][3];
                         vkTransform.matrix[2][0] = modelMat[2][0]; vkTransform.matrix[2][1] = modelMat[2][1]; vkTransform.matrix[2][2] = modelMat[2][2]; vkTransform.matrix[2][3] = modelMat[2][3];
 
+                        // 组装 TLAS 实例
                         VkAccelerationStructureInstanceKHR instance{};
-                        instance.transform = vkTransform; instance.instanceCustomIndex = customInstanceId++; instance.mask = 0xFF; 
+                        instance.transform = vkTransform; 
+                        
+                        // ★ 把 customInstanceId 赋给 TLAS 节点，这样 Shader 里才能靠 ID 查到上面写的台账！
+                        instance.instanceCustomIndex = customInstanceId++; 
+                        
+                        instance.mask = 0xFF; 
                         instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR; 
-                        instance.accelerationStructureReference = g_ModelCache[modelComp.getVulkanModelPath()].blas->GetDeviceAddress();
+                        
+                        // 顺便用取出的 res 替换掉之前那串长代码
+                        instance.accelerationStructureReference = res.blas->GetDeviceAddress();
                         tlasInstances.push_back(instance);
                     }
+
+                    // ★ 循环结束后，立刻解除映射！此时数据正式推入显存！
+                    vkUnmapMemory(vulkanDevice.GetNativeDevice(), rtInstMemory);
 
                     // 2. 动态建树！
                     if (!tlasInstances.empty()) {
@@ -707,7 +822,7 @@ int main() {
 
                     static bool isFirstTAAFrame = true;
                     if (isFirstTAAFrame) {
-                        transitionImageLayout(cmd, gSceneColor.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                        // transitionImageLayout(cmd, gSceneColor.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
                         transitionImageLayout(cmd, gHistory[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
                         transitionImageLayout(cmd, gHistory[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
                         isFirstTAAFrame = false;
@@ -718,30 +833,105 @@ int main() {
                     transitionImageLayout(cmd, gDepth.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
                     transitionImageLayout(cmd, gVelocity.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-                    // --- Lighting Pass ---
-                    transitionImageLayout(cmd, gSceneColor.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-                    VkRenderingAttachmentInfo sceneColorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO}; sceneColorAttachment.imageView = gSceneColor.view; sceneColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; sceneColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; sceneColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; sceneColorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
-                    VkRenderingInfo lightRenderInfo{VK_STRUCTURE_TYPE_RENDERING_INFO}; lightRenderInfo.renderArea = {{0, 0}, {WIDTH, HEIGHT}}; lightRenderInfo.layerCount = 1; lightRenderInfo.colorAttachmentCount = 1; lightRenderInfo.pColorAttachments = &sceneColorAttachment;
+                    // =======================================================
+                    // --- 1. Lighting Pass (生成直接光与噪点GI) ---
+                    // =======================================================
+                    // 准备画布：每次画新帧，我们不在乎里面的旧数据 (UNDEFINED)，直接转为写入模式 (COLOR_ATTACHMENT)
+                    transitionImageLayout(cmd, gDirectLight.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    transitionImageLayout(cmd, gNoisyGI.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    
+                    VkRenderingAttachmentInfo lightAttachments[2] = {};
+                    lightAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO; lightAttachments[0].imageView = gDirectLight.view; lightAttachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; lightAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; lightAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE; lightAttachments[0].clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
+                    lightAttachments[1].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO; lightAttachments[1].imageView = gNoisyGI.view; lightAttachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; lightAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; lightAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE; lightAttachments[1].clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
+
+                    VkRenderingInfo lightRenderInfo{VK_STRUCTURE_TYPE_RENDERING_INFO}; 
+                    lightRenderInfo.renderArea = {{0, 0}, {WIDTH, HEIGHT}}; 
+                    lightRenderInfo.layerCount = 1; 
+                    lightRenderInfo.colorAttachmentCount = 2;
+                    lightRenderInfo.pColorAttachments = lightAttachments;
                     
                     vkCmdBeginRendering(cmd, &lightRenderInfo); 
                     vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+                    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPipeline);
+                    VkDescriptorSet boundSets[2] = { lightingSets[ping], descriptorSet };
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPipelineLayout, 0, 2, boundSets, 0, nullptr);
+
                     LightingPushConstants lightPc{};
                     Matrix4x4 vpJittered = projMatJittered * viewMat;
-                    lightPc.invViewProj = vpJittered.inverse().transpose(); lightPc.viewProj = vpJittered.transpose(); lightPc.cameraPos = registry.get<TransformComponent>(cameraEntity).getPosition(); 
+                    lightPc.invViewProj = vpJittered.inverse().transpose();
+                    lightPc.viewProj = vpJittered.transpose();
+                    lightPc.cameraPos = registry.get<TransformComponent>(cameraEntity).getPosition(); 
+                    lightPc.padding = 0.0f;
+                    lightPc.frameIndex = frameIndex;
+                    lightPc.padding2 = 0.0f;
+                    lightPc.instanceDescAddr = rtInstAddr;
+                    // lightPc.lightDir = Lizeral::Vector3(1.0f, 0.5f, 1.0f).normalize();
+                    float time = glfwGetTime() * 0.2f; // 0.2 是旋转速度
+                    lightPc.lightDir = Lizeral::Vector3(cos(time), 0.5f, sin(time)).normalize(); 
+                    lightPc.lightPadding = 0.0f;
+                    // 例如，给一个清晨/黄昏的暖橘色
+                    lightPc.lightColor = Lizeral::Vector3(1.0f, 0.85f, 0.7f); 
+                    
+                    // 光强倍增器 (比如调到 4.0 甚至 10.0，让阳光刺眼)
+                    lightPc.lightIntensity = 4.0f;
+
 
                     vkCmdPushConstants(cmd, lightingPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightingPushConstants), &lightPc);
-                    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPipeline);
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPipelineLayout, 0, 1, &lightingSets[ping], 0, nullptr);
                     vkCmdDraw(cmd, 3, 1, 0, 0);
                     vkCmdEndRendering(cmd);
 
-                    // --- TAA Pass ---
-                    transitionImageLayout(cmd, gSceneColor.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-                    transitionImageLayout(cmd, gHistory[ping].image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    // =======================================================
+                    // --- 2. Denoise Pass (降噪并合成画面) ---
+                    // =======================================================
+                    // 1. 将刚画好的两张光照图转为读取模式 (READ_ONLY)，供给降噪器采样
+                    transitionImageLayout(cmd, gDirectLight.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    transitionImageLayout(cmd, gNoisyGI.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    
+                    // 2. 准备降噪合成后的输出画布
+                    transitionImageLayout(cmd, gDenoisedGI.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-                    VkRenderingAttachmentInfo taaAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO}; taaAttachment.imageView = gHistory[ping].view; taaAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; taaAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; taaAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-                    VkRenderingInfo taaRenderInfo{VK_STRUCTURE_TYPE_RENDERING_INFO}; taaRenderInfo.renderArea = {{0, 0}, {WIDTH, HEIGHT}}; taaRenderInfo.layerCount = 1; taaRenderInfo.colorAttachmentCount = 1; taaRenderInfo.pColorAttachments = &taaAttachment;
+                    VkRenderingAttachmentInfo denoiseAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO}; 
+                    denoiseAttachment.imageView = gDenoisedGI.view; 
+                    denoiseAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; 
+                    denoiseAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; 
+                    denoiseAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+                    VkRenderingInfo denoiseRenderInfo{VK_STRUCTURE_TYPE_RENDERING_INFO}; 
+                    denoiseRenderInfo.renderArea = {{0, 0}, {WIDTH, HEIGHT}}; 
+                    denoiseRenderInfo.layerCount = 1; 
+                    denoiseRenderInfo.colorAttachmentCount = 1; 
+                    denoiseRenderInfo.pColorAttachments = &denoiseAttachment;
+
+                    vkCmdBeginRendering(cmd, &denoiseRenderInfo);
+                    vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
+                    
+                    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, denoisePipeline);
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, denoisePipelineLayout, 0, 1, &denoiseSet[ping], 0, nullptr);
+                    vkCmdPushConstants(cmd, denoisePipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightingPushConstants), &lightPc);
+                    vkCmdDraw(cmd, 3, 1, 0, 0);
+                    vkCmdEndRendering(cmd);
+
+                    // =======================================================
+                    // --- 3. TAA Pass (时空抗锯齿) ---
+                    // =======================================================
+                    // 1. 将刚合成好的画面转为读取模式，供给 TAA 采样
+                    transitionImageLayout(cmd, gDenoisedGI.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    
+                    // 2. 准备当前帧的 TAA 历史写入画布
+                    transitionImageLayout(cmd, gHistory[ping].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    
+                    VkRenderingAttachmentInfo taaAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO}; 
+                    taaAttachment.imageView = gHistory[ping].view; 
+                    taaAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; 
+                    taaAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; 
+                    taaAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                    
+                    VkRenderingInfo taaRenderInfo{VK_STRUCTURE_TYPE_RENDERING_INFO}; 
+                    taaRenderInfo.renderArea = {{0, 0}, {WIDTH, HEIGHT}}; 
+                    taaRenderInfo.layerCount = 1; 
+                    taaRenderInfo.colorAttachmentCount = 1; 
+                    taaRenderInfo.pColorAttachments = &taaAttachment;
 
                     vkCmdBeginRendering(cmd, &taaRenderInfo);
                     vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
@@ -750,8 +940,12 @@ int main() {
                     vkCmdDraw(cmd, 3, 1, 0, 0);
                     vkCmdEndRendering(cmd);
 
-                    // --- Blit Pass ---
+                    // =======================================================
+                    // --- 4. Blit Pass (推上屏幕) ---
+                    // =======================================================
+                    // 将刚刚做完抗锯齿的画面，转为读取模式，送给屏幕
                     transitionImageLayout(cmd, gHistory[ping].image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                    
                     renderer.BeginRendering(cmd); 
                     vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
                     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blitPipeline);
@@ -771,16 +965,19 @@ int main() {
             vkDestroyPipeline(vulkanDevice.GetNativeDevice(), taaPipeline, nullptr); vkDestroyPipelineLayout(vulkanDevice.GetNativeDevice(), taaPipelineLayout, nullptr);
             vkDestroyPipeline(vulkanDevice.GetNativeDevice(), lightingPipeline, nullptr); vkDestroyPipelineLayout(vulkanDevice.GetNativeDevice(), lightingPipelineLayout, nullptr);
             vkDestroyPipeline(vulkanDevice.GetNativeDevice(), graphicsPipeline, nullptr); vkDestroyPipelineLayout(vulkanDevice.GetNativeDevice(), pipelineLayout, nullptr);
+            vkDestroyPipeline(vulkanDevice.GetNativeDevice(), denoisePipeline, nullptr); vkDestroyPipelineLayout(vulkanDevice.GetNativeDevice(), denoisePipelineLayout, nullptr);
 
             vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), descriptorPool, nullptr);
             vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), lightPools[0], nullptr); vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), lightPools[1], nullptr);
             vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), taaPool0, nullptr); vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), taaPool1, nullptr);
             vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), blitPool0, nullptr); vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), blitPool1, nullptr);
+            vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), denoisePool0, nullptr); vkDestroyDescriptorPool(vulkanDevice.GetNativeDevice(), denoisePool1, nullptr);
 
             vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), descriptorSetLayout, nullptr);
             vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), lightingLayouts[0], nullptr); vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), lightingLayouts[1], nullptr);
             vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), blitLayout0, nullptr); vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), blitLayout1, nullptr);
             vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), taaLayout0, nullptr); vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), taaLayout1, nullptr);
+            vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), denoiseLayout0, nullptr); vkDestroyDescriptorSetLayout(vulkanDevice.GetNativeDevice(), denoiseLayout1, nullptr); 
 
             vkDestroySampler(vulkanDevice.GetNativeDevice(), gBufferSampler, nullptr);
 
@@ -794,9 +991,12 @@ int main() {
             vkDestroyImageView(vulkanDevice.GetNativeDevice(), gNormalRoughness.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gNormalRoughness.image, gNormalRoughness.allocation);
             vkDestroyImageView(vulkanDevice.GetNativeDevice(), gDepth.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gDepth.image, gDepth.allocation);
             vkDestroyImageView(vulkanDevice.GetNativeDevice(), gVelocity.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gVelocity.image, gVelocity.allocation);
-            vkDestroyImageView(vulkanDevice.GetNativeDevice(), gSceneColor.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gSceneColor.image, gSceneColor.allocation);
+            // vkDestroyImageView(vulkanDevice.GetNativeDevice(), gSceneColor.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gSceneColor.image, gSceneColor.allocation);
             vkDestroyImageView(vulkanDevice.GetNativeDevice(), gHistory[0].view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gHistory[0].image, gHistory[0].allocation);
             vkDestroyImageView(vulkanDevice.GetNativeDevice(), gHistory[1].view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gHistory[1].image, gHistory[1].allocation);
+            vkDestroyImageView(vulkanDevice.GetNativeDevice(), gDirectLight.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gDirectLight.image, gDirectLight.allocation);
+            vkDestroyImageView(vulkanDevice.GetNativeDevice(), gNoisyGI.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gNoisyGI.image, gNoisyGI.allocation);
+            vkDestroyImageView(vulkanDevice.GetNativeDevice(), gDenoisedGI.view, nullptr); vmaDestroyImage(vulkanDevice.GetAllocator(), gDenoisedGI.image, gDenoisedGI.allocation);
         } 
         
         vkDestroySurfaceKHR(instance, surface, nullptr);

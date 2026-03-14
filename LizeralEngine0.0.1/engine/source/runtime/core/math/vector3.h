@@ -252,6 +252,19 @@ namespace Lizeral
             z *= inv_lengh;
         }
 
+        Vector3 normalize(){
+            float length = std::hypot(x, y, z);
+            if (length == 0.f)
+                return Vector3(0.0f,0.0f,0.0f);
+
+            float inv_lengh = 1.0f / length;
+            x *= inv_lengh;
+            y *= inv_lengh;
+            z *= inv_lengh;
+
+            return Vector3(x,y,z);
+        }
+
         /** Calculates the cross-product of 2 vectors, i.e. the vector that
         lies perpendicular to them both.
         @remarks

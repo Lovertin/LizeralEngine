@@ -1,52 +1,121 @@
 #version 460
-// =======================================================
-// ★ 1. 开启 Vulkan 光线查询 (Ray Query) 扩展
-// =======================================================
 #extension GL_EXT_ray_query : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 layout(location = 0) in vec2 inUV;
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outDirectLight;
+layout(location = 1) out vec4 outNoisyGI;
 
 layout(binding = 0) uniform sampler2D samplerAlbedoMetallic;
 layout(binding = 1) uniform sampler2D samplerNormalRoughness;
 layout(binding = 2) uniform sampler2D samplerDepth;
 
-// =======================================================
-// ★ 2. 接收来自 C++ 端的场景大沙盘 (TLAS)
-// 注意 binding = 4，与 C++ 中 BindAccelerationStructure 的绑定点一致
-// =======================================================
 layout(binding = 4) uniform accelerationStructureEXT topLevelAS;
+layout(set = 1, binding = 0) uniform sampler2D bindlessTextures[];
 
 layout(push_constant) uniform PushConstants {
     mat4 invViewProj;
     mat4 viewProj;
     vec3 cameraPos;
+    float padding;
+    uint frameIndex;
+    uint padding2;
+    uint64_t instanceDescAddr;
+    vec3 lightDir;       
+    float lightPadding;
+    vec3 lightColor;
+    float lightIntensity;
 } pc;
 
-// 坐标重构
+struct RTInstanceDesc {
+    uint64_t vertexBuffer;
+    uint64_t indexBuffer;
+    uint64_t materialBuffer;
+    uint textureOffset;
+    uint pad0, pad1, pad2;
+};
+
+uint pcg_hash(uint seed) {
+    uint state = seed * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float rand(inout uint seed) {
+    seed = pcg_hash(seed);
+    return float(seed & 0x00FFFFFFu) / 16777216.0;
+}
+
 vec3 ReconstructWorldPos(vec2 uv, float depth) {
     vec4 ndc = vec4(uv * 2.0 - 1.0, depth, 1.0);
     vec4 worldPos = pc.invViewProj * ndc; 
     return worldPos.xyz / worldPos.w;
 }
 
-// ACES 色调映射
-vec3 ACESFilm(vec3 x) {
-    float a = 2.51f; float b = 0.03f; float c = 2.43f; float d = 0.59f; float e = 0.14f;
-    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
+layout(buffer_reference, scalar) readonly buffer VertexBuffer { float vData[]; };
+layout(buffer_reference, scalar) readonly buffer IndexBuffer { uint iData[]; };
+layout(buffer_reference, scalar) readonly buffer InstanceDescBuffer { RTInstanceDesc instances[]; };
+
+vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction) {
+    rayQueryEXT rayQuery;
+    uint rayFlags = gl_RayFlagsOpaqueEXT; // 不加 TerminateOnFirstHit，需要准确碰撞点
+    rayQueryInitializeEXT(rayQuery, topLevelAS, rayFlags, 0xFF, origin, 0.01, direction, 1000.0);
+    while(rayQueryProceedEXT(rayQuery)) {}
+
+    if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
+        // 1. 获取撞击信息
+        uint instanceID = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
+        uint primID = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+        vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
+
+        // 2. 查台账
+        InstanceDescBuffer instances = InstanceDescBuffer(pc.instanceDescAddr);
+        RTInstanceDesc desc = instances.instances[instanceID];
+
+        // 3. 查索引
+        IndexBuffer indices = IndexBuffer(desc.indexBuffer);
+        uint i0 = indices.iData[primID * 3 + 0];
+        uint i1 = indices.iData[primID * 3 + 1];
+        uint i2 = indices.iData[primID * 3 + 2];
+
+        // 4. 查顶点计算 UV
+        VertexBuffer verts = VertexBuffer(desc.vertexBuffer);
+        vec2 uv0 = vec2(verts.vData[i0 * 8 + 6], verts.vData[i0 * 8 + 7]);
+        vec2 uv1 = vec2(verts.vData[i1 * 8 + 6], verts.vData[i1 * 8 + 7]);
+        vec2 uv2 = vec2(verts.vData[i2 * 8 + 6], verts.vData[i2 * 8 + 7]);
+
+        vec2 hitUV = uv0 * (1.0 - bary.x - bary.y) + uv1 * bary.x + uv2 * bary.y;
+
+        // 5. 采样无绑定贴图
+        vec3 hitColor = texture(bindlessTextures[nonuniformEXT(desc.textureOffset)], hitUV).rgb;
+        
+        // ★ 核心除噪：去饱和度，压制采样到法线贴图带来的五彩斑斓的光污染
+        float lum = dot(hitColor, vec3(0.299, 0.587, 0.114));
+        hitColor = mix(hitColor, vec3(lum), 0.9);
+        
+        return hitColor; 
+    }
+    
+    // 如果射向了虚空，返回极亮的天空颜色作为光照贡献
+    return vec3(0.5, 0.7, 0.9) * 3.0; 
 }
 
 void main() {
     float depth = texture(samplerDepth, inUV).r;
     
-    // 背景剔除
+    // =======================================================
+    // 渲染背景天空
+    // =======================================================
     if (depth <= 0.0) {
         vec3 bg = mix(vec3(0.1, 0.2, 0.3), vec3(0.01, 0.02, 0.05), inUV.y);
-        outColor = vec4(bg, 1.0);
+        outDirectLight = vec4(bg, 1.0);        // 背景色直接塞进光照通道
+        outNoisyGI = vec4(0.0, 0.0, 0.0, 1.0); // 天空没有间接反弹光
         return;
     }
 
-    // 解码 G-Buffer
     vec4 albedoMetallic = texture(samplerAlbedoMetallic, inUV);
     vec4 normalRoughness = texture(samplerNormalRoughness, inUV);
 
@@ -58,58 +127,99 @@ void main() {
     vec3 worldPos = ReconstructWorldPos(inUV, depth);
     vec3 viewDir = normalize(pc.cameraPos - worldPos);
 
-    // 假设光源方向 (指向光源)
-    vec3 lightDir = normalize(vec3(1.0, 2.0, 1.0));
-    vec3 lightColor = vec3(2.0, 1.9, 1.8);
+    vec3 lightDir = normalize(pc.lightDir);
+    vec3 lightColor = pc.lightColor * pc.lightIntensity;
 
     // =======================================================
-    // ★ 3. 硬件光线追踪：阴影计算
+    // 物理软阴影 (Ray Traced PCSS)
     // =======================================================
-    float shadow = 1.0; // 默认 1.0 表示“被照亮”
-    
-    // 防阴影痤疮 (Shadow Acne)：把发射点沿着法线往外推一点点，防止光线打到自己身上
+    uint baseSeed = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + pc.frameIndex * 26699u;
+    float lightRadius = 0.05; 
+
+    vec3 lightUp = abs(lightDir.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    vec3 lightRight = normalize(cross(lightUp, lightDir));
+    lightUp = cross(lightDir, lightRight);
+
     vec3 rayOrigin = worldPos + normal * 0.05; 
-    vec3 rayDir = lightDir; // 射线方向直接指向太阳
-    float tMin = 0.001;     // 起点盲区
-    float tMax = 1000.0;    // 射线最大射程 (太阳在无限远处)
-
-    // 声明一个光线查询对象
-    rayQueryEXT rayQuery;
-
-    // 配置光线参数：
-    // gl_RayFlagsTerminateOnFirstHitEXT : 极致优化！只要光线撞到了任何东西，立刻停止计算。
-    // 因为对于阴影来说，被一个东西挡住和被一万个东西挡住，结果都是黑的！
+    float tMin = 0.001;     
+    float tMax = 1000.0;    
     uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
 
-    // 发射射线！
-    rayQueryInitializeEXT(rayQuery, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, rayDir, tMax);
+    int NUM_SAMPLES = 8; 
+    float shadowSum = 0.0; 
 
-    // 让硬件在 BVH 树中步进求交
-    while(rayQueryProceedEXT(rayQuery)) {}
+    float randomAngle = rand(baseSeed) * 2.0 * 3.14159265;
+    const float GOLDEN_ANGLE = 2.39996323;
 
-    // 检查最后这根射线是不是“撞死”了
-    if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-        shadow = 0.0; // 撞到了遮挡物，这里是死黑的阴影！
+    for(int i = 0; i < NUM_SAMPLES; i++) {
+        float r = sqrt((float(i) + 0.5) / float(NUM_SAMPLES)) * lightRadius; 
+        float theta = float(i) * GOLDEN_ANGLE + randomAngle;
+        vec2 diskOffset = vec2(r * cos(theta), r * sin(theta));
+        vec3 jitteredRayDir = normalize(lightDir + lightRight * diskOffset.x + lightUp * diskOffset.y);
+
+        rayQueryEXT rayQuery;
+        rayQueryInitializeEXT(rayQuery, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, jitteredRayDir, tMax);
+        while(rayQueryProceedEXT(rayQuery)) {}
+
+        if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
+            shadowSum += 1.0; 
+        }
     }
 
+    float shadow = shadowSum / float(NUM_SAMPLES);
+
     // =======================================================
-    // 4. Blinn-Phong 光照混合
+    // 拆分光照输出 1：带贴图颜色的纯净直接光
     // =======================================================
     float NdotL = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = albedo * NdotL * lightColor;
-
     vec3 halfVec = normalize(lightDir + viewDir);
     float NdotH = max(dot(normal, halfVec), 0.0);
     float shininess = exp2(10.0 * (1.0 - roughness) + 1.0);
     float specTerm = pow(NdotH, shininess) * (1.0 - roughness);
+    
     vec3 specularColor = mix(vec3(1.0), albedo, metallic);
-    vec3 specular = specularColor * specTerm * lightColor;
+    
+    vec3 pureDirectDiffuse = NdotL * lightColor; 
+    vec3 pureDirectSpecular = specularColor * specTerm * lightColor; 
+    
+    // ★ 修复处：将 albedo 乘给了纯粹的光线！
+    vec3 directLight = (albedo * pureDirectDiffuse * (1.0 - metallic) + pureDirectSpecular) * shadow;
+    outDirectLight = vec4(directLight, 1.0);
 
-    vec3 ambient = albedo * 0.15; // 环境光 (GI的下位替代)，不受直射光阴影影响
+    // =======================================================
+    // 拆分光照输出 2：多采样结构化 GI (无贴图颜色)
+    // =======================================================
+    uint giSeed = baseSeed + 8888u; 
+    vec3 w_tbn = normal;
+    vec3 u_tbn = normalize(cross((abs(w_tbn.x) > 0.1 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)), w_tbn));
+    vec3 v_tbn = cross(w_tbn, u_tbn);
+    mat3 tbn_hemisphere = mat3(u_tbn, v_tbn, w_tbn);
 
-    // ★ 把光追算出来的 shadow 乘到漫反射和高光上！
-    vec3 finalColor = ambient + (diffuse * (1.0 - metallic) + specular) * shadow;
+    int numGisamples = 4;
+    vec3 giSum = vec3(0.0);
+    const float phi = (1.0 + sqrt(5.0)) / 2.0; 
 
-    finalColor = ACESFilm(finalColor);
-    outColor = vec4(finalColor, 1.0); 
+    for(int i=0; i<numGisamples; i++) {
+        float u_vogel = mod(float(i) / phi, 1.0);
+        float v_vogel = float(i) / float(numGisamples);
+        
+        float vogel_r = sqrt(u_vogel);
+        float vogel_theta = v_vogel * 2.0 * 3.14159265 + randomAngle; 
+        vec2 vogel_point = vec2(vogel_r * cos(vogel_theta), vogel_r * sin(vogel_theta));
+
+        vec3 hemisphere_dir_tbn = vec3(vogel_point.x, vogel_point.y, sqrt(max(0.0, 1.0 - dot(vogel_point, vogel_point))));
+        vec3 giDirection = normalize(tbn_hemisphere * hemisphere_dir_tbn);
+
+        vec3 col = TraceGlobalIlluminationRay(worldPos + normal * 0.05, giDirection);
+        
+        // 防止异常极亮射线的萤火虫现象
+        giSum += min(col, vec3(2.5)); 
+    }
+    
+    vec3 bouncedColor = giSum / float(numGisamples);
+    float giMultiplier = pc.lightIntensity * 0.25; 
+    
+    // 只输出物理反弹光度，不含任何木纹纹理
+    vec3 indirectLight = bouncedColor * giMultiplier; 
+    outNoisyGI = vec4(indirectLight, 1.0);
 }
