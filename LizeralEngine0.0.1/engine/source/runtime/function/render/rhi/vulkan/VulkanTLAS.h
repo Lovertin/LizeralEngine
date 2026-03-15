@@ -17,7 +17,7 @@ namespace Lizeral {
         VulkanTLAS& operator=(const VulkanTLAS&) = delete;
 
         // ★ 核心改变：传入当前的 frameIndex，决定使用哪一套缓冲
-        void Build(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<VkAccelerationStructureInstanceKHR>& instances);
+        void Build(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<VkAccelerationStructureInstanceKHR>& instances, bool isUpdate = false);
 
         VkAccelerationStructureKHR GetHandle(uint32_t frameIndex) const { 
             return m_tlasHandle[frameIndex % m_maxFrames]; 

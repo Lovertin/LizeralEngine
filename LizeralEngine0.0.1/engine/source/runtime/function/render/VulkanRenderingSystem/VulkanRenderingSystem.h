@@ -33,22 +33,20 @@ namespace Lizeral {
         VulkanRenderingSystem() = default;
         ~VulkanRenderingSystem() {  }
 
-        // ★ 初始化：由引擎核心在创建好 Device 和 Renderer 后注入
+        // 初始化：由引擎核心在创建好 Device 和 Renderer 后注入
         void Initialize(VulkanContext* context, VulkanDevice* device, VulkanRenderer* renderer, uint32_t width, uint32_t height);
 
-        // ★ 每帧核心渲染循环
+        // 每帧核心渲染循环
         void Tick(Registry& registry, float deltaTime);
 
-        // ★ 清理资源
+        // 清理资源
         void Shutdown();
 
         // 供外部编辑器或窗口系统在拉伸窗口时调用
         void Resize(uint32_t width, uint32_t height);
 
-        void SetViewport(int x, int y, int w, int h) {
-            m_viewX = x; m_viewY = y; m_viewW = w; m_viewH = h;
-        }
-        // Vulkan 中通常不需要手动 SetDefaultFBO，留空兼容旧代码接口即可
+        void SetViewport(int x, int y, uint32_t width, uint32_t height);
+
         void SetDefaultFBO(unsigned int fbo) { /* VulkanRenderer handles target */ }
 
     private:
@@ -69,6 +67,11 @@ namespace Lizeral {
         GBufferAttachment m_gDirectLight;
         GBufferAttachment m_gNoisyGI;
         GBufferAttachment m_gDenoisedGI;
+        GBufferAttachment m_gDenoisedGITemp;
+        
+        GBufferAttachment m_gGIHistory[2];      // [新增] SVGF 的 GI 时域历史
+        GBufferAttachment m_gMomentsHistory[2];   // [新增] SVGF 的 方差(矩) 时域历史
+
         GBufferAttachment m_gHistory[2];
         VkSampler m_gBufferSampler { VK_NULL_HANDLE };
 
@@ -83,10 +86,19 @@ namespace Lizeral {
         VkDescriptorPool m_lightPools[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
         VkDescriptorSet m_lightingSets[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
 
-        // Denoise Pass (Ping-pong)
-        VkDescriptorSetLayout m_denoiseLayouts[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
-        VkDescriptorPool m_denoisePools[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
-        VkDescriptorSet m_denoiseSets[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
+        // SVGF Temporal Pass (Ping-pong)
+        VkDescriptorSetLayout m_svgfTemporalLayouts[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
+        VkDescriptorPool m_svgfTemporalPools[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
+        VkDescriptorSet m_svgfTemporalSets[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
+        VkPipelineLayout m_svgfTemporalPipelineLayout { VK_NULL_HANDLE };
+        VkPipeline m_svgfTemporalPipeline { VK_NULL_HANDLE };
+
+        // SVGF A-Trous Pass (Ping-pong)
+        VkDescriptorSetLayout m_svgfATrousLayouts[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
+        VkDescriptorPool m_svgfATrousPools[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
+        VkDescriptorSet m_svgfATrousSets[2][4]={};
+        VkPipelineLayout m_svgfATrousPipelineLayout { VK_NULL_HANDLE };
+        VkPipeline m_svgfATrousPipeline { VK_NULL_HANDLE };
 
         // TAA Pass (Ping-pong)
         VkDescriptorSetLayout m_taaLayouts[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
@@ -104,9 +116,6 @@ namespace Lizeral {
 
         VkPipelineLayout m_lightingPipelineLayout { VK_NULL_HANDLE };
         VkPipeline m_lightingPipeline { VK_NULL_HANDLE };
-
-        VkPipelineLayout m_denoisePipelineLayout { VK_NULL_HANDLE };
-        VkPipeline m_denoisePipeline { VK_NULL_HANDLE };
 
         VkPipelineLayout m_taaPipelineLayout { VK_NULL_HANDLE };
         VkPipeline m_taaPipeline { VK_NULL_HANDLE };

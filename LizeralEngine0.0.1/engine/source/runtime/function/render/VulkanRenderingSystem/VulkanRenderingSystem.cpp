@@ -140,25 +140,27 @@ namespace Lizeral {
 
         std::cout << "[VulkanRenderingSystem] Initializing..." << std::endl;
 
-        // 1. 创建基础池与光追结构
-        m_resourceCommandPool = std::make_unique<VulkanCommandPool>(m_device);
-        m_tlas = std::make_unique<VulkanTLAS>(m_device, 2);
-
-        VulkanCommandBuffer tempCmd(m_device, m_resourceCommandPool.get());
-        tempCmd.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        std::vector<VkAccelerationStructureInstanceKHR> emptyInstances;
-        m_tlas->Build(tempCmd.GetNativeBuffer(), 0, emptyInstances);
-        m_tlas->Build(tempCmd.GetNativeBuffer(), 1, emptyInstances);
-        tempCmd.End();
-        tempCmd.SubmitAndIdle();
-
-        // 2. 预分配 1000 个物体的光追台账空间 (复用你的 dummyInstances 设计)
         struct RTInstanceDesc {
             uint64_t vertexBuffer; uint64_t indexBuffer; uint64_t materialBuffer;
             uint32_t textureOffset; uint32_t padding[3];
         };
-        std::vector<RTInstanceDesc> dummyInstances(1000); 
-        m_rtInstanceBuffer = CreateBDABuffer(dummyInstances);
+
+        // 1. 创建基础池与光追结构
+        if (!m_tlas) {
+            m_resourceCommandPool = std::make_unique<VulkanCommandPool>(m_device);
+            m_tlas = std::make_unique<VulkanTLAS>(m_device, 2);
+
+            VulkanCommandBuffer tempCmd(m_device, m_resourceCommandPool.get());
+            tempCmd.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+            std::vector<VkAccelerationStructureInstanceKHR> emptyInstances;
+            m_tlas->Build(tempCmd.GetNativeBuffer(), 0, emptyInstances);
+            m_tlas->Build(tempCmd.GetNativeBuffer(), 1, emptyInstances);
+            tempCmd.End();
+            tempCmd.SubmitAndIdle();
+
+            std::vector<RTInstanceDesc> dummyInstances(1000); 
+            m_rtInstanceBuffer = CreateBDABuffer(dummyInstances);
+        }
 
         // 3. 创建 G-Buffer 附件
         m_gAlbedoMetallic = CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -169,6 +171,13 @@ namespace Lizeral {
         m_gDirectLight = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
         m_gNoisyGI = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
         m_gDenoisedGI = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gDenoisedGITemp = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        m_gGIHistory[0] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gGIHistory[1] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        
+        m_gMomentsHistory[0] = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gMomentsHistory[1] = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
         
         m_gHistory[0] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
         m_gHistory[1] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -186,6 +195,9 @@ namespace Lizeral {
         // 5. 编译与构建管线
         BuildPipelines();
 
+        m_firstFrame = true;
+        m_isFirstFrameRun = true;
+
         std::cout << "[VulkanRenderingSystem] Initialization Complete." << std::endl;
     }
 
@@ -202,9 +214,9 @@ namespace Lizeral {
         // ==========================================================
         // 2. 销毁最上层的逻辑资源 (自动调用 VulkanBuffer/Texture 的析构)
         // ==========================================================
-        m_modelCache.clear();
-        m_rtInstanceBuffer.reset();
-        m_globalTextures.clear(); 
+        // m_modelCache.clear();
+        // m_rtInstanceBuffer.reset();
+        // m_globalTextures.clear(); 
 
         // ==========================================================
         // 3. 销毁所有的 Pipelines 和 Pipeline Layouts (与创建逆序)
@@ -215,8 +227,11 @@ namespace Lizeral {
         if (m_taaPipeline)        vkDestroyPipeline(device, m_taaPipeline, nullptr);
         if (m_taaPipelineLayout)  vkDestroyPipelineLayout(device, m_taaPipelineLayout, nullptr);
 
-        if (m_denoisePipeline)       vkDestroyPipeline(device, m_denoisePipeline, nullptr);
-        if (m_denoisePipelineLayout) vkDestroyPipelineLayout(device, m_denoisePipelineLayout, nullptr);
+        if (m_svgfTemporalPipeline)       vkDestroyPipeline(device, m_svgfTemporalPipeline, nullptr);
+        if (m_svgfTemporalPipelineLayout) vkDestroyPipelineLayout(device, m_svgfTemporalPipelineLayout, nullptr);
+
+        if (m_svgfATrousPipeline)       vkDestroyPipeline(device, m_svgfATrousPipeline, nullptr);
+        if (m_svgfATrousPipelineLayout) vkDestroyPipelineLayout(device, m_svgfATrousPipelineLayout, nullptr);
 
         if (m_lightingPipeline)       vkDestroyPipeline(device, m_lightingPipeline, nullptr);
         if (m_lightingPipelineLayout) vkDestroyPipelineLayout(device, m_lightingPipelineLayout, nullptr);
@@ -230,7 +245,8 @@ namespace Lizeral {
         if (m_descriptorPool) vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
         for (int i = 0; i < 2; i++) {
             if (m_lightPools[i])   vkDestroyDescriptorPool(device, m_lightPools[i], nullptr);
-            if (m_denoisePools[i]) vkDestroyDescriptorPool(device, m_denoisePools[i], nullptr);
+            if (m_svgfTemporalPools[i]) vkDestroyDescriptorPool(device, m_svgfTemporalPools[i], nullptr);
+            if (m_svgfATrousPools[i]) vkDestroyDescriptorPool(device, m_svgfATrousPools[i], nullptr);
             if (m_taaPools[i])     vkDestroyDescriptorPool(device, m_taaPools[i], nullptr);
             if (m_blitPools[i])    vkDestroyDescriptorPool(device, m_blitPools[i], nullptr);
         }
@@ -241,7 +257,8 @@ namespace Lizeral {
         if (m_descriptorSetLayout) vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
         for (int i = 0; i < 2; i++) {
             if (m_lightingLayouts[i]) vkDestroyDescriptorSetLayout(device, m_lightingLayouts[i], nullptr);
-            if (m_denoiseLayouts[i])  vkDestroyDescriptorSetLayout(device, m_denoiseLayouts[i], nullptr);
+            if (m_svgfTemporalLayouts[i])  vkDestroyDescriptorSetLayout(device, m_svgfTemporalLayouts[i], nullptr);
+            if (m_svgfATrousLayouts[i])  vkDestroyDescriptorSetLayout(device, m_svgfATrousLayouts[i], nullptr);
             if (m_taaLayouts[i])      vkDestroyDescriptorSetLayout(device, m_taaLayouts[i], nullptr);
             if (m_blitLayouts[i])     vkDestroyDescriptorSetLayout(device, m_blitLayouts[i], nullptr);
         }
@@ -255,7 +272,12 @@ namespace Lizeral {
         DestroyAttachment(m_gVelocity);
         DestroyAttachment(m_gDirectLight);    
         DestroyAttachment(m_gNoisyGI);
-        DestroyAttachment(m_gDenoisedGI);     
+        DestroyAttachment(m_gDenoisedGI);  
+        DestroyAttachment(m_gDenoisedGITemp);
+        DestroyAttachment(m_gGIHistory[0]);
+        DestroyAttachment(m_gGIHistory[1]); 
+        DestroyAttachment(m_gMomentsHistory[0]);
+        DestroyAttachment(m_gMomentsHistory[1]);
         DestroyAttachment(m_gHistory[0]); 
         DestroyAttachment(m_gHistory[1]);
 
@@ -265,10 +287,28 @@ namespace Lizeral {
         // 7. 智能指针重置 (CommandPool 和 TLAS)
         // 虽然类析构时它们会自动释放，但显式 reset 能保证在 m_device 被外部销毁前执行完毕
         // ==========================================================
-        m_tlas.reset();
-        m_resourceCommandPool.reset();
+        // m_tlas.reset();
+        // m_resourceCommandPool.reset();
 
         std::cout << "[RenderingSystem] Shutdown complete." << std::endl;
+    }
+
+    void VulkanRenderingSystem::Resize(uint32_t width, uint32_t height) {
+        if (width == 0 || height == 0) return;
+        vkDeviceWaitIdle(m_device->GetNativeDevice());
+        
+        // 只更新画板（G-Buffer）真实尺寸
+        m_width = width;
+        m_height = height;
+
+        // 这里理想情况下应该加入重建所有 G-Buffer 附件的代码...
+    }
+
+    void VulkanRenderingSystem::SetViewport(int x, int y, uint32_t width, uint32_t height) {
+        m_viewX = x;
+        m_viewY = y;
+        m_viewW = width;
+        m_viewH = height;
     }
 
     VulkanModelResource& VulkanRenderingSystem::GetOrLoadModel(const std::string& path) {
@@ -405,7 +445,7 @@ namespace Lizeral {
 
         struct LightingPushConstants {
             Matrix4x4 invViewProj; Matrix4x4 viewProj; Vector3 cameraPos; float padding;  
-            uint32_t frameIndex; uint32_t padding2; uint64_t instanceDescAddr;   
+            uint32_t frameIndex; uint32_t stepSize; uint64_t instanceDescAddr;   
             Vector3 lightDir; float lightPadding; Vector3 lightColor; float lightIntensity;             
         };
 
@@ -492,32 +532,97 @@ namespace Lizeral {
                 writes[b].pImageInfo = &gInfos[b];
             }
             vkUpdateDescriptorSets(device, 4, writes, 0, nullptr);
-            // 2.3 Denoise Pass Sets (读 NoisyGI + G-Buffer + DirectLight)
-            VkDescriptorImageInfo denoiseInfos[5] = {
+
+            // 2.3 SVGF Temporal Pass (读当前 NoisyGI, G-Buffer 以及上一帧的 GI/Moments)
+            VkDescriptorImageInfo temporalInfos[6] = {
                 { m_gBufferSampler, m_gNoisyGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
                 { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
                 { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gDirectLight.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gGIHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, // 读上一帧 GI
+                { m_gBufferSampler, m_gMomentsHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } // 读上一帧方差
             };
             VulkanDescriptorBuilder()
-                .BindImage(0, &denoiseInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(1, &denoiseInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(2, &denoiseInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(3, &denoiseInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(4, &denoiseInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .Build(m_device, m_denoiseLayouts[ping], m_denoisePools[ping], m_denoiseSets[ping]);
+                .BindImage(0, &temporalInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(1, &temporalInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(2, &temporalInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(3, &temporalInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(4, &temporalInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(5, &temporalInfos[5], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .Build(m_device, m_svgfTemporalLayouts[ping], m_svgfTemporalPools[ping], m_svgfTemporalSets[ping]);
 
+            // 2.4 SVGF A-Trous Pass (读当前帧累加好的 GI 和 Moments)
+            VkDescriptorSetLayoutBinding atrousBindings[4] = {};
+            for (uint32_t b = 0; b < 4; b++) {
+                atrousBindings[b].binding = b;
+                atrousBindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                atrousBindings[b].descriptorCount = 1;
+                atrousBindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            }
+
+            VkDescriptorSetLayoutCreateInfo atrousLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            atrousLayoutInfo.bindingCount = 4;
+            atrousLayoutInfo.pBindings = atrousBindings;
+            vkCreateDescriptorSetLayout(device, &atrousLayoutInfo, nullptr, &m_svgfATrousLayouts[ping]);
+
+            // 分配一个足够装下 4 个 Set 的 Pool
+            VkDescriptorPoolSize atrousPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16}; 
+            VkDescriptorPoolCreateInfo atrousPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+            atrousPoolInfo.poolSizeCount = 1;
+            atrousPoolInfo.pPoolSizes = &atrousPoolSize;
+            atrousPoolInfo.maxSets = 4;
+            vkCreateDescriptorPool(device, &atrousPoolInfo, nullptr, &m_svgfATrousPools[ping]);
+
+            // 一次性分配 4 个 Set
+            std::vector<VkDescriptorSetLayout> atrousLayoutsAlloc(4, m_svgfATrousLayouts[ping]);
+            VkDescriptorSetAllocateInfo atrousAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+            atrousAllocInfo.descriptorPool = m_svgfATrousPools[ping];
+            atrousAllocInfo.descriptorSetCount = 4;
+            atrousAllocInfo.pSetLayouts = atrousLayoutsAlloc.data();
+            vkAllocateDescriptorSets(device, &atrousAllocInfo, m_svgfATrousSets[ping]);
+
+            // 预先推演 4 轮循环的 Input 贴图是谁
+            VkImageView atrousInputs[4] = {
+                m_gGIHistory[ping].view,     // 迭代 0：读 Temporal 的输出
+                m_gDenoisedGITemp.view,      // 迭代 1：读 迭代 0 的输出 (Temp)
+                m_gDenoisedGI.view,          // 迭代 2：读 迭代 1 的输出 (Denoised)
+                m_gDenoisedGITemp.view       // 迭代 3：读 迭代 2 的输出 (Temp)
+            };
+
+            // 分别把输入写进 4 个 Set 中
+            for (int iter = 0; iter < 4; iter++) {
+                VkDescriptorImageInfo infos[4] = {
+                    { m_gBufferSampler, atrousInputs[iter], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                    { m_gBufferSampler, m_gMomentsHistory[ping].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                    { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                    { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+                };
+
+                VkWriteDescriptorSet writes[4] = {};
+                for (uint32_t b = 0; b < 4; b++) {
+                    writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    writes[b].dstSet = m_svgfATrousSets[ping][iter];
+                    writes[b].dstBinding = b;
+                    writes[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    writes[b].descriptorCount = 1;
+                    writes[b].pImageInfo = &infos[b];
+                }
+                vkUpdateDescriptorSets(device, 4, writes, 0, nullptr);
+            }
             // 2.4 TAA Pass Sets (读 DenoisedGI + History[pong] + Velocity)
-            VkDescriptorImageInfo taaInfos[3] = { 
+            VkDescriptorImageInfo taaInfos[5] = { 
                 { m_gBufferSampler, m_gDenoisedGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, // 注意这里读的是上一帧的 pong
-                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }    
+                { m_gBufferSampler, m_gHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 
+                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, // [+] 新增 Albedo
+                { m_gBufferSampler, m_gDirectLight.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }     // [+] 新增 直接光
             };
             VulkanDescriptorBuilder()
                 .BindImage(0, &taaInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .BindImage(1, &taaInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .BindImage(2, &taaInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .BindImage(3, &taaInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // [+] 绑定
+                .BindImage(4, &taaInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // [+] 绑定
                 .Build(m_device, m_taaLayouts[ping], m_taaPools[ping], m_taaSets[ping]);
 
             // 2.5 Blit Pass Sets (读当前帧 History[ping])
@@ -540,7 +645,8 @@ namespace Lizeral {
         // 3.2 Fullscreen Quad 相关的 Shaders (Lighting, Denoise, TAA, Blit 共用 Vert)
         VkShaderModule fsVertShader    = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "lighting_vert.spv"));
         VkShaderModule lightFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "lighting_frag.spv"));
-        VkShaderModule denoiseFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "denoise_frag.spv"));
+        VkShaderModule svgfTemporalFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "svgf_temporal_frag.spv"));
+        VkShaderModule svgfATrousFragShader   = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "svgf_atrous_frag.spv"));
         VkShaderModule taaFragShader   = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "taa_frag.spv"));
         VkShaderModule blitFragShader  = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "blit_frag.spv"));
 
@@ -588,26 +694,47 @@ namespace Lizeral {
             .SetPipelineLayout(m_lightingPipelineLayout)
             .Build(m_device, { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT }, VK_FORMAT_UNDEFINED);
 
-        // 4.3 Denoise Pipeline
-        VkPipelineLayoutCreateInfo denoisePipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
-        denoisePipeLayoutInfo.setLayoutCount = 1; 
-        denoisePipeLayoutInfo.pSetLayouts = &m_denoiseLayouts[0]; 
-        denoisePipeLayoutInfo.pushConstantRangeCount = 1; 
-        denoisePipeLayoutInfo.pPushConstantRanges = &lightPushRange; // 共用光照参数
-        vkCreatePipelineLayout(device, &denoisePipeLayoutInfo, nullptr, &m_denoisePipelineLayout);
+        // 4.3 SVGF Temporal Pipeline (输出 2 个附件：GI History 和 Moments)
+        VkPipelineLayoutCreateInfo temporalPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
+        temporalPipeLayoutInfo.setLayoutCount = 1; 
+        temporalPipeLayoutInfo.pSetLayouts = &m_svgfTemporalLayouts[0]; 
+        temporalPipeLayoutInfo.pushConstantRangeCount = 1; 
+        temporalPipeLayoutInfo.pPushConstantRanges = &lightPushRange; 
+        vkCreatePipelineLayout(device, &temporalPipeLayoutInfo, nullptr, &m_svgfTemporalPipelineLayout);
 
-        m_denoisePipeline = VulkanPipelineBuilder()
+        m_svgfTemporalPipeline = VulkanPipelineBuilder()
             .AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, fsVertShader)
-            .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, denoiseFragShader)
+            .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, svgfTemporalFragShader)
             .SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetMultisampling(VK_SAMPLE_COUNT_1_BIT)
             .SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS)
-            .AddColorBlendAttachment(false)
-            .SetPipelineLayout(m_denoisePipelineLayout)
+            // ★ 注意：这里必须 Add 两次，因为输出给 m_gGIHistory 和 m_gMomentsHistory 两个附件
+            .AddColorBlendAttachment(false) 
+            .AddColorBlendAttachment(false) 
+            .SetPipelineLayout(m_svgfTemporalPipelineLayout)
+            .Build(m_device, { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16_SFLOAT }, VK_FORMAT_UNDEFINED);
+
+        // 4.4 SVGF A-Trous Pipeline (输出 1 个附件：DenoisedGI)
+        VkPipelineLayoutCreateInfo atrousPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
+        atrousPipeLayoutInfo.setLayoutCount = 1; 
+        atrousPipeLayoutInfo.pSetLayouts = &m_svgfATrousLayouts[0]; 
+        atrousPipeLayoutInfo.pushConstantRangeCount = 1; 
+        atrousPipeLayoutInfo.pPushConstantRanges = &lightPushRange; 
+        vkCreatePipelineLayout(device, &atrousPipeLayoutInfo, nullptr, &m_svgfATrousPipelineLayout);
+
+        m_svgfATrousPipeline = VulkanPipelineBuilder()
+            .AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, fsVertShader)
+            .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, svgfATrousFragShader)
+            .SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetMultisampling(VK_SAMPLE_COUNT_1_BIT)
+            .SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS)
+            .AddColorBlendAttachment(false) // 只输出 DenoisedGI
+            .SetPipelineLayout(m_svgfATrousPipelineLayout)
             .Build(m_device, { VK_FORMAT_R16G16B16A16_SFLOAT }, VK_FORMAT_UNDEFINED);
 
-        // 4.4 TAA Pipeline
+        // 4.5 TAA Pipeline
         VkPipelineLayoutCreateInfo taaPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
         taaPipeLayoutInfo.setLayoutCount = 1; 
         taaPipeLayoutInfo.pSetLayouts = &m_taaLayouts[0]; 
@@ -626,7 +753,7 @@ namespace Lizeral {
             .SetPipelineLayout(m_taaPipelineLayout)
             .Build(m_device, { VK_FORMAT_R16G16B16A16_SFLOAT }, VK_FORMAT_UNDEFINED);
 
-        // 4.5 Blit Pipeline (推向屏幕)
+        // 4.6 Blit Pipeline (推向屏幕)
         VkPipelineLayoutCreateInfo blitPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
         blitPipeLayoutInfo.setLayoutCount = 1; 
         blitPipeLayoutInfo.pSetLayouts = &m_blitLayouts[0]; 
@@ -653,7 +780,8 @@ namespace Lizeral {
         vkDestroyShaderModule(device, fragShader, nullptr);
         vkDestroyShaderModule(device, fsVertShader, nullptr);
         vkDestroyShaderModule(device, lightFragShader, nullptr);
-        vkDestroyShaderModule(device, denoiseFragShader, nullptr);
+        vkDestroyShaderModule(device, svgfTemporalFragShader, nullptr);
+        vkDestroyShaderModule(device, svgfATrousFragShader, nullptr);
         vkDestroyShaderModule(device, taaFragShader, nullptr);
         vkDestroyShaderModule(device, blitFragShader, nullptr);
 
@@ -673,28 +801,10 @@ namespace Lizeral {
         uint32_t jitterIndex = m_frameIndex % 8 + 1; 
         float jitterX = CreateHaltonSequence(jitterIndex, 2) - 0.5f; 
         float jitterY = CreateHaltonSequence(jitterIndex, 3) - 0.5f;
-        float ndcJitterX = (jitterX * 2.0f) / static_cast<float>(m_viewW > 0 ? m_viewW : 1); 
-        float ndcJitterY = (jitterY * 2.0f) / static_cast<float>(m_viewH > 0 ? m_viewH : 1);
-
-        // 3. 提取相机组件数据
-        Matrix4x4 viewMat, projMatUnjittered, projMatJittered;
-        Vector3 cameraPos;
-        auto cameraView = registry.view<TransformComponent, CameraComponent>();
-        for (auto entity : cameraView) {
-            auto& camera = cameraView.get<CameraComponent>(entity);
-            auto& transform = cameraView.get<TransformComponent>(entity);
-            cameraPos = transform.getPosition();
-
-            // 保持原本的透视投影计算
-            camera.setProjectionMatrix(camera.BuildPerspectiveInfiniteReverseZ(camera.getFov(), camera.getAspect(), camera.getzNear()));
-            viewMat = camera.getViewMatrix(); 
-            projMatUnjittered = camera.getProjectionMatrix();
-            projMatUnjittered[1][1] *= -1.0f; // Vulkan Y-flip
-            projMatJittered = projMatUnjittered;
-            projMatJittered[0][2] += ndcJitterX; 
-            projMatJittered[1][2] += ndcJitterY;
-            break; // 默认只取第一个主相机
-        }
+        
+        // ★ Jitter NDC 偏移量使用当前真实的 G-Buffer 大小
+        float ndcJitterX = (jitterX * 2.0f) / static_cast<float>(m_width > 0 ? m_width : 1); 
+        float ndcJitterY = (jitterY * 2.0f) / static_cast<float>(m_height > 0 ? m_height : 1);
 
         // ====================================================================
         // 开始 Vulkan 帧录制
@@ -704,9 +814,36 @@ namespace Lizeral {
         
         if (cmd == VK_NULL_HANDLE) return; // 交换链未准备好等情况
 
-        // --- 视口与裁剪配置 ---
-        VkViewport viewport{ (float)m_viewX, (float)m_viewY, (float)m_viewW, (float)m_viewH, 0.0f, 1.0f };
-        VkRect2D scissor{ {m_viewX, m_viewY}, {static_cast<uint32_t>(m_viewW), static_cast<uint32_t>(m_viewH)} };
+        VkViewport viewport2D{ 0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f };
+        VkViewport viewport3D = viewport2D;
+        VkRect2D scissor{ {0, 0}, {m_width, m_height} };
+
+        Matrix4x4 viewMat, projMatUnjittered, projMatJittered;
+        Vector3 cameraPos;
+        auto cameraView = registry.view<TransformComponent, CameraComponent>();
+        for (auto entity : cameraView) {
+            auto& camera = cameraView.get<CameraComponent>(entity);
+            auto& transform = cameraView.get<TransformComponent>(entity);
+            cameraPos = transform.getPosition();
+
+            // ★ 彻底干净的基础投影：完全使用 G-Buffer 自身的真实长宽比
+            float aspect = static_cast<float>(m_width) / static_cast<float>(m_height > 0 ? m_height : 1);
+            Matrix4x4 baseProj = camera.BuildPerspectiveInfiniteReverseZ(camera.getFov(), aspect, camera.getzNear());
+
+            // 没有任何矩阵魔法，直接设置最干净的投影矩阵！
+            camera.setProjectionMatrix(baseProj);
+
+            viewMat = camera.getViewMatrix(); 
+            projMatUnjittered = camera.getProjectionMatrix();
+            projMatUnjittered[1][1] *= -1.0f; // Vulkan Y-flip
+            
+            // ★ 生成带抖动的投影矩阵 (用于当前帧画面的亚像素位移)
+            projMatJittered = projMatUnjittered;
+            projMatJittered[0][2] += ndcJitterX; 
+            projMatJittered[1][2] += ndcJitterY;
+            
+            break; 
+        }
 
         // ====================================================================
         // 步骤 A: 收集实例，构建动态 TLAS 光追树
@@ -796,19 +933,24 @@ namespace Lizeral {
         colorAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO; colorAttachments[0].imageView = m_gAlbedoMetallic.view; colorAttachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; colorAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; colorAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE; colorAttachments[0].clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
         colorAttachments[1].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO; colorAttachments[1].imageView = m_gNormalRoughness.view; colorAttachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; colorAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; colorAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE; colorAttachments[1].clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
         colorAttachments[2].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO; colorAttachments[2].imageView = m_gVelocity.view; colorAttachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; colorAttachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; colorAttachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE; colorAttachments[2].clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
-        VkRenderingAttachmentInfo depthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO}; depthAttachment.imageView = m_gDepth.view; depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; depthAttachment.clearValue.depthStencil = {0.0f, 0};
+        VkRenderingAttachmentInfo depthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO}; depthAttachment.imageView = m_gDepth.view; depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; depthAttachment.clearValue.depthStencil = {0.0f, 0}; // 注意：由于你是 Reverse-Z，深度 clearValue 应该是 1.0f 或 0.0f，具体看你摄像机怎么建的
 
         VkRenderingInfo renderInfo{VK_STRUCTURE_TYPE_RENDERING_INFO}; 
         renderInfo.renderArea = scissor; renderInfo.layerCount = 1; 
         renderInfo.colorAttachmentCount = 3; renderInfo.pColorAttachments = colorAttachments; renderInfo.pDepthAttachment = &depthAttachment;
         
         vkCmdBeginRendering(cmd, &renderInfo);
-        vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
+        vkCmdSetViewport(cmd, 0, 1, &viewport3D); vkCmdSetScissor(cmd, 0, 1, &scissor);
         
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
+        // ★ 关键修复：TAA 计算要求：
+        // 当前帧渲染画面 (MVP) -> 必须使用 Jittered 矩阵
+        // 计算 Velocity (PrevMVP) -> 必须使用上一帧的 Unjittered 矩阵！
+        Matrix4x4 currentViewProjJittered = projMatJittered * viewMat;
         Matrix4x4 currentViewProjUnjittered = projMatUnjittered * viewMat;
+        
         if (m_isFirstFrameRun) m_prevViewProj = currentViewProjUnjittered;
 
         struct PushConstants {
@@ -831,9 +973,13 @@ namespace Lizeral {
             Matrix4x4 prevModel = m_isFirstFrameRun ? currentModel : m_prevModelMats[entityId];
 
             PushConstants pushData{};
-            pushData.mvp = (currentViewProjUnjittered * currentModel).transpose(); 
+            // 当前 MVP 必须带有抖动，用于渲染亚像素偏移的 G-Buffer
+            pushData.mvp = (currentViewProjJittered * currentModel).transpose(); 
             pushData.model = currentModel.transpose(); 
+            
+            // ★ 运动矢量 Velocity 必须计算两个干净状态之间的差值！
             pushData.prevMvp = (m_prevViewProj * prevModel).transpose();
+            
             pushData.vertexBuffer = res.vAddr; pushData.meshletBuffer = res.mAddr; pushData.indexBuffer = res.iAddr; 
             pushData.boundsBuffer = res.bAddr; pushData.materialBuffer = res.matAddr;
             pushData.totalMeshlets = res.totalMeshlets; pushData.textureOffset = res.textureOffset; 
@@ -845,6 +991,7 @@ namespace Lizeral {
         }
         vkCmdEndRendering(cmd);
 
+        // ★ 关键修复：保存给下一帧做 Velocity 计算的矩阵，必须是没有抖动的版本！
         m_prevViewProj = currentViewProjUnjittered; 
 
         // ====================================================================
@@ -853,6 +1000,10 @@ namespace Lizeral {
         if (m_isFirstFrameRun) {
             TransitionImageLayout(cmd, m_gHistory[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
             TransitionImageLayout(cmd, m_gHistory[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gGIHistory[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gGIHistory[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gMomentsHistory[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gMomentsHistory[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         }
         
         TransitionImageLayout(cmd, m_gAlbedoMetallic.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -862,11 +1013,12 @@ namespace Lizeral {
 
         struct LightingPushConstants {
             Matrix4x4 invViewProj; Matrix4x4 viewProj; Vector3 cameraPos; float padding;  
-            uint32_t frameIndex; uint32_t padding2; uint64_t instanceDescAddr;   
+            uint32_t frameIndex; uint32_t stepSize; uint64_t instanceDescAddr;   
             Vector3 lightDir; float lightPadding; Vector3 lightColor; float lightIntensity;             
         };
 
         LightingPushConstants lightPc{};
+        // ★ 光追计算使用的视图投影同样必须是 Jittered，这样计算出的屏幕空间世界坐标才能对得上被 Jitter 过的 G-Buffer 深度！
         Matrix4x4 vpJittered = projMatJittered * viewMat;
         lightPc.invViewProj = vpJittered.inverse().transpose();
         lightPc.viewProj = vpJittered.transpose();
@@ -875,7 +1027,7 @@ namespace Lizeral {
         lightPc.instanceDescAddr = m_rtInstanceBuffer->GetDeviceAddress();
         lightPc.lightDir = Lizeral::Vector3(1.0f, 0.5f, 1.0f).normalize(); 
         lightPc.lightColor = Lizeral::Vector3(1.0f, 0.85f, 0.7f); 
-        lightPc.lightIntensity = 10.0f;
+        lightPc.lightIntensity = 4.0f;
 
         auto DrawFullscreenPass = [&](VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet set, GBufferAttachment* outputs, uint32_t outputCount, bool bindExtraSet = false) {
             VkRenderingAttachmentInfo attInfos[2] = {};
@@ -891,7 +1043,7 @@ namespace Lizeral {
             rInfo.renderArea = scissor; rInfo.layerCount = 1; rInfo.colorAttachmentCount = outputCount; rInfo.pColorAttachments = attInfos;
             
             vkCmdBeginRendering(cmd, &rInfo);
-            vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
+            vkCmdSetViewport(cmd, 0, 1, &viewport2D); vkCmdSetScissor(cmd, 0, 1, &scissor);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
             if (bindExtraSet) {
                 VkDescriptorSet boundSets[2] = { set, m_descriptorSet }; // Bindless 贴图池作为 Set 1
@@ -912,15 +1064,35 @@ namespace Lizeral {
         GBufferAttachment lightOuts[2] = { m_gDirectLight, m_gNoisyGI };
         DrawFullscreenPass(m_lightingPipeline, m_lightingPipelineLayout, m_lightingSets[ping], lightOuts, 2, true);
 
-        // 2. Denoise Pass
-        DrawFullscreenPass(m_denoisePipeline, m_denoisePipelineLayout, m_denoiseSets[ping], &m_gDenoisedGI, 1);
+        // 2. SVGF Temporal Pass (输出到当前帧的 GIHistory 和 MomentsHistory)
+        GBufferAttachment temporalOuts[2] = { m_gGIHistory[ping], m_gMomentsHistory[ping] };
+        DrawFullscreenPass(m_svgfTemporalPipeline, m_svgfTemporalPipelineLayout, m_svgfTemporalSets[ping], temporalOuts, 2);
 
-        // 3. TAA Pass
+        // 3. SVGF A-Trous Pass (输出到最终的 DenoisedGI)
+        if (m_isFirstFrameRun) {
+            TransitionImageLayout(cmd, m_gDenoisedGITemp.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        }
+
+        int stepSizes[] = { 1, 2, 4, 8 };
+        GBufferAttachment* currentOutput = &m_gDenoisedGITemp; // 第一次输出到 Temp
+
+        for (int i = 0; i < 4; i++) {
+            lightPc.stepSize = stepSizes[i];
+            
+            DrawFullscreenPass(m_svgfATrousPipeline, m_svgfATrousPipelineLayout, m_svgfATrousSets[ping][i], currentOutput, 1);
+            
+            // Ping-Pong 输出交换
+            currentOutput = (currentOutput == &m_gDenoisedGITemp) ? &m_gDenoisedGI : &m_gDenoisedGITemp;
+        }
+
+        // 4. TAA Pass
         DrawFullscreenPass(m_taaPipeline, m_taaPipelineLayout, m_taaSets[ping], &m_gHistory[ping], 1);
 
-        // 4. Blit Pass (推向最终屏幕/交换链目标)
+        // 5. Blit Pass (推向最终屏幕/交换链目标)
         m_renderer->BeginRendering(cmd); // Renderer 接管 Swapchain/Render Pass 逻辑
-        vkCmdSetViewport(cmd, 0, 1, &viewport); vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+        vkCmdSetViewport(cmd, 0, 1, &viewport2D); vkCmdSetScissor(cmd, 0, 1, &scissor);
+
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_blitPipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_blitPipelineLayout, 0, 1, &m_blitSets[ping], 0, nullptr);
         vkCmdDraw(cmd, 3, 1, 0, 0);

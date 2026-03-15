@@ -19,20 +19,24 @@ public:
         delete m_globalRegistry;
     }
 
+    void resizeEvent(QResizeEvent* event) override;
+
 private:
     Lizeral::Registry* m_globalRegistry { nullptr };
     Lizeral::SceneOutlinerPanel* m_outlinerPanel { nullptr };
     Lizeral::InspectorPanel* m_inspectorPanel { nullptr };
     
     // 【新增】：持有视口指针
-    EngineViewportWidget* m_viewportWidget { nullptr };
+    Lizeral::EngineViewportWidget* m_viewportWidget { nullptr };
+    QScrollArea* m_inspectorScrollArea { nullptr };
 
     // --- 引擎核心系统实例 ---
     Lizeral::PhysicsScene m_physicsScene;
     Lizeral::PhysicsSystem m_physicsSystem;
-    Lizeral::RenderingSystem m_renderSystem;
+    Lizeral::VulkanRenderingSystem m_renderSystem;
     Lizeral::CameraSystem m_cameraSystem;
     Lizeral::CameraControlSystem m_cameraControlSystem; 
+    
     
     QTimer* m_engineTimer { nullptr };
     QElapsedTimer m_timeTracker;

@@ -37,6 +37,7 @@
 #include "runtime/function/render/CameraSystem/CameraSystem.h"
 #include "runtime/function/physics/PhysicsScene.h"
 #include "runtime/function/render/CameraControlSystem/CameraControlSystem.h"
+#include "runtime/function/render/VulkanRenderingSystem/VulkanRenderingSystem.h"
 #include "runtime/function/input/input.h"
 
 // --- 资源管理 ---

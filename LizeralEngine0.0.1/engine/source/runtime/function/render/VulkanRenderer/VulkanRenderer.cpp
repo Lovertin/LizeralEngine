@@ -1,9 +1,9 @@
 #include "VulkanRenderer.h"
 #include "runtime/function/render/rhi/vulkan/VulkanContext.h"
 #include "runtime/function/render/rhi/vulkan/VulkanDevice.h"
-#include "runtime/function/render/rhi/vulkan/VulkanSwapchain.h"
 #include "runtime/function/render/rhi/vulkan/VulkanCommandPool.h"
 #include "runtime/function/render/rhi/vulkan/VulkanCommandBuffer.h"
+#include "runtime/function/render/rhi/vulkan/VulkanSwapchain.h"
 
 #include <stdexcept>
 #include <iostream>
@@ -40,13 +40,12 @@ namespace Lizeral {
         return m_swapchain->GetImageFormat();
     }
 
-    void VulkanRenderer::RecreateSwapchain() {
-        int width = 0, height = 0;
-        glfwGetFramebufferSize(m_window, &width, &height);
-        while (width == 0 || height == 0) {
-            glfwGetFramebufferSize(m_window, &width, &height);
-            glfwWaitEvents();
-        }
+    VkExtent2D VulkanRenderer::GetSwapchainExtent() const {
+        return m_swapchain->GetExtent();
+    }
+
+    void VulkanRenderer::RecreateSwapchain(int width, int height) {
+        if (width == 0 || height == 0) return; 
 
         vkDeviceWaitIdle(m_device->GetNativeDevice());
 
@@ -55,11 +54,15 @@ namespace Lizeral {
 
         m_swapchain = std::make_unique<VulkanSwapchain>(m_context, m_device, m_device->GetSurface(), width, height);
 
+        // ★ 关键修复：向 Swapchain 索要它最终决定的真实物理分辨率
+        VkExtent2D actualExtent = m_swapchain->GetExtent();
+
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
+        // ★ 使用真实的 actualExtent，绝不能用外部传进来的 width/height
+        imageInfo.extent.width = actualExtent.width;
+        imageInfo.extent.height = actualExtent.height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;

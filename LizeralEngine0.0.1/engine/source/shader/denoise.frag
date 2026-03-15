@@ -19,10 +19,6 @@ const float sigmaSpatial = 4.0;
 const float sigmaDepth = 0.1;
 const float sigmaNormal = 32.0;
 
-vec3 ACESFilm(vec3 x) {
-    float a = 2.51f; float b = 0.03f; float c = 2.43f; float d = 0.59f; float e = 0.14f;
-    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
-}
 
 vec3 ReconstructWorldPos(vec2 uv, float depth) {
     vec4 ndc = vec4(uv * 2.0 - 1.0, depth, 1.0);
@@ -40,7 +36,7 @@ void main() {
     if (centerDepth <= 0.0) {
         vec3 bgDirect = texture(samplerDirectLight, inUV).rgb;
         bgDirect = max(bgDirect, vec3(0.0)) * exposure;
-        outDenoisedSceneColor = vec4(ACESFilm(bgDirect), 1.0);
+        outDenoisedSceneColor = vec4(bgDirect, 1.0);
         return;
     }
 
@@ -99,5 +95,5 @@ void main() {
     sceneColor = max(sceneColor, vec3(0.0)) * exposure;
 
     // 直接输出可以直接显示的完美图像！
-    outDenoisedSceneColor = vec4(ACESFilm(sceneColor), 1.0);
+    outDenoisedSceneColor = vec4(sceneColor, 1.0);
 }

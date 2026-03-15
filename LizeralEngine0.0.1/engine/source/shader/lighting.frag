@@ -152,8 +152,10 @@ void main() {
     const float GOLDEN_ANGLE = 2.39996323;
 
     for(int i = 0; i < NUM_SAMPLES; i++) {
-        float r = sqrt((float(i) + 0.5) / float(NUM_SAMPLES)) * lightRadius; 
+        // 给半径也加入随机扰动，打破同心圆伪影
+        float r = sqrt((float(i) + rand(baseSeed)) / float(NUM_SAMPLES)) * lightRadius;
         float theta = float(i) * GOLDEN_ANGLE + randomAngle;
+        
         vec2 diskOffset = vec2(r * cos(theta), r * sin(theta));
         vec3 jitteredRayDir = normalize(lightDir + lightRight * diskOffset.x + lightUp * diskOffset.y);
 
@@ -162,7 +164,7 @@ void main() {
         while(rayQueryProceedEXT(rayQuery)) {}
 
         if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
-            shadowSum += 1.0; 
+            shadowSum += 1.0;
         }
     }
 
@@ -189,37 +191,53 @@ void main() {
     // =======================================================
     // 拆分光照输出 2：多采样结构化 GI (无贴图颜色)
     // =======================================================
-    uint giSeed = baseSeed + 8888u; 
+    // 1. 构建切线空间矩阵 (TBN)
     vec3 w_tbn = normal;
     vec3 u_tbn = normalize(cross((abs(w_tbn.x) > 0.1 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)), w_tbn));
     vec3 v_tbn = cross(w_tbn, u_tbn);
     mat3 tbn_hemisphere = mat3(u_tbn, v_tbn, w_tbn);
 
-    int numGisamples = 4;
+    int numGisamples = 4; // 采样数保持 4 不变
     vec3 giSum = vec3(0.0);
-    const float phi = (1.0 + sqrt(5.0)) / 2.0; 
 
-    for(int i=0; i<numGisamples; i++) {
-        float u_vogel = mod(float(i) / phi, 1.0);
-        float v_vogel = float(i) / float(numGisamples);
+    // 2. 为了时空降噪，给每帧加上不同的偏移量 (Golden Ratio)
+    // 这样同一个像素在不同帧会发射不同方向的射线，SVGF 就能把它们平均掉
+    uint giSeed = baseSeed + pc.frameIndex * 161803u; 
+
+    for(int i = 0; i < numGisamples; i++) {
+        // 取两个 0~1 的随机数
+        float r1 = rand(giSeed);
+        float r2 = rand(giSeed);
+
+        // ★ 数学魔法：将 2D 随机数转换为余弦加权的半球方向
+        float r = sqrt(r1);
+        float phi = 2.0 * 3.14159265 * r2;
         
-        float vogel_r = sqrt(u_vogel);
-        float vogel_theta = v_vogel * 2.0 * 3.14159265 + randomAngle; 
-        vec2 vogel_point = vec2(vogel_r * cos(vogel_theta), vogel_r * sin(vogel_theta));
+        // 局部半球坐标
+        vec3 localDir = vec3(
+            r * cos(phi), 
+            r * sin(phi), 
+            sqrt(max(0.0, 1.0 - r1)) // Z 轴（法线方向）权重最大
+        );
 
-        vec3 hemisphere_dir_tbn = vec3(vogel_point.x, vogel_point.y, sqrt(max(0.0, 1.0 - dot(vogel_point, vogel_point))));
-        vec3 giDirection = normalize(tbn_hemisphere * hemisphere_dir_tbn);
+        // 转换到世界空间
+        vec3 giDirection = normalize(tbn_hemisphere * localDir);
 
+        // 发射光线
         vec3 col = TraceGlobalIlluminationRay(worldPos + normal * 0.05, giDirection);
         
-        // 防止异常极亮射线的萤火虫现象
-        giSum += min(col, vec3(2.5)); 
+        // 压制异常亮的“萤火虫”噪点
+        giSum += min(col, vec3(5.0)); 
     }
     
-    vec3 bouncedColor = giSum / float(numGisamples);
-    float giMultiplier = pc.lightIntensity * 0.25; 
+    // 3. 计算最终颜色
+    // 因为余弦采样的 PDF (概率密度) = cos(theta) / PI，它刚好和渲染方程的 cos 项抵消
+    // 所以这里的公式变成了极简的：(Sum / N) * PI
+    vec3 bouncedColor = (giSum / float(numGisamples)) * 3.14159265;
     
-    // 只输出物理反弹光度，不含任何木纹纹理
+    // 你可以微调这个乘数来控制间接光的整体明暗
+    float giMultiplier = pc.lightIntensity * 0.1; 
+    
     vec3 indirectLight = bouncedColor * giMultiplier; 
     outNoisyGI = vec4(indirectLight, 1.0);
 }

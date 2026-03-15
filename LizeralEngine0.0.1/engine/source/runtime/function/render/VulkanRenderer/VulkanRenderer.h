@@ -37,6 +37,10 @@ namespace Lizeral {
         // 供管线创建时获取颜色格式
         VkFormat GetSwapchainFormat() const; 
 
+        VkExtent2D GetSwapchainExtent() const ;
+
+        void RecreateSwapchain(int width=1280, int height=720);
+
     private:
         VulkanContext* m_context { nullptr };
         VulkanDevice* m_device { nullptr };
@@ -63,7 +67,6 @@ namespace Lizeral {
         const int MAX_FRAMES_IN_FLIGHT = 2;
 
         // 内部流程函数
-        void RecreateSwapchain();
         void CreateCommandBuffers();
         void FreeCommandBuffers();
         void CreateSyncObjects();

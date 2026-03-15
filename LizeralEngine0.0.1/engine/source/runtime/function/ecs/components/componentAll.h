@@ -8,3 +8,4 @@
 #include "Light/DirectionalLightComponent.h"
 #include "EditorOnly/EditorOnlyComponent.h"
 #include "Name/NameComponent.h"
+#include "Model/VulkanModelComponent.h"

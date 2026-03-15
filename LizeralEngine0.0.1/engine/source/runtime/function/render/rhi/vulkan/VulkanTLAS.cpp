@@ -41,13 +41,12 @@ namespace Lizeral {
         }
     }
 
-    void VulkanTLAS::Build(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<VkAccelerationStructureInstanceKHR>& instances) {
+    void VulkanTLAS::Build(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<VkAccelerationStructureInstanceKHR>& instances, bool isUpdate) {
         if (instances.empty()) return;
 
         VkDevice logicalDevice = m_device->GetNativeDevice();
         uint32_t instanceCount = static_cast<uint32_t>(instances.size());
         
-        // ★ 核心：计算当前应该操作哪一套缓冲 (0 或 1)
         uint32_t idx = frameIndex % m_maxFrames;
 
         // 1. 实例缓冲扩容逻辑
@@ -67,7 +66,7 @@ namespace Lizeral {
             );
         }
 
-        // 2. 拷贝实例数据 (绝对安全，因为这块内存当前帧只有 CPU 在碰)
+        // 2. 拷贝实例数据 (哪怕是 Update，实例的 Transform 数据也必须拷进去！)
         void* mappedData;
         vkMapMemory(logicalDevice, m_instanceMemory[idx], 0, sizeof(VkAccelerationStructureInstanceKHR) * instanceCount, 0, &mappedData);
         memcpy(mappedData, instances.data(), sizeof(VkAccelerationStructureInstanceKHR) * instanceCount);
@@ -80,22 +79,35 @@ namespace Lizeral {
         geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
         geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
         geometry.geometry.instances.arrayOfPointers = VK_FALSE;
-        geometry.geometry.instances.data.deviceAddress = m_instanceAddress[idx]; // ★ 用当前帧的地址
+        geometry.geometry.instances.data.deviceAddress = m_instanceAddress[idx];
 
         // 4. 获取构建大小
         VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
         buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
         buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-        buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        
+        // ★ 修改点 1：必须打上 ALLOW_UPDATE 标签，为热更新留出后路
+        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
         buildInfo.geometryCount = 1;
         buildInfo.pGeometries = &geometry;
 
         VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
         pfn_vkGetAccelerationStructureBuildSizesKHR(logicalDevice, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instanceCount, &sizeInfo);
 
-        // 5. TLAS 本体扩容逻辑 (万一加了新物体，需要的树节点变多了)
-        if (sizeInfo.accelerationStructureSize > m_currentTlasSize[idx]) {
+        // ★ 修改点 2：极其关键的“自愈”防护机制！
+        // 如果当前句柄是空的（比如游戏刚启动的第2帧），或者发现当前底层缓冲容量装不下新的实例，
+        // 强行把 Update 降级为全量 Rebuild，防止 GPU 越界崩溃！
+        if (isUpdate) {
+            if (m_tlasHandle[idx] == VK_NULL_HANDLE || sizeInfo.accelerationStructureSize > m_currentTlasSize[idx]) {
+                isUpdate = false; 
+            }
+        }
+
+        // 设置构建模式
+        buildInfo.mode = isUpdate ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+
+        // 5. TLAS 本体扩容逻辑 (只有在非 Update 且容量不足时才执行)
+        if (!isUpdate && sizeInfo.accelerationStructureSize > m_currentTlasSize[idx]) {
             if (m_tlasHandle[idx] != VK_NULL_HANDLE) pfn_vkDestroyAccelerationStructureKHR(logicalDevice, m_tlasHandle[idx], nullptr);
             if (m_tlasBuffer[idx] != VK_NULL_HANDLE) { vkDestroyBuffer(logicalDevice, m_tlasBuffer[idx], nullptr); vkFreeMemory(logicalDevice, m_tlasMemory[idx], nullptr); }
             
@@ -115,21 +127,24 @@ namespace Lizeral {
             pfn_vkCreateAccelerationStructureKHR(logicalDevice, &createInfo, nullptr, &m_tlasHandle[idx]);
         }
 
-        // 6. 草稿纸重分配 (安全，因为只摧毁当前帧旧的草稿纸，而上一帧的草稿纸在另一个 index 里完好无损)
+        // 6. 草稿纸重分配 (★ 修改点 3：Update 模式所需的显存远小于 Build 模式，根据情况按需分配)
+        VkDeviceSize requiredScratchSize = isUpdate ? sizeInfo.updateScratchSize : sizeInfo.buildScratchSize;
+        
         if (m_scratchBuffer[idx] != VK_NULL_HANDLE) {
             vkDestroyBuffer(logicalDevice, m_scratchBuffer[idx], nullptr);
             vkFreeMemory(logicalDevice, m_scratchMemory[idx], nullptr);
         }
         VkDeviceAddress scratchAddress;
         allocateBuffer(
-            sizeInfo.buildScratchSize,
+            requiredScratchSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             m_scratchBuffer[idx], m_scratchMemory[idx], &scratchAddress
         );
 
-        // 7. 录制命令
-        buildInfo.dstAccelerationStructure = m_tlasHandle[idx]; // ★ 构建到当前帧的 TLAS 里
+        // 7. 录制命令 (★ 修改点 4：Update 模式下必须提供 Source TLAS，这里我们进行原位更新)
+        buildInfo.srcAccelerationStructure = isUpdate ? m_tlasHandle[idx] : VK_NULL_HANDLE;
+        buildInfo.dstAccelerationStructure = m_tlasHandle[idx];
         buildInfo.scratchData.deviceAddress = scratchAddress;
 
         VkAccelerationStructureBuildRangeInfoKHR buildRange{};
@@ -142,8 +157,6 @@ namespace Lizeral {
         pfn_vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, &pBuildRange);
     }
 
-    // allocateBuffer 和 loadRTFunctions 保持原样不变 ...
-    // (省略重复代码)
     void VulkanTLAS::allocateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory, VkDeviceAddress* outAddress) {
         VkDevice logicalDevice = m_device->GetNativeDevice();
 
