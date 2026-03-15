@@ -48,13 +48,17 @@ namespace Lizeral {
     }
 
     void* VulkanBuffer::Map() {
-        if (!m_mappedData) {
-            vmaMapMemory(m_device->GetAllocator(), m_allocation, &m_mappedData);
-        }
+        if (m_allocInfo.pMappedData) return m_allocInfo.pMappedData;
+    
+        // 否则才手动映射
+        if (!m_mappedData) vmaMapMemory(m_device->GetAllocator(), m_allocation, &m_mappedData);
         return m_mappedData;
     }
 
     void VulkanBuffer::Unmap() {
+        if (m_allocInfo.pMappedData) return; 
+    
+        // 只有手动映射的才需要解除
         if (m_mappedData) {
             vmaUnmapMemory(m_device->GetAllocator(), m_allocation);
             m_mappedData = nullptr;
