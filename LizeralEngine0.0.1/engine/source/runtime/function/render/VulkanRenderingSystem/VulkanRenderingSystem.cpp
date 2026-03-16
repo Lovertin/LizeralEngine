@@ -162,25 +162,7 @@ namespace Lizeral {
             m_rtInstanceBuffer = CreateBDABuffer(dummyInstances);
         }
 
-        // 3. 创建 G-Buffer 附件
-        m_gAlbedoMetallic = CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gNormalRoughness = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gDepth = CreateAttachment(VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-        m_gVelocity = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        
-        m_gDirectLight = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gNoisyGI = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gDenoisedGI = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gDenoisedGITemp = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        m_gGIHistory[0] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gGIHistory[1] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        
-        m_gMomentsHistory[0] = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gMomentsHistory[1] = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        
-        m_gHistory[0] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_gHistory[1] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        CreateAttachments();
 
         // 4. 创建全局采样器
         VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -201,6 +183,28 @@ namespace Lizeral {
         std::cout << "[VulkanRenderingSystem] Initialization Complete." << std::endl;
     }
 
+    void VulkanRenderingSystem::CreateAttachments() {
+
+        m_gAlbedoMetallic = CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gNormalRoughness = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gDepth = CreateAttachment(VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+        m_gVelocity = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        
+        m_gDirectLight = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gNoisyGI = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gDenoisedGI = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gDenoisedGITemp = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        m_gGIHistory[0] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gGIHistory[1] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        
+        m_gMomentsHistory[0] = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gMomentsHistory[1] = CreateAttachment(VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        
+        m_gHistory[0] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_gHistory[1] = CreateAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
+
 
     void VulkanRenderingSystem::Shutdown() {
         if (!m_device) return;
@@ -211,16 +215,25 @@ namespace Lizeral {
 
         std::cout << "[RenderingSystem] Shutting down..." << std::endl;
 
-        // ==========================================================
-        // 2. 销毁最上层的逻辑资源 (自动调用 VulkanBuffer/Texture 的析构)
-        // ==========================================================
-        // m_modelCache.clear();
-        // m_rtInstanceBuffer.reset();
-        // m_globalTextures.clear(); 
+        m_modelCache.clear();
+        m_rtInstanceBuffer.reset();
+        m_globalTextures.clear(); 
 
-        // ==========================================================
-        // 3. 销毁所有的 Pipelines 和 Pipeline Layouts (与创建逆序)
-        // ==========================================================
+        DestroyPipelines(device);
+
+        DestroyDescriptors(device);
+
+        DestroyAttachments();
+
+        if (m_gBufferSampler) vkDestroySampler(device, m_gBufferSampler, nullptr);
+
+        m_tlas.reset();
+        m_resourceCommandPool.reset();
+
+        std::cout << "[RenderingSystem] Shutdown complete." << std::endl;
+    }
+
+    void VulkanRenderingSystem::DestroyPipelines(VkDevice device){
         if (m_blitPipeline)       vkDestroyPipeline(device, m_blitPipeline, nullptr);
         if (m_blitPipelineLayout) vkDestroyPipelineLayout(device, m_blitPipelineLayout, nullptr);
 
@@ -238,10 +251,9 @@ namespace Lizeral {
 
         if (m_graphicsPipeline)       vkDestroyPipeline(device, m_graphicsPipeline, nullptr);
         if (m_graphicsPipelineLayout) vkDestroyPipelineLayout(device, m_graphicsPipelineLayout, nullptr);
+    }
 
-        // ==========================================================
-        // 4. 销毁 Descriptor Pools (这会自动释放所有的 Descriptor Sets)
-        // ==========================================================
+    void VulkanRenderingSystem::DestroyDescriptors(VkDevice device){
         if (m_descriptorPool) vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
         for (int i = 0; i < 2; i++) {
             if (m_lightPools[i])   vkDestroyDescriptorPool(device, m_lightPools[i], nullptr);
@@ -251,9 +263,6 @@ namespace Lizeral {
             if (m_blitPools[i])    vkDestroyDescriptorPool(device, m_blitPools[i], nullptr);
         }
 
-        // ==========================================================
-        // 5. 销毁 Descriptor Set Layouts
-        // ==========================================================
         if (m_descriptorSetLayout) vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
         for (int i = 0; i < 2; i++) {
             if (m_lightingLayouts[i]) vkDestroyDescriptorSetLayout(device, m_lightingLayouts[i], nullptr);
@@ -262,10 +271,9 @@ namespace Lizeral {
             if (m_taaLayouts[i])      vkDestroyDescriptorSetLayout(device, m_taaLayouts[i], nullptr);
             if (m_blitLayouts[i])     vkDestroyDescriptorSetLayout(device, m_blitLayouts[i], nullptr);
         }
+    }
 
-        // ==========================================================
-        // 6. 销毁基础附件 (G-Buffer) 和 Samplers
-        // ==========================================================
+    void VulkanRenderingSystem::DestroyAttachments(){
         DestroyAttachment(m_gAlbedoMetallic); 
         DestroyAttachment(m_gNormalRoughness);
         DestroyAttachment(m_gDepth);          
@@ -280,18 +288,8 @@ namespace Lizeral {
         DestroyAttachment(m_gMomentsHistory[1]);
         DestroyAttachment(m_gHistory[0]); 
         DestroyAttachment(m_gHistory[1]);
-
-        if (m_gBufferSampler) vkDestroySampler(device, m_gBufferSampler, nullptr);
-
-        // ==========================================================
-        // 7. 智能指针重置 (CommandPool 和 TLAS)
-        // 虽然类析构时它们会自动释放，但显式 reset 能保证在 m_device 被外部销毁前执行完毕
-        // ==========================================================
-        // m_tlas.reset();
-        // m_resourceCommandPool.reset();
-
-        std::cout << "[RenderingSystem] Shutdown complete." << std::endl;
     }
+
 
     void VulkanRenderingSystem::Resize(uint32_t width, uint32_t height) {
         if (width == 0 || height == 0) return;
@@ -301,7 +299,13 @@ namespace Lizeral {
         m_width = width;
         m_height = height;
 
-        // 这里理想情况下应该加入重建所有 G-Buffer 附件的代码...
+        DestroyAttachments();
+        CreateAttachments();
+
+        UpdateDescriptorSets();
+
+        m_isFirstFrameRun = true;
+        m_firstFrame = true;
     }
 
     void VulkanRenderingSystem::SetViewport(int x, int y, uint32_t width, uint32_t height) {
@@ -471,168 +475,101 @@ namespace Lizeral {
 
         bindlessBuilder.Build(m_device, m_descriptorSetLayout, m_descriptorPool, m_descriptorSet);
 
-        // G-Buffer 基础四件套
-        VkDescriptorImageInfo gInfos[4] = {
-            { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-            { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-            { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-            { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
-        };
+        for (uint32_t ping = 0; ping < 2; ping++) {
+            VkDevice dev = m_device->GetNativeDevice();
 
-        // 为双缓冲(Ping-Pong)生成各自的 Descriptor Sets
-        for (uint32_t i = 0; i < 2; i++) {
-            uint32_t ping = i;
-            uint32_t pong = (i + 1) % 2;
-
-            // 2.2 Lighting Pass Sets (读 G-Buffer + 读 TLAS)
-            VkDescriptorSetLayoutBinding bindings[5] = {};
-            // 前 4 个是 G-Buffer 图片
+            // --- A. Lighting Pass (4个图片 + 1个TLAS) ---
+            VkDescriptorSetLayoutBinding lightBindings[5] = {};
             for (uint32_t b = 0; b < 4; b++) {
-                bindings[b].binding = b;
-                bindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                bindings[b].descriptorCount = 1;
-                bindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+                lightBindings[b].binding = b; lightBindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; lightBindings[b].descriptorCount = 1; lightBindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             }
-            // 第 5 个是 TLAS
-            bindings[4].binding = 4;
-            bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-            bindings[4].descriptorCount = 1;
-            bindings[4].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            lightBindings[4].binding = 4; lightBindings[4].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR; lightBindings[4].descriptorCount = 1; lightBindings[4].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            VkDescriptorSetLayoutCreateInfo lightLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            lightLayoutInfo.bindingCount = 5; lightLayoutInfo.pBindings = lightBindings;
+            vkCreateDescriptorSetLayout(dev, &lightLayoutInfo, nullptr, &m_lightingLayouts[ping]);
 
-            VkDescriptorSetLayoutCreateInfo layoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-            layoutInfo.bindingCount = 5;
-            layoutInfo.pBindings = bindings;
-            vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_lightingLayouts[ping]);
+            VkDescriptorPoolSize lightPoolSizes[2] = { {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4}, {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1} };
+            VkDescriptorPoolCreateInfo lightPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+            lightPoolInfo.poolSizeCount = 2; lightPoolInfo.pPoolSizes = lightPoolSizes; lightPoolInfo.maxSets = 1;
+            vkCreateDescriptorPool(dev, &lightPoolInfo, nullptr, &m_lightPools[ping]);
 
-            // 分配 Pool 和 Set
-            VkDescriptorPoolSize poolSizes[2] = {
-                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-                {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1}
-            };
-            VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-            poolInfo.poolSizeCount = 2; 
-            poolInfo.pPoolSizes = poolSizes; 
-            poolInfo.maxSets = 1;
-            vkCreateDescriptorPool(device, &poolInfo, nullptr, &m_lightPools[ping]);
+            VkDescriptorSetAllocateInfo lightAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+            lightAllocInfo.descriptorPool = m_lightPools[ping]; lightAllocInfo.descriptorSetCount = 1; lightAllocInfo.pSetLayouts = &m_lightingLayouts[ping];
+            vkAllocateDescriptorSets(dev, &lightAllocInfo, &m_lightingSets[ping]);
 
-            VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-            allocInfo.descriptorPool = m_lightPools[ping];
-            allocInfo.descriptorSetCount = 1;
-            allocInfo.pSetLayouts = &m_lightingLayouts[ping];
-            vkAllocateDescriptorSets(device, &allocInfo, &m_lightingSets[ping]);
-
-            // ★ 关键：只把 4 个 G-Buffer 图像 Write 进去，避开 TLAS！
-            VkWriteDescriptorSet writes[4] = {};
-            for (uint32_t b = 0; b < 4; b++) {
-                writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                writes[b].dstSet = m_lightingSets[ping];
-                writes[b].dstBinding = b;
-                writes[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                writes[b].descriptorCount = 1;
-                writes[b].pImageInfo = &gInfos[b];
+            // --- B. SVGF Temporal Pass (6个图片) ---
+            VkDescriptorSetLayoutBinding temporalBindings[6] = {};
+            for (uint32_t b = 0; b < 6; b++) {
+                temporalBindings[b].binding = b; temporalBindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; temporalBindings[b].descriptorCount = 1; temporalBindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             }
-            vkUpdateDescriptorSets(device, 4, writes, 0, nullptr);
+            VkDescriptorSetLayoutCreateInfo temporalLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            temporalLayoutInfo.bindingCount = 6; temporalLayoutInfo.pBindings = temporalBindings;
+            vkCreateDescriptorSetLayout(dev, &temporalLayoutInfo, nullptr, &m_svgfTemporalLayouts[ping]);
+            
+            VkDescriptorPoolSize tempPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6};
+            VkDescriptorPoolCreateInfo tempPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+            tempPoolInfo.poolSizeCount = 1; tempPoolInfo.pPoolSizes = &tempPoolSize; tempPoolInfo.maxSets = 1;
+            vkCreateDescriptorPool(dev, &tempPoolInfo, nullptr, &m_svgfTemporalPools[ping]);
+            
+            VkDescriptorSetAllocateInfo tempAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+            tempAllocInfo.descriptorPool = m_svgfTemporalPools[ping]; tempAllocInfo.descriptorSetCount = 1; tempAllocInfo.pSetLayouts = &m_svgfTemporalLayouts[ping];
+            vkAllocateDescriptorSets(dev, &tempAllocInfo, &m_svgfTemporalSets[ping]);
 
-            // 2.3 SVGF Temporal Pass (读当前 NoisyGI, G-Buffer 以及上一帧的 GI/Moments)
-            VkDescriptorImageInfo temporalInfos[6] = {
-                { m_gBufferSampler, m_gNoisyGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gGIHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, // 读上一帧 GI
-                { m_gBufferSampler, m_gMomentsHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } // 读上一帧方差
-            };
-            VulkanDescriptorBuilder()
-                .BindImage(0, &temporalInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(1, &temporalInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(2, &temporalInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(3, &temporalInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(4, &temporalInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(5, &temporalInfos[5], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .Build(m_device, m_svgfTemporalLayouts[ping], m_svgfTemporalPools[ping], m_svgfTemporalSets[ping]);
-
-            // 2.4 SVGF A-Trous Pass (读当前帧累加好的 GI 和 Moments)
+            // --- C. SVGF A-Trous Pass (4个图片，需要分4个Set) ---
             VkDescriptorSetLayoutBinding atrousBindings[4] = {};
             for (uint32_t b = 0; b < 4; b++) {
-                atrousBindings[b].binding = b;
-                atrousBindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                atrousBindings[b].descriptorCount = 1;
-                atrousBindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+                atrousBindings[b].binding = b; atrousBindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; atrousBindings[b].descriptorCount = 1; atrousBindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             }
-
             VkDescriptorSetLayoutCreateInfo atrousLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-            atrousLayoutInfo.bindingCount = 4;
-            atrousLayoutInfo.pBindings = atrousBindings;
-            vkCreateDescriptorSetLayout(device, &atrousLayoutInfo, nullptr, &m_svgfATrousLayouts[ping]);
-
-            // 分配一个足够装下 4 个 Set 的 Pool
-            VkDescriptorPoolSize atrousPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16}; 
+            atrousLayoutInfo.bindingCount = 4; atrousLayoutInfo.pBindings = atrousBindings;
+            vkCreateDescriptorSetLayout(dev, &atrousLayoutInfo, nullptr, &m_svgfATrousLayouts[ping]);
+            
+            VkDescriptorPoolSize atrousPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16};
             VkDescriptorPoolCreateInfo atrousPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-            atrousPoolInfo.poolSizeCount = 1;
-            atrousPoolInfo.pPoolSizes = &atrousPoolSize;
-            atrousPoolInfo.maxSets = 4;
-            vkCreateDescriptorPool(device, &atrousPoolInfo, nullptr, &m_svgfATrousPools[ping]);
+            atrousPoolInfo.poolSizeCount = 1; atrousPoolInfo.pPoolSizes = &atrousPoolSize; atrousPoolInfo.maxSets = 4;
+            vkCreateDescriptorPool(dev, &atrousPoolInfo, nullptr, &m_svgfATrousPools[ping]);
 
-            // 一次性分配 4 个 Set
             std::vector<VkDescriptorSetLayout> atrousLayoutsAlloc(4, m_svgfATrousLayouts[ping]);
             VkDescriptorSetAllocateInfo atrousAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-            atrousAllocInfo.descriptorPool = m_svgfATrousPools[ping];
-            atrousAllocInfo.descriptorSetCount = 4;
-            atrousAllocInfo.pSetLayouts = atrousLayoutsAlloc.data();
-            vkAllocateDescriptorSets(device, &atrousAllocInfo, m_svgfATrousSets[ping]);
+            atrousAllocInfo.descriptorPool = m_svgfATrousPools[ping]; atrousAllocInfo.descriptorSetCount = 4; atrousAllocInfo.pSetLayouts = atrousLayoutsAlloc.data();
+            vkAllocateDescriptorSets(dev, &atrousAllocInfo, m_svgfATrousSets[ping]);
 
-            // 预先推演 4 轮循环的 Input 贴图是谁
-            VkImageView atrousInputs[4] = {
-                m_gGIHistory[ping].view,     // 迭代 0：读 Temporal 的输出
-                m_gDenoisedGITemp.view,      // 迭代 1：读 迭代 0 的输出 (Temp)
-                m_gDenoisedGI.view,          // 迭代 2：读 迭代 1 的输出 (Denoised)
-                m_gDenoisedGITemp.view       // 迭代 3：读 迭代 2 的输出 (Temp)
-            };
-
-            // 分别把输入写进 4 个 Set 中
-            for (int iter = 0; iter < 4; iter++) {
-                VkDescriptorImageInfo infos[4] = {
-                    { m_gBufferSampler, atrousInputs[iter], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                    { m_gBufferSampler, m_gMomentsHistory[ping].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                    { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                    { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
-                };
-
-                VkWriteDescriptorSet writes[4] = {};
-                for (uint32_t b = 0; b < 4; b++) {
-                    writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                    writes[b].dstSet = m_svgfATrousSets[ping][iter];
-                    writes[b].dstBinding = b;
-                    writes[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                    writes[b].descriptorCount = 1;
-                    writes[b].pImageInfo = &infos[b];
-                }
-                vkUpdateDescriptorSets(device, 4, writes, 0, nullptr);
+            // --- D. TAA Pass (5个图片) ---
+            VkDescriptorSetLayoutBinding taaBindings[5] = {};
+            for (uint32_t b = 0; b < 5; b++) {
+                taaBindings[b].binding = b; taaBindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; taaBindings[b].descriptorCount = 1; taaBindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             }
-            // 2.4 TAA Pass Sets (读 DenoisedGI + History[pong] + Velocity)
-            VkDescriptorImageInfo taaInfos[5] = { 
-                { m_gBufferSampler, m_gDenoisedGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 
-                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-                { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, // [+] 新增 Albedo
-                { m_gBufferSampler, m_gDirectLight.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }     // [+] 新增 直接光
-            };
-            VulkanDescriptorBuilder()
-                .BindImage(0, &taaInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(1, &taaInfos[1], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(2, &taaInfos[2], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .BindImage(3, &taaInfos[3], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // [+] 绑定
-                .BindImage(4, &taaInfos[4], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // [+] 绑定
-                .Build(m_device, m_taaLayouts[ping], m_taaPools[ping], m_taaSets[ping]);
+            VkDescriptorSetLayoutCreateInfo taaLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            taaLayoutInfo.bindingCount = 5; taaLayoutInfo.pBindings = taaBindings;
+            vkCreateDescriptorSetLayout(dev, &taaLayoutInfo, nullptr, &m_taaLayouts[ping]);
 
-            // 2.5 Blit Pass Sets (读当前帧 History[ping])
-            VkDescriptorImageInfo blitInfos[1] = { 
-                { m_gBufferSampler, m_gHistory[ping].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } 
-            };
-            VulkanDescriptorBuilder()
-                .BindImage(0, &blitInfos[0], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .Build(m_device, m_blitLayouts[ping], m_blitPools[ping], m_blitSets[ping]);
+            VkDescriptorPoolSize taaPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5};
+            VkDescriptorPoolCreateInfo taaPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+            taaPoolInfo.poolSizeCount = 1; taaPoolInfo.pPoolSizes = &taaPoolSize; taaPoolInfo.maxSets = 1;
+            vkCreateDescriptorPool(dev, &taaPoolInfo, nullptr, &m_taaPools[ping]);
+
+            VkDescriptorSetAllocateInfo taaAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+            taaAllocInfo.descriptorPool = m_taaPools[ping]; taaAllocInfo.descriptorSetCount = 1; taaAllocInfo.pSetLayouts = &m_taaLayouts[ping];
+            vkAllocateDescriptorSets(dev, &taaAllocInfo, &m_taaSets[ping]);
+
+            // --- E. Blit Pass (1个图片) ---
+            VkDescriptorSetLayoutBinding blitBindings[1] = {};
+            blitBindings[0].binding = 0; blitBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; blitBindings[0].descriptorCount = 1; blitBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            VkDescriptorSetLayoutCreateInfo blitLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            blitLayoutInfo.bindingCount = 1; blitLayoutInfo.pBindings = blitBindings;
+            vkCreateDescriptorSetLayout(dev, &blitLayoutInfo, nullptr, &m_blitLayouts[ping]);
+
+            VkDescriptorPoolSize blitPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
+            VkDescriptorPoolCreateInfo blitPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+            blitPoolInfo.poolSizeCount = 1; blitPoolInfo.pPoolSizes = &blitPoolSize; blitPoolInfo.maxSets = 1;
+            vkCreateDescriptorPool(dev, &blitPoolInfo, nullptr, &m_blitPools[ping]);
+
+            VkDescriptorSetAllocateInfo blitAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+            blitAllocInfo.descriptorPool = m_blitPools[ping]; blitAllocInfo.descriptorSetCount = 1; blitAllocInfo.pSetLayouts = &m_blitLayouts[ping];
+            vkAllocateDescriptorSets(dev, &blitAllocInfo, &m_blitSets[ping]);
         }
+
+        UpdateDescriptorSets();
 
         // =========================================================================
         // 阶段 3: 加载 Shader Modules
@@ -813,9 +750,6 @@ namespace Lizeral {
         VkViewport viewport{ 0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f };
         VkRect2D scissor{ {0, 0}, {m_width, m_height} };
 
-        // ====================================================================
-        // ★ 回归纯粹：没有任何花里胡哨的偏心矩阵，完美的原始投影！
-        // ====================================================================
         Matrix4x4 viewMat, projMatUnjittered, projMatJittered;
         Vector3 cameraPos;
         auto cameraView = registry.view<TransformComponent, CameraComponent>();
@@ -1081,6 +1015,105 @@ namespace Lizeral {
 
         m_renderer->EndFrame();
         m_isFirstFrameRun = m_firstFrame = false;
+    }
+
+
+    void VulkanRenderingSystem::UpdateDescriptorSets() {
+        VkDevice device = m_device->GetNativeDevice();
+
+        VkDescriptorImageInfo gInfos[4] = {
+            { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+            { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+            { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+            { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+        };
+
+        for (uint32_t i = 0; i < 2; i++) {
+            uint32_t ping = i;
+            uint32_t pong = (i + 1) % 2;
+
+            // 1. 更新 Lighting Pass Sets (前4个槽位)
+            VkWriteDescriptorSet lightWrites[4] = {};
+            for (uint32_t b = 0; b < 4; b++) {
+                lightWrites[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                lightWrites[b].dstSet = m_lightingSets[ping];
+                lightWrites[b].dstBinding = b;
+                lightWrites[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                lightWrites[b].descriptorCount = 1;
+                lightWrites[b].pImageInfo = &gInfos[b];
+            }
+            vkUpdateDescriptorSets(device, 4, lightWrites, 0, nullptr);
+
+            // 2. 更新 SVGF Temporal Pass Sets
+            VkDescriptorImageInfo temporalInfos[6] = {
+                { m_gBufferSampler, m_gNoisyGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gGIHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gMomentsHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+            };
+            VkWriteDescriptorSet temporalWrites[6] = {};
+            for (uint32_t b = 0; b < 6; b++) {
+                temporalWrites[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                temporalWrites[b].dstSet = m_svgfTemporalSets[ping];
+                temporalWrites[b].dstBinding = b;
+                temporalWrites[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                temporalWrites[b].descriptorCount = 1;
+                temporalWrites[b].pImageInfo = &temporalInfos[b];
+            }
+            vkUpdateDescriptorSets(device, 6, temporalWrites, 0, nullptr);
+
+            // 3. 更新 SVGF A-Trous Pass Sets (4轮迭代)
+            VkImageView atrousInputs[4] = { m_gGIHistory[ping].view, m_gDenoisedGITemp.view, m_gDenoisedGI.view, m_gDenoisedGITemp.view };
+            for (int iter = 0; iter < 4; iter++) {
+                VkDescriptorImageInfo atrousInfos[4] = {
+                    { m_gBufferSampler, atrousInputs[iter], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                    { m_gBufferSampler, m_gMomentsHistory[ping].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                    { m_gBufferSampler, m_gNormalRoughness.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                    { m_gBufferSampler, m_gDepth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+                };
+                VkWriteDescriptorSet atrousWrites[4] = {};
+                for (uint32_t b = 0; b < 4; b++) {
+                    atrousWrites[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    atrousWrites[b].dstSet = m_svgfATrousSets[ping][iter];
+                    atrousWrites[b].dstBinding = b;
+                    atrousWrites[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    atrousWrites[b].descriptorCount = 1;
+                    atrousWrites[b].pImageInfo = &atrousInfos[b];
+                }
+                vkUpdateDescriptorSets(device, 4, atrousWrites, 0, nullptr);
+            }
+
+            // 4. 更新 TAA Pass Sets
+            VkDescriptorImageInfo taaInfos[5] = { 
+                { m_gBufferSampler, m_gDenoisedGI.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gHistory[pong].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 
+                { m_gBufferSampler, m_gVelocity.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
+                { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 
+                { m_gBufferSampler, m_gDirectLight.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }     
+            };
+            VkWriteDescriptorSet taaWrites[5] = {};
+            for (uint32_t b = 0; b < 5; b++) {
+                taaWrites[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                taaWrites[b].dstSet = m_taaSets[ping];
+                taaWrites[b].dstBinding = b;
+                taaWrites[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                taaWrites[b].descriptorCount = 1;
+                taaWrites[b].pImageInfo = &taaInfos[b];
+            }
+            vkUpdateDescriptorSets(device, 5, taaWrites, 0, nullptr);
+
+            // 5. 更新 Blit Pass Sets
+            VkDescriptorImageInfo blitInfos[1] = { { m_gBufferSampler, m_gHistory[ping].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } };
+            VkWriteDescriptorSet blitWrite{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            blitWrite.dstSet = m_blitSets[ping];
+            blitWrite.dstBinding = 0;
+            blitWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            blitWrite.descriptorCount = 1;
+            blitWrite.pImageInfo = &blitInfos[0];
+            vkUpdateDescriptorSets(device, 1, &blitWrite, 0, nullptr);
+        }
     }
 
 } // namespace Lizeral

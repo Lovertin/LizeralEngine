@@ -11,10 +11,10 @@
 
 namespace Lizeral {
 
-    VulkanRenderer::VulkanRenderer(VulkanContext* context, VulkanDevice* device, GLFWwindow* window)
-        : m_context(context), m_device(device), m_window(window) {
+    VulkanRenderer::VulkanRenderer(VulkanContext* context, VulkanDevice* device, uint32_t width, uint32_t height)
+        : m_context(context), m_device(device), m_width(width), m_height(height) {
         
-        RecreateSwapchain();
+        RecreateSwapchain(width, height);
         CreateCommandBuffers();
         CreateSyncObjects();
 
@@ -44,30 +44,28 @@ namespace Lizeral {
         return m_swapchain->GetExtent();
     }
 
-    void VulkanRenderer::RecreateSwapchain() {
-        int width = 0, height = 0;
-        // ★ 核心：必须使用 glfwGetFramebufferSize 获取真实的物理像素分辨率！
-        glfwGetFramebufferSize(m_window, &width, &height);
-        while (width == 0 || height == 0) {
-            glfwGetFramebufferSize(m_window, &width, &height);
-            glfwWaitEvents();
-        }
+    void VulkanRenderer::RecreateSwapchain(uint32_t width, uint32_t height) {
+        // 如果最小化，直接挂起
+        if (width == 0 || height == 0) return;
 
         vkDeviceWaitIdle(m_device->GetNativeDevice());
 
         m_swapchain.reset();
         CleanupDepthResources();
 
+        // 1. 尝试用外界传入的宽高去建交换链
         m_swapchain = std::make_unique<VulkanSwapchain>(m_context, m_device, m_device->GetSurface(), width, height);
 
-        // ★ 关键修复：向 Swapchain 索要它最终决定的真实物理分辨率
         VkExtent2D actualExtent = m_swapchain->GetExtent();
+        m_width = actualExtent.width;
+        m_height = actualExtent.height;
 
+        // 3. 必须使用绝对真实的 m_width 和 m_height 去建底层的 Depth Image
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
+        imageInfo.extent.width = m_width;
+        imageInfo.extent.height = m_height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
@@ -81,17 +79,26 @@ namespace Lizeral {
 
         VkMemoryRequirements memRequirements;
         vkGetImageMemoryRequirements(m_device->GetNativeDevice(), m_depthImage, &memRequirements);
+
+        VkPhysicalDevice physicalDevice = m_device->GetContext()->GetPhysicalDevice(); 
         
         VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(m_context->GetPhysicalDevice(), &memProperties);
-        uint32_t memTypeIndex = 0;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+        
+        uint32_t memTypeIndex = ~0u;
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
             if ((memRequirements.memoryTypeBits & (1 << i)) && 
                 (memProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) == VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
-                memTypeIndex = i; break;
+                memTypeIndex = i;
+                break;
             }
         }
-        VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        if (memTypeIndex == ~0u) {
+            throw std::runtime_error("Failed to find suitable memory type for depth image!");
+        }
+        
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = memTypeIndex;
         vkAllocateMemory(m_device->GetNativeDevice(), &allocInfo, nullptr, &m_depthImageMemory);
@@ -108,8 +115,8 @@ namespace Lizeral {
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
         vkCreateImageView(m_device->GetNativeDevice(), &viewInfo, nullptr, &m_depthImageView);
-        
-        // ★ 彻底结束！再也没有 Framebuffer 和 RenderPass 了！
+
+        m_swapchainOutdated = false;
     }
 
     void VulkanRenderer::CleanupDepthResources() {
@@ -171,12 +178,14 @@ namespace Lizeral {
     VkCommandBuffer VulkanRenderer::BeginFrame() {
         if (m_isFrameStarted) throw std::runtime_error("Can't call BeginFrame while frame is already in progress!");
 
+        if (m_width == 0 || m_height == 0 || m_swapchainOutdated) return VK_NULL_HANDLE;
+
         vkWaitForFences(m_device->GetNativeDevice(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
         VkResult result = vkAcquireNextImageKHR(m_device->GetNativeDevice(), m_swapchain->GetNativeSwapchain(), UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &m_imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            RecreateSwapchain();
+            m_swapchainOutdated = true;
             return VK_NULL_HANDLE; 
         } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("Failed to acquire swapchain image!");
@@ -238,7 +247,7 @@ namespace Lizeral {
         VkResult result = vkQueuePresentKHR(m_device->GetPresentQueue(), &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            RecreateSwapchain();
+            m_swapchainOutdated = true;
         } else if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to present swapchain image!");
         }

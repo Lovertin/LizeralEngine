@@ -1,47 +1,60 @@
 #pragma once
 #include "editor/EditorHeader.h"
+#include "runtime/function/render/VulkanRenderingSystem/VulkanRenderingSystem.h"
+#include "runtime/function/render/rhi/vulkan/VulkanContext.h"
+#include "runtime/function/render/rhi/vulkan/VulkanDevice.h"
+#include "runtime/function/render/VulkanRenderer/VulkanRenderer.h"
 
-class EngineViewportWidget : public QOpenGLWidget {
+#include <QWidget>
+#include <QEvent>
+#include <memory>
+#include <vulkan/vulkan.h>
+
+namespace Lizeral {
+
+// ★ 核心改变：不再继承 QOpenGLWidget，而是直接继承原生的 QWidget
+class EngineViewportWidget : public QWidget {
 public:
-
-    std::function<void()> onInitGL;
+    std::function<void()> onInitVulkan;
     
-    EngineViewportWidget(Lizeral::Registry* registry, Lizeral::RenderingSystem* renderSys, QWidget* parent = nullptr) 
-        : QOpenGLWidget(parent), m_Registry(registry), m_RenderSystem(renderSys) {
+    EngineViewportWidget(Lizeral::Registry* registry, Lizeral::VulkanRenderingSystem* renderSys, QWidget* parent = nullptr);
+    ~EngineViewportWidget();
 
-
-        // 允许此 Widget 接收键盘和鼠标事件
-        setFocusPolicy(Qt::StrongFocus);
-        setMouseTracking(true); 
-    }
+    // ★ 核心魔法：返回 nullptr 彻底禁用 Qt 自己的绘制引擎，让 Vulkan 独占这块屏幕像素
+    QPaintEngine* paintEngine() const override { return nullptr; } 
 
     void SetPhysicsSystem(Lizeral::PhysicsSystem* physSys) { m_physicsSystem = physSys; }
 
 protected:
-    // 1. OpenGL 上下文准备好时执行一次
-    void initializeGL() override;
+    // 生命周期与渲染事件
+    void showEvent(QShowEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
-    // 2. 窗口大小改变时
-    void resizeGL(int w, int h) override ;
-
-    // 3. 每帧渲染逻辑
-    void paintGL() override;
-
-    // ---------------------------------------------------------
-    // 【预留接口】：将 Qt 的鼠标键盘事件转发给引擎 Input 系统
-    // ---------------------------------------------------------
-    void mousePressEvent(QMouseEvent *event) override ;
+    // 键鼠输入事件 (保持不变)
+    void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override ;
-    void keyPressEvent(QKeyEvent *event) override ;
-    void keyReleaseEvent(QKeyEvent *event) override ;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
 
 private:
+    void InitVulkan();
+
     Lizeral::Registry* m_Registry { nullptr };
-    Lizeral::RenderingSystem* m_RenderSystem { nullptr };
+    Lizeral::VulkanRenderingSystem* m_RenderSystem { nullptr };
     Lizeral::PhysicsSystem* m_physicsSystem {nullptr};
 
+    // --- Vulkan 核心 RHI 实例 (由 Widget 持有生命周期) ---
+    std::unique_ptr<VulkanContext> m_context;
+    std::unique_ptr<VulkanDevice> m_device;
+    std::unique_ptr<VulkanRenderer> m_renderer;
+    VkSurfaceKHR m_surface { VK_NULL_HANDLE };
+
+    bool m_isVulkanInitialized { false };
     bool m_isRoaming { false };
     QPoint m_roamStartGlobalPos; 
     QPointF m_virtualMousePos;
 };
+
+} // namespace Lizeral

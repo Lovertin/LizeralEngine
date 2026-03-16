@@ -17,6 +17,22 @@ LizeralEditorWindow::LizeralEditorWindow(){
 
 }
 
+LizeralEditorWindow::~LizeralEditorWindow(){
+    if (m_engineTimer) {
+        m_engineTimer->stop();
+    }
+
+    if (m_viewportWidget) {
+        delete m_viewportWidget; 
+        m_viewportWidget = nullptr;
+    }
+
+    if (m_globalRegistry) {
+        delete m_globalRegistry;
+        m_globalRegistry = nullptr;
+    }
+}
+
 void LizeralEditorWindow::setupUI(){
 
     // --- A. 中央区域：真实的 OpenGL 视口 ---
@@ -26,11 +42,11 @@ void LizeralEditorWindow::setupUI(){
     centralLayout->setContentsMargins(0, 0, 0, 0); // 让 OpenGL 画面填充满中央区域
 
     // 创建真正的视口，并将 Registry 和 RenderSystem 的引用传给它
-    m_viewportWidget = new EngineViewportWidget(m_globalRegistry, &m_renderSystem, centralWidget);
+    m_viewportWidget = new Lizeral::EngineViewportWidget(m_globalRegistry, &m_renderSystem, centralWidget);
 
     m_viewportWidget->SetPhysicsSystem(&m_physicsSystem);
 
-    m_viewportWidget->onInitGL = [this]() {
+    m_viewportWidget->onInitVulkan = [this]() {
         std::cout << "[Editor] OpenGL Context Ready! Loading Assets..." << std::endl;
         this->populateTestData();   // 现在可以安全加载模型和 Shader 了
         this->initEngineSystems();  // 启动物理和渲染的 60FPS 循环
@@ -79,16 +95,7 @@ void LizeralEditorWindow::setupUI(){
 void LizeralEditorWindow::populateTestData(){
 
     Lizeral::ResourceManager::GetInstance().SetRootPath("");
-        
-    // 提前准备好一个公用的 Shader
-    auto pbrShader = std::make_shared<Lizeral::Shader>(
-        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.vert",
-        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.frag"
-    );
 
-    // ==========================================
-    // 1. 创建摄像机和灯光 (保持你原来的代码不变)
-    // ==========================================
     Lizeral::Entity camEntity = m_globalRegistry->create();
     m_globalRegistry->emplace<Lizeral::NameComponent>(camEntity, "Main Camera");
     auto& camTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(camEntity);
@@ -110,24 +117,20 @@ void LizeralEditorWindow::populateTestData(){
     Lizeral::Entity boxEntity = m_globalRegistry->create();
     m_globalRegistry->emplace<Lizeral::NameComponent>(boxEntity, "Test Box");
     m_globalRegistry->emplace<Lizeral::TransformComponent>(boxEntity); 
-    
-    // A. 挂载 ModelComponent (调用默认构造函数)
-    auto& modelComp = m_globalRegistry->emplace<Lizeral::ModelComponent>(boxEntity);
-    
-    // B. 设置路径并让组件自己去加载
-    modelComp.m_ModelPath = "C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\monkey.glb";
-    modelComp.LoadResources(); // 这会自动加载模型，并准备好 override 数组！
 
-    // C. 体验材质覆盖！定制这个独一无二的箱子
-    if (modelComp.m_Model) {
-        for (auto& mesh : modelComp.m_Model->GetMeshes()) {
-            auto pbrMat = std::dynamic_pointer_cast<Lizeral::PBRMaterial>(mesh.m_Material);
-            if (pbrMat) {
-                // 仅仅赋予 Shader，绝不修改它从 Blender 里继承来的 m_Albedo 颜色！
-                pbrMat->SetShader(pbrShader);
-            }
-        }
-    }
+    Lizeral::Entity roomEntity = m_globalRegistry->create();
+    m_globalRegistry->emplace<Lizeral::NameComponent>(roomEntity,"classroom");
+    auto& roomTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(roomEntity);
+    roomTrans.setPosition(Lizeral::Vector3(0.0f, -1.0f, 10.0f));
+    roomTrans.setScale(Lizeral::Vector3(0.05f, 0.05f, 0.05f)); 
+    m_globalRegistry->emplace<Lizeral::VulkanModelComponent>(roomEntity).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/scene_without_window.glb"); 
+
+    Lizeral::Entity maserati = m_globalRegistry->create();
+    m_globalRegistry->emplace<Lizeral::NameComponent>(maserati,"Maserati");
+    auto& carTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(maserati);
+    carTrans.setPosition(Lizeral::Vector3(80.0f,0.0f,0.0f));
+    carTrans.setScale(Lizeral::Vector3(100.0f,100.0f,100.0f));
+    m_globalRegistry->emplace<Lizeral::VulkanModelComponent>(maserati).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/maserati.glb");
 
     // 刷新大纲以显示这些初始数据，并默认选中箱子
     m_outlinerPanel->Refresh();

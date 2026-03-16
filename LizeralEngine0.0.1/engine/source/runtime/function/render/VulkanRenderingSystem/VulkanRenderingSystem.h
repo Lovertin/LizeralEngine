@@ -151,15 +151,24 @@ namespace Lizeral {
         // --- 内部辅助方法 ---
         template <typename T>
         std::unique_ptr<VulkanBuffer> CreateBDABuffer(const std::vector<T>& data);
+
+        void DestroyPipelines(VkDevice device);
+        void DestroyDescriptors(VkDevice device);
+        void DestroyAttachments();
         
         GBufferAttachment CreateAttachment(VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect);
+        void CreateAttachments();
         void DestroyAttachment(GBufferAttachment& attachment);
 
         void BuildPipelines();
+        void UpdateDescriptorSets();
+
         VulkanModelResource& GetOrLoadModel(const std::string& path);
 
         void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspectMask);
         float CreateHaltonSequence(uint32_t index, uint32_t base);
+
+
     };
 
 } // namespace Lizeral

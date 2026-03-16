@@ -88,7 +88,7 @@ int main() {
 
         {
             VulkanDevice vulkanDevice(&vulkanContext, surface);
-            VulkanRenderer renderer(&vulkanContext, &vulkanDevice, window);
+            VulkanRenderer renderer(&vulkanContext, &vulkanDevice, 1280, 720);
 
             // =======================================================
             // 2. ECS 装配阶段 (保持原样)

@@ -17,7 +17,7 @@ namespace Lizeral {
     public:
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-        VulkanRenderer(VulkanContext* context, VulkanDevice* device, GLFWwindow* window);
+        VulkanRenderer(VulkanContext* context, VulkanDevice* device, uint32_t width,uint32_t height);
         ~VulkanRenderer();
 
         VkCommandBuffer BeginFrame();
@@ -31,8 +31,9 @@ namespace Lizeral {
         // 获取真实的物理像素分辨率
         VkExtent2D GetSwapchainExtent() const; 
 
-        // 恢复为原版：自动通过 glfw 获取真实分辨率
-        void RecreateSwapchain();
+        void RecreateSwapchain(uint32_t width, uint32_t height);
+        
+        bool IsSwapchainOutdated() const { return m_swapchainOutdated; }
 
     private:
         void CreateCommandBuffers();
@@ -44,7 +45,9 @@ namespace Lizeral {
 
         VulkanContext* m_context;
         VulkanDevice* m_device;
-        GLFWwindow* m_window; // 恢复 GLFWwindow
+        uint32_t m_width = 0;
+        uint32_t m_height = 0;
+        bool m_swapchainOutdated = false;
 
         std::unique_ptr<VulkanSwapchain> m_swapchain;
         std::unique_ptr<VulkanCommandPool> m_commandPool;

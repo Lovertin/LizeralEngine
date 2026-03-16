@@ -15,9 +15,7 @@ class LizeralEditorWindow : public QMainWindow {
 public:
     LizeralEditorWindow();
 
-    ~LizeralEditorWindow() {
-        delete m_globalRegistry;
-    }
+    ~LizeralEditorWindow();
 
 private:
     Lizeral::Registry* m_globalRegistry { nullptr };
@@ -25,12 +23,12 @@ private:
     Lizeral::InspectorPanel* m_inspectorPanel { nullptr };
     
     // 【新增】：持有视口指针
-    EngineViewportWidget* m_viewportWidget { nullptr };
+    Lizeral::EngineViewportWidget* m_viewportWidget { nullptr };
 
     // --- 引擎核心系统实例 ---
     Lizeral::PhysicsScene m_physicsScene;
     Lizeral::PhysicsSystem m_physicsSystem;
-    Lizeral::RenderingSystem m_renderSystem;
+    Lizeral::VulkanRenderingSystem m_renderSystem;
     Lizeral::CameraSystem m_cameraSystem;
     Lizeral::CameraControlSystem m_cameraControlSystem; 
     

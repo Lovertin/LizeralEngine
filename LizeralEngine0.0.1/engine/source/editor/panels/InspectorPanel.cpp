@@ -119,7 +119,8 @@ namespace Lizeral {
         tryDrawComponent((CameraComponent*)nullptr,    "CameraComponent");
         tryDrawComponent((CameraControlComponent*)nullptr, "CameraControlComponent");
         tryDrawComponent((DirectionLightComponent*)nullptr, "DirectionLightComponent");
-        tryDrawComponent((ModelComponent*)nullptr,     "ModelComponent");
+        tryDrawComponent((VulkanModelComponent*)nullptr, "ModelComponent");
+        // tryDrawComponent((ModelComponent*)nullptr,     "ModelComponent");
 
         QPushButton* addCompBtn = new QPushButton("Add Component", m_ContentWidget);
         addCompBtn->setStyleSheet("QPushButton { margin-top: 15px; padding: 8px; font-weight: bold; background-color: #4CAF50; color: white; border-radius: 4px; } QPushButton:hover { background-color: #45a049; }");
