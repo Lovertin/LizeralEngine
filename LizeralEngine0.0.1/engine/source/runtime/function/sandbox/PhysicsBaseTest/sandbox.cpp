@@ -125,8 +125,14 @@ int main() {
             // 3. ★ 核心：初始化新的渲染系统 ★
             // =======================================================
             VulkanRenderingSystem renderSystem;
-            renderSystem.Initialize(&vulkanContext, &vulkanDevice, &renderer, WIDTH, HEIGHT);
-            renderSystem.SetViewport(0, 0, WIDTH, HEIGHT);
+            
+            // ★ 完美画质的关键：获取经过 DPI 缩放后的真实屏幕物理像素！
+            // 比如 1280x720 的窗口在 150% 缩放的笔记本上，真实像素是 1920x1080！
+            VkExtent2D actualExtent = renderer.GetSwapchainExtent();
+            
+            // 使用真实物理像素初始化 G-Buffer
+            renderSystem.Initialize(&vulkanContext, &vulkanDevice, &renderer, actualExtent.width, actualExtent.height);
+            renderSystem.SetViewport(0, 0, actualExtent.width, actualExtent.height);
 
             std::cout << "\n[Sandbox] Dynamic Rendering & Ray Tracing Ready! Hold RMB + WASD to move." << std::endl;
             float lastTime = glfwGetTime();

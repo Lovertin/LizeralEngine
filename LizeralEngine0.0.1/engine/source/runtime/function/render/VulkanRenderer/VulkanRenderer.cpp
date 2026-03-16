@@ -44,8 +44,14 @@ namespace Lizeral {
         return m_swapchain->GetExtent();
     }
 
-    void VulkanRenderer::RecreateSwapchain(int width, int height) {
-        if (width == 0 || height == 0) return; 
+    void VulkanRenderer::RecreateSwapchain() {
+        int width = 0, height = 0;
+        // ★ 核心：必须使用 glfwGetFramebufferSize 获取真实的物理像素分辨率！
+        glfwGetFramebufferSize(m_window, &width, &height);
+        while (width == 0 || height == 0) {
+            glfwGetFramebufferSize(m_window, &width, &height);
+            glfwWaitEvents();
+        }
 
         vkDeviceWaitIdle(m_device->GetNativeDevice());
 
@@ -60,9 +66,8 @@ namespace Lizeral {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        // ★ 使用真实的 actualExtent，绝不能用外部传进来的 width/height
-        imageInfo.extent.width = actualExtent.width;
-        imageInfo.extent.height = actualExtent.height;
+        imageInfo.extent.width = width;
+        imageInfo.extent.height = height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;

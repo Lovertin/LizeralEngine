@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
+#include <GLFW/glfw3.h> // 恢复对 GLFW 的依赖
 #include <memory>
 #include <vector>
 
@@ -15,62 +15,52 @@ namespace Lizeral {
 
     class VulkanRenderer {
     public:
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
         VulkanRenderer(VulkanContext* context, VulkanDevice* device, GLFWwindow* window);
         ~VulkanRenderer();
 
-        VulkanRenderer(const VulkanRenderer&) = delete;
-        VulkanRenderer& operator=(const VulkanRenderer&) = delete;
-
-        // --- 核心渲染循环接口 ---
         VkCommandBuffer BeginFrame();
         void EndFrame();
 
-        // ★ 动态渲染核心：随叫随到，指哪画哪！
         void BeginRendering(VkCommandBuffer commandBuffer);
         void EndRendering(VkCommandBuffer commandBuffer);
 
-        // --- 获取状态接口 ---
-        VkCommandBuffer GetCurrentCommandBuffer() const;
-        int GetFrameIndex() const { return m_currentFrame; }
-        bool IsFrameInProgress() const { return m_isFrameStarted; }
+        VkFormat GetSwapchainFormat() const;
         
-        // 供管线创建时获取颜色格式
-        VkFormat GetSwapchainFormat() const; 
+        // 获取真实的物理像素分辨率
+        VkExtent2D GetSwapchainExtent() const; 
 
-        VkExtent2D GetSwapchainExtent() const ;
-
-        void RecreateSwapchain(int width=1280, int height=720);
+        // 恢复为原版：自动通过 glfw 获取真实分辨率
+        void RecreateSwapchain();
 
     private:
-        VulkanContext* m_context { nullptr };
-        VulkanDevice* m_device { nullptr };
-        GLFWwindow* m_window { nullptr };
+        void CreateCommandBuffers();
+        void FreeCommandBuffers();
+        void CreateSyncObjects();
+        void CleanupDepthResources();
+
+        VkCommandBuffer GetCurrentCommandBuffer() const;
+
+        VulkanContext* m_context;
+        VulkanDevice* m_device;
+        GLFWwindow* m_window; // 恢复 GLFWwindow
 
         std::unique_ptr<VulkanSwapchain> m_swapchain;
         std::unique_ptr<VulkanCommandPool> m_commandPool;
         std::vector<std::unique_ptr<VulkanCommandBuffer>> m_commandBuffers;
 
-        // ★ 深度图资源 (初始化为空)
         VkImage m_depthImage { VK_NULL_HANDLE };
         VkDeviceMemory m_depthImageMemory { VK_NULL_HANDLE };
         VkImageView m_depthImageView { VK_NULL_HANDLE };
 
-        // 同步对象
         std::vector<VkSemaphore> m_imageAvailableSemaphores;
         std::vector<VkSemaphore> m_renderFinishedSemaphores;
         std::vector<VkFence> m_inFlightFences;
 
-        uint32_t m_imageIndex { 0 };
-        int m_currentFrame { 0 };
-        bool m_isFrameStarted { false };
-        
-        const int MAX_FRAMES_IN_FLIGHT = 2;
-
-        // 内部流程函数
-        void CreateCommandBuffers();
-        void FreeCommandBuffers();
-        void CreateSyncObjects();
-        void CleanupDepthResources();
+        uint32_t m_currentFrame = 0;
+        uint32_t m_imageIndex;
+        bool m_isFrameStarted = false;
     };
 
 } // namespace Lizeral

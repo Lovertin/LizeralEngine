@@ -17,51 +17,54 @@ LizeralEditorWindow::LizeralEditorWindow(){
 
 }
 
-#include "LizeralEditorWindow.h"
-#include <QResizeEvent>
-
-// ... 构造函数保持不变 ...
-
 void LizeralEditorWindow::setupUI(){
 
-    // ==========================================================
-    // Layer 0 (底层)：真正的 OpenGL/Vulkan 视口，永远铺满整个主窗口
-    // ==========================================================
-    m_viewportWidget = new Lizeral::EngineViewportWidget(m_globalRegistry, &m_renderSystem, this);
-    
-    m_viewportWidget->onInitVulkan = [this]() {
-        std::cout << "[Editor] Vulkan Context Ready! Loading Assets..." << std::endl;
-        this->populateTestData();  
-        this->initEngineSystems();  
+    // --- A. 中央区域：真实的 OpenGL 视口 ---
+    QWidget* centralWidget = new QWidget(this);
+    centralWidget->setStyleSheet("background-color: #1e1e1e;"); 
+    QVBoxLayout* centralLayout = new QVBoxLayout(centralWidget);
+    centralLayout->setContentsMargins(0, 0, 0, 0); // 让 OpenGL 画面填充满中央区域
+
+    // 创建真正的视口，并将 Registry 和 RenderSystem 的引用传给它
+    m_viewportWidget = new EngineViewportWidget(m_globalRegistry, &m_renderSystem, centralWidget);
+
+    m_viewportWidget->SetPhysicsSystem(&m_physicsSystem);
+
+    m_viewportWidget->onInitGL = [this]() {
+        std::cout << "[Editor] OpenGL Context Ready! Loading Assets..." << std::endl;
+        this->populateTestData();   // 现在可以安全加载模型和 Shader 了
+        this->initEngineSystems();  // 启动物理和渲染的 60FPS 循环
     };
 
-    // 直接将视口设为唯一的中央组件
-    setCentralWidget(m_viewportWidget);
+    centralLayout->addWidget(m_viewportWidget);
 
+    setCentralWidget(centralWidget);
 
-    // ==========================================================
-    // Layer 1 (顶层)：悬浮在视口上的 UI 面板 (作为 viewport 的子节点)
-    // ==========================================================
-
-    // --- 左侧区域：Scene Outliner ---
-    m_outlinerPanel = new Lizeral::SceneOutlinerPanel(m_viewportWidget); // 注意：父节点传 viewport
+    // --- B. 左侧区域：Scene Outliner ---
+    QDockWidget* outlinerDock = new QDockWidget("Scene Outliner", this);
+    outlinerDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    
+    m_outlinerPanel = new Lizeral::SceneOutlinerPanel(outlinerDock);
     m_outlinerPanel->SetRegistry(m_globalRegistry);
-    // 必须设置不透明的背景色，否则文字会和 3D 场景糊在一起
-    m_outlinerPanel->setStyleSheet("background-color: rgba(30, 30, 30, 240); border: 1px solid #444;");
-    m_outlinerPanel->show(); // 强制显示子窗口
+    
+    outlinerDock->setWidget(m_outlinerPanel);
+    addDockWidget(Qt::LeftDockWidgetArea, outlinerDock);
 
-    // --- 右侧区域：Inspector ---
-    m_inspectorPanel = new Lizeral::InspectorPanel(m_viewportWidget);
+    // --- C. 右侧区域：Inspector ---
+    QDockWidget* inspectorDock = new QDockWidget("Inspector", this);
+    inspectorDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+
+    m_inspectorPanel = new Lizeral::InspectorPanel(inspectorDock);
     m_inspectorPanel->SetRegistry(m_globalRegistry);
-    m_inspectorPanel->setStyleSheet("background-color: transparent;");
 
-    m_inspectorScrollArea = new QScrollArea(m_viewportWidget); // 注意：父节点传 viewport
-    m_inspectorScrollArea->setWidgetResizable(true);
-    m_inspectorScrollArea->setWidget(m_inspectorPanel);
-    m_inspectorScrollArea->setStyleSheet("background-color: rgba(30, 30, 30, 240); border: 1px solid #444;");
-    m_inspectorScrollArea->show(); // 强制显示
+    QScrollArea* scrollArea = new QScrollArea(inspectorDock);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setWidget(m_inspectorPanel);
+    
+    inspectorDock->setWidget(scrollArea);
+    addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
 
-    // --- 信号绑定 (完全不用动) ---
+    // --- 信号绑定 ---
     connect(&Lizeral::EditorSelection::Get(), &Lizeral::EditorSelection::OnEntitySelected,
             m_inspectorPanel, &Lizeral::InspectorPanel::BindEntity);
 
@@ -73,34 +76,15 @@ void LizeralEditorWindow::setupUI(){
             });
 }
 
-// ==========================================================
-// 核心排版逻辑：手动将悬浮面板钉在左右两侧
-// ==========================================================
-void LizeralEditorWindow::resizeEvent(QResizeEvent* event) {
-    QMainWindow::resizeEvent(event);
-    
-    // 如果视口还没建好，直接跳过
-    if (!m_viewportWidget) return;
-
-    int panelWidth = 320; // 你想要的面板宽度
-    int padding = 0;      // 面板距离窗口边缘的空隙（如果想完全贴边可以设为0）
-
-    // 钉住左边 Outliner
-    if (m_outlinerPanel) {
-        m_outlinerPanel->setGeometry(padding, padding, 
-                                     panelWidth, this->height() - padding * 2);
-    }
-
-    // 钉住右边 Inspector
-    if (m_inspectorScrollArea) {
-        m_inspectorScrollArea->setGeometry(this->width() - panelWidth - padding, padding, 
-                                           panelWidth, this->height() - padding * 2);
-    }
-}
-
 void LizeralEditorWindow::populateTestData(){
 
     Lizeral::ResourceManager::GetInstance().SetRootPath("");
+        
+    // 提前准备好一个公用的 Shader
+    auto pbrShader = std::make_shared<Lizeral::Shader>(
+        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.vert",
+        "C:\\Lizeral Engine\\LizeralEngine0.0.1\\engine\\source\\runtime\\function\\sandbox\\shaderTest\\solid.frag"
+    );
 
     // ==========================================
     // 1. 创建摄像机和灯光 (保持你原来的代码不变)
@@ -124,19 +108,28 @@ void LizeralEditorWindow::populateTestData(){
     lighttype.setIntensity(3.0f);
 
     Lizeral::Entity boxEntity = m_globalRegistry->create();
-    m_globalRegistry->emplace<Lizeral::NameComponent>(boxEntity, "Test Box (Vulkan)");
+    m_globalRegistry->emplace<Lizeral::NameComponent>(boxEntity, "Test Box");
+    m_globalRegistry->emplace<Lizeral::TransformComponent>(boxEntity); 
     
-    auto& boxTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(boxEntity); 
-    boxTrans.setPosition(Lizeral::Vector3(0.0f, 0.0f, 0.0f));
+    // A. 挂载 ModelComponent (调用默认构造函数)
+    auto& modelComp = m_globalRegistry->emplace<Lizeral::ModelComponent>(boxEntity);
     
-    // ★ 挂载 Vulkan 专用的模型组件
-    auto& vkModelComp = m_globalRegistry->emplace<Lizeral::VulkanModelComponent>(boxEntity);
-    
-    // 传入你的测试模型路径 (MeshletBuilder 会自动在底层接管并解析它的材质)
-    vkModelComp.setVulkanModelPath("C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\scene_without_window.glb"); 
-    // 或者用你的猴头："C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\monkey.glb"
+    // B. 设置路径并让组件自己去加载
+    modelComp.m_ModelPath = "C:\\Lizeral Engine\\LizeralEngine0.0.1\\asset\\monkey.glb";
+    modelComp.LoadResources(); // 这会自动加载模型，并准备好 override 数组！
 
-    // 刷新大纲以显示这些初始数据，并默认选中它
+    // C. 体验材质覆盖！定制这个独一无二的箱子
+    if (modelComp.m_Model) {
+        for (auto& mesh : modelComp.m_Model->GetMeshes()) {
+            auto pbrMat = std::dynamic_pointer_cast<Lizeral::PBRMaterial>(mesh.m_Material);
+            if (pbrMat) {
+                // 仅仅赋予 Shader，绝不修改它从 Blender 里继承来的 m_Albedo 颜色！
+                pbrMat->SetShader(pbrShader);
+            }
+        }
+    }
+
+    // 刷新大纲以显示这些初始数据，并默认选中箱子
     m_outlinerPanel->Refresh();
     Lizeral::EditorSelection::Get().SelectEntity(boxEntity);
 }
@@ -144,7 +137,17 @@ void LizeralEditorWindow::populateTestData(){
 void LizeralEditorWindow::initEngineSystems(){
 
     m_physicsScene.Initialize();
-    m_physicsSystem.Initialize(&m_physicsScene);
+        m_physicsSystem.Initialize(&m_physicsScene);
+        // 注意：m_renderSystem.Initialize() 已经在 EngineViewportWidget::initializeGL() 中调用了！
+
+        // 设置游戏主循环 (约 60FPS = 16ms)
+        m_engineTimer = new QTimer(this);
+        // 在现代 Qt 中，普通成员函数可以直接用这种方式 connect，无需将其声明为 slots
+        connect(m_engineTimer, &QTimer::timeout, this, &LizeralEditorWindow::EngineTick);
+        
+        m_timeTracker.start();
+        m_engineTimer->start(16);
+
 }
 
 void LizeralEditorWindow::EngineTick()
