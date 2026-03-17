@@ -5,6 +5,7 @@
 #include "runtime/function/ecs/components/Transform/TransformComponent.h"
 #include "runtime/function/ecs/components/Model/VulkanModelComponent.h"
 #include "runtime/function/ecs/components/Camera/CameraComponent.h"
+#include "runtime/function/ecs/components/Light/DirectionalLightComponent.h"
 
 #include <iostream>
 #include <fstream>
@@ -160,6 +161,9 @@ namespace Lizeral {
 
             std::vector<RTInstanceDesc> dummyInstances(1000); 
             m_rtInstanceBuffer = CreateBDABuffer(dummyInstances);
+
+            std::vector<GPUInstanceData> dummyGPU(10000);   
+            m_globalInstanceBuffer = CreateBDABuffer(dummyGPU);
         }
 
         CreateAttachments();
@@ -215,20 +219,36 @@ namespace Lizeral {
 
         std::cout << "[RenderingSystem] Shutting down..." << std::endl;
 
-        m_modelCache.clear();
-        m_rtInstanceBuffer.reset();
-        m_globalTextures.clear(); 
+        // =======================================================
+        // ★ 修复区 1：清理所有包含显存的容器
+        // =======================================================
+        m_modelCache.clear();      // 释放所有物体的 Vertex/Index BDA Buffer
+        m_globalTextures.clear();  // 释放所有 Bindless 贴图
 
+        // =======================================================
+        // ★ 修复区 2：手动销毁所有动态创建的全局大 Buffer (核心漏网之鱼)
+        // =======================================================
+        if (m_rtInstanceBuffer) m_rtInstanceBuffer.reset();
+        if (m_globalInstanceBuffer) m_globalInstanceBuffer.reset(); // 释放 10000 个矩阵的显存
+        if (m_frameResource.buffer) m_frameResource.buffer.reset(); // 释放 FrameData 显存
+
+        // =======================================================
+        // ★ 修复区 3：销毁常规 Vulkan 资源
+        // =======================================================
         DestroyPipelines(device);
-
         DestroyDescriptors(device);
-
         DestroyAttachments();
 
-        if (m_gBufferSampler) vkDestroySampler(device, m_gBufferSampler, nullptr);
+        if (m_gBufferSampler) {
+            vkDestroySampler(device, m_gBufferSampler, nullptr);
+            m_gBufferSampler = VK_NULL_HANDLE;
+        }
 
-        m_tlas.reset();
-        m_resourceCommandPool.reset();
+        // =======================================================
+        // ★ 修复区 4：销毁光追与命令池
+        // =======================================================
+        if (m_tlas) m_tlas.reset();
+        if (m_resourceCommandPool) m_resourceCommandPool.reset();
 
         std::cout << "[RenderingSystem] Shutdown complete." << std::endl;
     }
@@ -441,16 +461,22 @@ namespace Lizeral {
         // 阶段 1: 定义 Push Constants 范围
         // =========================================================================
         struct PushConstants {
-            Matrix4x4 mvp; Matrix4x4 model; Matrix4x4 prevMvp;
-            uint64_t vertexBuffer; uint64_t meshletBuffer; uint64_t indexBuffer;
-            uint64_t boundsBuffer; uint64_t materialBuffer;
-            uint32_t totalMeshlets; uint32_t textureOffset; Vector2 jitter;
+            uint64_t frameDataAddr;    // 8 字节：包含所有全局相机、光照参数
+            uint64_t modelDataAddr;    // 8 字节：包含当前物体的 Model 矩阵 (未来优化用)
+            uint64_t vertexBuffer;     
+            uint64_t meshletBuffer;    
+            uint64_t indexBuffer;      
+            uint64_t boundsBuffer;     
+            uint64_t materialBuffer;   
+            uint32_t totalMeshlets;    
+            uint32_t textureOffset;
         };
 
         struct LightingPushConstants {
-            Matrix4x4 invViewProj; Matrix4x4 viewProj; Vector3 cameraPos; float padding;  
-            uint32_t frameIndex; uint32_t stepSize; uint64_t instanceDescAddr;   
-            Vector3 lightDir; float lightPadding; Vector3 lightColor; float lightIntensity;             
+            uint64_t frameDataAddr; 
+            uint64_t instanceDescAddr;   
+            uint32_t stepSize;         // 4 字节：专门给 A-Trous 降噪用的步长
+            uint32_t padding;          // 4 字节：补齐 8 字节对齐 (Vulkan 规范强烈建议)
         };
 
         VkPushConstantRange graphicsPushRange{}; 
@@ -774,6 +800,43 @@ namespace Lizeral {
             break; 
         }
 
+        Lizeral::Vector3 lightDir(1.0f, 0.5f, 1.0f);
+        Lizeral::Vector3 lightColor(1.0f, 0.85f, 0.7f);
+        float lightIntensity = 4.0f;
+
+        auto lightView = registry.view<TransformComponent, DirectionLightComponent>();
+        for (auto entity : lightView) {
+            auto& trans = lightView.get<TransformComponent>(entity);
+            auto& light = lightView.get<DirectionLightComponent>(entity);
+            lightDir = trans.getForward().normalize();
+            lightColor = light.getColor(); 
+            lightIntensity = light.getIntensity();
+            break; // 通常只有一个主光源
+        }
+
+        Matrix4x4 currentVP = projMatUnjittered * viewMat;
+
+        GlobalFrameData frameData{};
+        // ★ 修复：将所有相机矩阵转置 (transpose) 后再喂给 VRAM！
+        frameData.viewProj = currentVP.transpose();
+        frameData.invViewProj = currentVP.inverse().transpose();
+        frameData.prevViewProj = m_prevViewProj.transpose();
+        
+        frameData.cameraPos = cameraPos;
+        frameData.lightDir = lightDir;
+        frameData.lightColor = lightColor;
+        frameData.lightIntensity = lightIntensity; 
+        frameData.frameIndex = m_frameIndex;
+        frameData.jitter = Vector2(ndcJitterX, ndcJitterY);
+
+        if (!m_frameResource.buffer) {
+            std::vector<GlobalFrameData> dummy(1);
+            m_frameResource.buffer = CreateBDABuffer(dummy);
+            m_frameResource.addr = m_frameResource.buffer->GetDeviceAddress();
+        }
+
+        m_frameResource.buffer->WriteData(&frameData, sizeof(GlobalFrameData));
+
         // ====================================================================
         // 步骤 A: 收集实例，构建动态 TLAS 光追树
         // ====================================================================
@@ -875,11 +938,20 @@ namespace Lizeral {
         if (m_isFirstFrameRun) m_prevViewProj = currentViewProjUnjittered;
 
         struct PushConstants {
-            Matrix4x4 mvp; Matrix4x4 model; Matrix4x4 prevMvp;
-            uint64_t vertexBuffer; uint64_t meshletBuffer; uint64_t indexBuffer;
-            uint64_t boundsBuffer; uint64_t materialBuffer;
-            uint32_t totalMeshlets; uint32_t textureOffset; Vector2 jitter;
+            uint64_t frameDataAddr;    // 8 字节：包含所有全局相机、光照参数
+            uint64_t modelDataAddr;    // 8 字节：包含当前物体的 Model 矩阵 (未来优化用)
+            uint64_t vertexBuffer;     
+            uint64_t meshletBuffer;    
+            uint64_t indexBuffer;      
+            uint64_t boundsBuffer;     
+            uint64_t materialBuffer;   
+            uint32_t totalMeshlets;    
+            uint32_t textureOffset;
         };
+
+        GPUInstanceData* mappedInstanceData = static_cast<GPUInstanceData*>(m_globalInstanceBuffer->Map());
+        uint64_t baseInstanceAddr = m_globalInstanceBuffer->GetDeviceAddress();
+        uint32_t currentInstanceIndex = 0;
 
         for (auto entity : modelView) {
             auto& transform = modelView.get<TransformComponent>(entity);
@@ -894,22 +966,26 @@ namespace Lizeral {
             Matrix4x4 prevModel = m_isFirstFrameRun ? currentModel : m_prevModelMats[entityId];
 
             PushConstants pushData{};
-            
 
-            pushData.mvp = (currentViewProjUnjittered * currentModel).transpose(); 
-            pushData.model = currentModel.transpose(); 
-            pushData.prevMvp = (m_prevViewProj * prevModel).transpose();
+            if (currentInstanceIndex >= 10000) {
+                std::cerr << "WARNING: Max instances (10000) reached!" << std::endl;
+                break;
+            }
+
+            // 2. 疯狂写入数据
+            mappedInstanceData[currentInstanceIndex].Model = currentModel.transpose();
+            mappedInstanceData[currentInstanceIndex].prevModel = prevModel.transpose();
             
+            pushData.frameDataAddr = m_frameResource.addr;
+            pushData.modelDataAddr = baseInstanceAddr + (currentInstanceIndex * sizeof(GPUInstanceData));
             pushData.vertexBuffer = res.vAddr; pushData.meshletBuffer = res.mAddr; pushData.indexBuffer = res.iAddr; 
             pushData.boundsBuffer = res.bAddr; pushData.materialBuffer = res.matAddr;
             pushData.totalMeshlets = res.totalMeshlets; pushData.textureOffset = res.textureOffset; 
-            
-            // Jitter 作为单独的参数传给 Shader
-            pushData.jitter = Vector2(ndcJitterX, ndcJitterY);
 
             vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushData);
             m_prevModelMats[entityId] = currentModel;
             m_CmdDrawMeshTasksEXT(cmd, (res.totalMeshlets + 63) / 64, 1, 1);
+            currentInstanceIndex++;
         }
         vkCmdEndRendering(cmd);
 
@@ -933,21 +1009,16 @@ namespace Lizeral {
         TransitionImageLayout(cmd, m_gVelocity.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         struct LightingPushConstants {
-            Matrix4x4 invViewProj; Matrix4x4 viewProj; Vector3 cameraPos; float padding;  
-            uint32_t frameIndex; uint32_t stepSize; uint64_t instanceDescAddr;   
-            Vector3 lightDir; float lightPadding; Vector3 lightColor; float lightIntensity;             
+            uint64_t frameDataAddr; 
+            uint64_t instanceDescAddr;   
+            uint32_t stepSize;         // 4 字节：专门给 A-Trous 降噪用的步长
+            uint32_t padding;          // 4 字节：补齐 8 字节对齐 (Vulkan 规范强烈建议)
         };
 
         LightingPushConstants lightPc{};
-        Matrix4x4 vpJittered = projMatJittered * viewMat;
-        lightPc.invViewProj = vpJittered.inverse().transpose();
-        lightPc.viewProj = vpJittered.transpose();
-        lightPc.cameraPos = cameraPos; 
-        lightPc.frameIndex = m_frameIndex;
+        lightPc.frameDataAddr = m_frameResource.addr;
         lightPc.instanceDescAddr = m_rtInstanceBuffer->GetDeviceAddress();
-        lightPc.lightDir = Lizeral::Vector3(1.0f, 0.5f, 1.0f).normalize(); 
-        lightPc.lightColor = Lizeral::Vector3(1.0f, 0.85f, 0.7f); 
-        lightPc.lightIntensity = 12.0f;
+
 
         auto DrawFullscreenPass = [&](VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet set, GBufferAttachment* outputs, uint32_t outputCount, bool bindExtraSet = false) {
             VkRenderingAttachmentInfo attInfos[2] = {};

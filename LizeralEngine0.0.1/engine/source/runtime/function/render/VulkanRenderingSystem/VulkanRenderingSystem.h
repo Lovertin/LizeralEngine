@@ -12,6 +12,7 @@
 #include "runtime/function/render/rhi/vulkan/VulkanBLAS.h"
 #include "runtime/function/Vulkan_res_type/VulkanModelResource.h"
 #include "runtime/core/math/matrix4.h"
+#include "runtime/core/math/vector2.h"
 
 #include <memory>
 #include <unordered_map>
@@ -26,6 +27,33 @@ namespace Lizeral {
         VmaAllocation allocation = VK_NULL_HANDLE;
         VkImageView view = VK_NULL_HANDLE;
         VkFormat format;
+    };
+
+    // 纯洁无瑕的数据体，直接 `memcpy` 给显存！必须和 Shader 严丝合缝对齐！
+    struct GlobalFrameData {
+        Matrix4x4 viewProj;
+        Matrix4x4 invViewProj;
+        Matrix4x4 prevViewProj;
+        Vector3 cameraPos;
+        float padding1;
+        Vector3 lightDir;
+        float lightIntensity;
+        Vector3 lightColor;
+        uint32_t frameIndex;
+        Vector2 jitter;
+        Vector2 padding2; 
+    };
+
+    // 专门用来管理这块显存生命周期的资源外壳 (不要用 sizeof 算它！)
+    struct VulkanFrameResource {
+        std::unique_ptr<VulkanBuffer> buffer;
+        uint64_t addr = 0;
+        bool IsValid() const { return addr != 0; }
+    };
+
+    struct GPUInstanceData{
+        Matrix4x4 Model;
+        Matrix4x4 prevModel;
     };
 
     class VulkanRenderingSystem {
@@ -127,9 +155,12 @@ namespace Lizeral {
         std::unordered_map<std::string, VulkanModelResource> m_modelCache;
         std::vector<std::unique_ptr<VulkanTexture>> m_globalTextures;
         std::vector<VkDescriptorImageInfo> m_globalImageInfos;
+        VulkanFrameResource m_frameResource;
 
         // 动态光追台账 Buffer
         std::unique_ptr<VulkanBuffer> m_rtInstanceBuffer;
+        std::unique_ptr<VulkanBuffer> m_globalInstanceBuffer;
+        
 
         // --- 状态数据 ---
         uint32_t m_width = 1280;

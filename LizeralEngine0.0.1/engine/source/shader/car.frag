@@ -27,10 +27,39 @@ struct Material {
 
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
 
-layout(push_constant) uniform PushConstants {
-    mat4 mvp;
+// ==========================================================
+// ★ 1. 将旧的 pc 结构替换为全新的 BDA 指针架构
+// ==========================================================
+struct GlobalFrameData {
+    mat4 viewProj;
+    mat4 invViewProj;
+    mat4 prevViewProj;
+    vec3 cameraPos;
+    float padding1;
+    vec3 lightDir;
+    float lightIntensity;
+    vec3 lightColor;
+    uint frameIndex;
+    vec2 jitter;
+    vec2 padding2;
+};
+
+// 映射全局帧数据指针
+layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer FrameDataBuffer {
+    GlobalFrameData frame;
+};
+
+// 映射实例矩阵数据指针
+layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer InstanceDataBuffer {
     mat4 model;
-    mat4 prevMvp;
+    mat4 prevModel;
+};
+
+// ★ 2. 瘦身版 PushConstants (必须和 car.mesh / car.task 100% 相同)
+layout(push_constant) uniform PushConstants {
+    FrameDataBuffer frameDataAddr;       // 8 字节：指向全局数据
+    InstanceDataBuffer instanceDataAddr; // 8 字节：指向本物体的矩阵
+    
     uint64_t vBuf;
     uint64_t mBuf;
     uint64_t iBuf;
@@ -38,7 +67,6 @@ layout(push_constant) uniform PushConstants {
     uint64_t matBuf;
     uint totalMeshlets;
     uint textureOffset;
-    vec2 jitter;
 } pc;
 
 void main() {
