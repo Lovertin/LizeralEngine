@@ -45,30 +45,13 @@ void main() {
         historyLength = prevGIHistory.a;
         prevMoments = texture(samplerPrevMoments, prevUV).rg;
     }
-    
-    vec3 giMin = currentGI;
-    vec3 giMax = currentGI;
-    vec2 texelSize = 1.0 / textureSize(samplerNoisyGI, 0);
-
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            if (x == 0 && y == 0) continue;
-            vec3 neighborGI = texture(samplerNoisyGI, inUV + vec2(x, y) * texelSize).rgb;
-            giMin = min(giMin, neighborGI);
-            giMax = max(giMax, neighborGI);
-        }
-    }
-
-    // 将历史颜色强行限制在当前帧邻域的合法范围内！
-    // 这样就算发生了视线遮挡，历史颜色也会瞬间被修正为当前帧的近似颜色。
-    prevGI = clamp(prevGI, giMin, giMax);
 
     // 历史长度加1，最多累加 32 帧
-    historyLength = min(32.0, isHistoryValid ? historyLength + 1.0 : 1.0);
+    historyLength = min(64.0, isHistoryValid ? historyLength + 1.0 : 1.0);
 
     // 计算混合权重 (alpha)
     // 刚出现的物体 alpha=1(只相信当前帧)，稳定后的物体 alpha=0.05(更相信历史，极其平滑)
-    float alpha = (historyLength < 4.0) ? 1.0 : max(0.05, 1.0 / historyLength);
+    float alpha = max(0.02, 1.0 / historyLength);
 
     // 1. 时域混合 GI 颜色
     vec3 resolvedGI = mix(prevGI, currentGI, alpha);

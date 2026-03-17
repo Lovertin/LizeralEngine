@@ -18,6 +18,9 @@ void main() {
     // 1. 读取线性空间的纯净 HDR 画面 (这是 TAA 处理后的结果)
     vec3 hdrColor = texture(samplerColor, inUV).rgb;
     
+    float exposure = 1.0; 
+    hdrColor *= exposure;
+    
     // 2. 进行 ToneMapping 映射到屏幕支持的 LDR 色彩
     vec3 mappedColor = ACESFilm(hdrColor);
     

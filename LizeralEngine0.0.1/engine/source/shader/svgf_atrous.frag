@@ -50,8 +50,8 @@ void main() {
     int stepSize = int(pc.stepSize); 
 
     // 控制各项权重的灵敏度参数
-    float phiLuma = 4.0;
-    float phiNormal = 128.0;
+    float phiLuma = 10.0; 
+    float phiNormal = 16.0;
 
     vec3 sumGI = centerGI;
     float sumWeight = 1.0;

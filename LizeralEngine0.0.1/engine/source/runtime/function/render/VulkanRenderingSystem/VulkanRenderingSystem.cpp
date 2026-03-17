@@ -947,7 +947,7 @@ namespace Lizeral {
         lightPc.instanceDescAddr = m_rtInstanceBuffer->GetDeviceAddress();
         lightPc.lightDir = Lizeral::Vector3(1.0f, 0.5f, 1.0f).normalize(); 
         lightPc.lightColor = Lizeral::Vector3(1.0f, 0.85f, 0.7f); 
-        lightPc.lightIntensity = 4.0f;
+        lightPc.lightIntensity = 12.0f;
 
         auto DrawFullscreenPass = [&](VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet set, GBufferAttachment* outputs, uint32_t outputCount, bool bindExtraSet = false) {
             VkRenderingAttachmentInfo attInfos[2] = {};

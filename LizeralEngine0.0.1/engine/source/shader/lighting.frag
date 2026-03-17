@@ -100,7 +100,7 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction) {
     }
     
     // 如果射向了虚空，返回极亮的天空颜色作为光照贡献
-    return vec3(0.5, 0.7, 0.9) * 3.0; 
+    return vec3(0.5, 0.7, 0.9) * 0.2; 
 }
 
 void main() {
@@ -145,16 +145,17 @@ void main() {
     float tMax = 1000.0;    
     uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
 
-    int NUM_SAMPLES = 8; 
+    int NUM_SAMPLES = 4; 
     float shadowSum = 0.0; 
 
     float randomAngle = rand(baseSeed) * 2.0 * 3.14159265;
     const float GOLDEN_ANGLE = 2.39996323;
+    float baseAngle = rand(baseSeed) * 2.0 * 3.14159265;
 
     for(int i = 0; i < NUM_SAMPLES; i++) {
-        // 给半径也加入随机扰动，打破同心圆伪影
-        float r = sqrt((float(i) + rand(baseSeed)) / float(NUM_SAMPLES)) * lightRadius;
-        float theta = float(i) * GOLDEN_ANGLE + randomAngle;
+        // Vogel Disk 算法：按斐波那契螺旋均匀且随机地散布在圆盘上
+        float r = sqrt((float(i) + 0.5) / float(NUM_SAMPLES)) * lightRadius;
+        float theta = float(i) * GOLDEN_ANGLE + baseAngle;
         
         vec2 diskOffset = vec2(r * cos(theta), r * sin(theta));
         vec3 jitteredRayDir = normalize(lightDir + lightRight * diskOffset.x + lightUp * diskOffset.y);
@@ -169,23 +170,45 @@ void main() {
     }
 
     float shadow = shadowSum / float(NUM_SAMPLES);
+    shadow = pow(shadow, 2.0);
 
-    // =======================================================
-    // 拆分光照输出 1：带贴图颜色的纯净直接光
-    // =======================================================
     float NdotL = max(dot(normal, lightDir), 0.0);
-    vec3 halfVec = normalize(lightDir + viewDir);
-    float NdotH = max(dot(normal, halfVec), 0.0);
-    float shininess = exp2(10.0 * (1.0 - roughness) + 1.0);
-    float specTerm = pow(NdotH, shininess) * (1.0 - roughness);
-    
-    vec3 specularColor = mix(vec3(1.0), albedo, metallic);
-    
-    vec3 pureDirectDiffuse = NdotL * lightColor; 
-    vec3 pureDirectSpecular = specularColor * specTerm * lightColor; 
-    
-    // ★ 修复处：将 albedo 乘给了纯粹的光线！
-    vec3 directLight = (albedo * pureDirectDiffuse * (1.0 - metallic) + pureDirectSpecular) * shadow;
+    float NdotV = max(dot(normal, viewDir), 0.0);
+    vec3 H = normalize(lightDir + viewDir);
+    float NdotH = max(dot(normal, H), 0.0);
+    float VdotH = max(dot(viewDir, H), 0.0);
+
+    // 1. 基础反射率 F0 (非金属一般为 0.04，金属则为自身颜色)
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+
+    // 2. Fresnel 菲涅尔项 (Schlick近似) - 决定不同角度下的反光强度
+    vec3 F = F0 + (1.0 - F0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);
+
+    // 3. Normal Distribution 法线分布 (GGX) - 决定高光的集中度
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
+    float denom = (NdotH * NdotH * (alpha2 - 1.0) + 1.0);
+    float NDF = alpha2 / (3.14159265 * denom * denom);
+
+    // 4. Geometry 几何遮蔽 (Smith) - 决定微小凹凸的自阴影
+    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+    float gl = NdotL / (NdotL * (1.0 - k) + k);
+    float gv = NdotV / (NdotV * (1.0 - k) + k);
+    float G = gl * gv;
+
+    // 5. 组合 BRDF
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(NdotV, 0.0) * max(NdotL, 0.0) + 0.0001;
+    vec3 specular = numerator / denominator;
+
+    // 漫反射 (能量守恒：非金属且没被反射走的光，才会被吸收并漫反射)
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+    vec3 diffuse = kD * albedo / 3.14159265;
+
+    // 最终直接光合成
+    vec3 directLight = (diffuse + specular) * lightColor * NdotL * shadow;
     outDirectLight = vec4(directLight, 1.0);
 
     // =======================================================

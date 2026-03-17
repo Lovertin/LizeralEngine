@@ -90,7 +90,7 @@ void main() {
     float blendWeight = 0.05; 
     float velocityLength = length(velocity);
     if (velocityLength > 0.001) {
-        blendWeight = mix(0.05, 0.3, clamp(velocityLength * 100.0, 0.0, 1.0));
+        blendWeight = mix(0.05, 0.10, clamp(velocityLength * 100.0, 0.0, 1.0));
     }
 
     // 最终混合：历史画面 与 这一帧组合好的画面
