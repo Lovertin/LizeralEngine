@@ -15,6 +15,9 @@ namespace Lizeral {
         void Redo();
         void Clear();
 
+        size_t GetUndoSize() const { return m_UndoStack.size(); }
+        size_t GetRedoSize() const { return m_RedoStack.size(); }
+
     private:
         size_t m_MaxHistory;
         std::deque<std::unique_ptr<ICommand>> m_UndoStack; 

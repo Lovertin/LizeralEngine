@@ -1,4 +1,5 @@
 #include "LizeralEditorWindow.h"
+#include <QShortcut>
 
 LizeralEditorWindow::LizeralEditorWindow(){
 
@@ -11,6 +12,8 @@ LizeralEditorWindow::LizeralEditorWindow(){
 
     // 2. 创建全局 ECS 注册表
     m_globalRegistry = new Lizeral::Registry();
+
+    Lizeral::EditorContext::Get().SetRegistry(m_globalRegistry);
 
     // 3. 构建编辑器 UI 架构
     setupUI();
@@ -90,6 +93,46 @@ void LizeralEditorWindow::setupUI(){
                     this->m_outlinerPanel->Refresh();
                 }
             });
+
+    // 1. 全局撤销快捷键
+    QShortcut* undoShortcut = new QShortcut(QKeySequence("Ctrl+Z"), this);
+    // 【核心修复1】：设置为 ApplicationShortcut，强行抢夺 QLineEdit 的 Ctrl+Z 拦截权！
+    undoShortcut->setContext(Qt::ApplicationShortcut); 
+    
+    connect(undoShortcut, &QShortcut::activated, this, [this]() {
+        auto cmdMgr = Lizeral::EditorContext::Get().GetCommandManager();
+        if (cmdMgr->GetUndoSize() > 0) {
+            std::cout << "[Command] Undo Execution... Remaining Stack: " << cmdMgr->GetUndoSize() - 1 << std::endl;
+            cmdMgr->Undo();
+
+            // 【核心修复2】：强制刷新 Inspector 面板（绕过 m_CurrentEntity 的拦截）
+            Lizeral::Entity current = Lizeral::EditorSelection::Get().GetSelected();
+            if (current != Lizeral::null_entity) {
+                Lizeral::EditorSelection::Get().SelectEntity(Lizeral::null_entity); // 先置空
+                Lizeral::EditorSelection::Get().SelectEntity(current);              // 再重绑
+            }
+        } else {
+            std::cout << "[Command] Undo Stack is Empty!" << std::endl;
+        }
+    });
+
+    // 2. 全局重做快捷键
+    QShortcut* redoShortcut = new QShortcut(QKeySequence("Ctrl+Y"), this);
+    redoShortcut->setContext(Qt::ApplicationShortcut);
+    
+    connect(redoShortcut, &QShortcut::activated, this, [this]() {
+        auto cmdMgr = Lizeral::EditorContext::Get().GetCommandManager();
+        if (cmdMgr->GetRedoSize() > 0) {
+            std::cout << "[Command] Redo Execution..." << std::endl;
+            cmdMgr->Redo();
+
+            Lizeral::Entity current = Lizeral::EditorSelection::Get().GetSelected();
+            if (current != Lizeral::null_entity) {
+                Lizeral::EditorSelection::Get().SelectEntity(Lizeral::null_entity);
+                Lizeral::EditorSelection::Get().SelectEntity(current);
+            }
+        }
+    });
 }
 
 void LizeralEditorWindow::populateTestData(){

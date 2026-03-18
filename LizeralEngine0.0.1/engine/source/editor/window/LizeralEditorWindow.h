@@ -1,6 +1,7 @@
 #pragma once 
 #include "editor/EditorHeader.h"
 #include "editor/viewport/EngineViewportWidget.h"
+#include "editor/context/EditorContext.h"
 
 namespace Lizeral {
     namespace Reflection {

@@ -7,6 +7,9 @@
 #include "runtime/core/meta/reflection/reflection.h"
 #include "editor/selection/EditorSelection.h"
 
+#include "editor/context/EditorContext.h"
+#include "editor/command/EditPropertyCommand.h"
+
 namespace Lizeral {
 
     // --- 1. 基础绘制器接口 ---

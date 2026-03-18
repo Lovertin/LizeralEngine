@@ -22,56 +22,188 @@ namespace Lizeral {
     std::unordered_map<std::string, std::unique_ptr<IPropertyDrawer>> DataTypeUIFactory::s_DrawerRegistry;
     bool DataTypeUIFactory::s_Initialized = false;
 
-    // 1. Float Drawer
+
+    class DragDoubleSpinBox : public QDoubleSpinBox {
+        QPoint m_lastPos;
+        bool m_isDragging = false;
+        QElapsedTimer m_clickTimer;
+
+        // 【新增】：记录鼠标刚按下时，底层真实的内存值（绝对防突跳！）
+        double m_startDragRealValue = 0.0;
+        
+    public:
+        // 【新增】：暴露三个生命周期回调函数给外部绑定
+        std::function<double()> onDragStart; 
+        std::function<void(double)> onDragUpdate; 
+        std::function<void(double, double)> onDragEnd; // 传出 (旧值, 新值)
+
+        DragDoubleSpinBox(QWidget* parent = nullptr) : QDoubleSpinBox(parent) {
+            setButtonSymbols(QAbstractSpinBox::NoButtons);
+            setCursor(Qt::SizeHorCursor);
+            setAlignment(Qt::AlignCenter);
+            lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            
+            setStyleSheet(
+                "DragDoubleSpinBox { background-color: #3d3d3d; border: 1px solid #2d2d2d; border-radius: 2px; color: #eeeeee; }"
+                "DragDoubleSpinBox:hover { background-color: #4d4d4d; border: 1px solid #555555; }"
+                "DragDoubleSpinBox:focus { background-color: #2b2b2b; border: 1px solid #4CAF50; color: white; }"
+            );
+
+            QObject::connect(this, &QDoubleSpinBox::editingFinished, [this]() {
+                lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            });
+        }
+
+    protected:
+        void mousePressEvent(QMouseEvent* event) override {
+            if (event->button() == Qt::LeftButton) {
+                m_lastPos = event->globalPosition().toPoint();
+                m_isDragging = false;
+                m_clickTimer.start();
+                
+                // 【核心】：触发 Start，向底层索要真值！
+                if (onDragStart) {
+                    m_startDragRealValue = onDragStart();
+                } else {
+                    m_startDragRealValue = value(); // 兜底
+                }
+                
+                event->accept();
+            } else {
+                QDoubleSpinBox::mousePressEvent(event);
+            }
+        }
+
+        void mouseMoveEvent(QMouseEvent* event) override {
+            if (event->buttons() & Qt::LeftButton) {
+                if (m_clickTimer.elapsed() > 150 || (event->globalPosition().toPoint() - m_lastPos).manhattanLength() > 3) {
+                    m_isDragging = true;
+                    
+                    int dx = event->globalPosition().toPoint().x() - m_lastPos.x();
+                    
+                    // 【核心修正】：绝对摒弃 value() + delta！永远基于初始真值计算！
+                    double delta = dx * singleStep();
+                    double newValue = m_startDragRealValue + delta;
+                    
+                    // 1. 更新 UI 表面显示
+                    setValue(newValue);
+                    
+                    // 2. 触发 Update，直接改写底层内存（用于画面实时预览），但不生成 Command！
+                    if (onDragUpdate) onDragUpdate(newValue);
+                    
+                    setCursor(Qt::BlankCursor);
+                    event->accept();
+                }
+            } else {
+                QDoubleSpinBox::mouseMoveEvent(event);
+            }
+        }
+
+        void mouseReleaseEvent(QMouseEvent* event) override {
+            setCursor(Qt::SizeHorCursor);
+            
+            if (event->button() == Qt::LeftButton) {
+                if (!m_isDragging) {
+                    // 纯点击逻辑保持不变
+                    lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+                    setFocus();
+                    lineEdit()->setFocus();
+                    lineEdit()->selectAll();
+                } else {
+                    // 【核心】：拖拽结束！打包起点和终点，发送给 CommandManager！
+                    if (onDragEnd) {
+                        onDragEnd(m_startDragRealValue, value());
+                    }
+                }
+                m_isDragging = false;
+                event->accept();
+            } else {
+                QDoubleSpinBox::mouseReleaseEvent(event);
+            }
+        }
+    };
+
     class FloatDrawer : public IPropertyDrawer {
     public:
         QWidget* DrawProperty(Reflection::FieldAccessor& accessor, void* instance, QWidget* parent) override {
-            QDoubleSpinBox* spinBox = new QDoubleSpinBox(parent);
+            DragDoubleSpinBox* spinBox = new DragDoubleSpinBox(parent);
             spinBox->setRange(-999999.0, 999999.0); 
             spinBox->setDecimals(2);                
             spinBox->setSingleStep(1.0);          
 
             // 【读取初始化数据】
             float* actual_value = static_cast<float*>(accessor.get(instance));
-            if (actual_value) {
-                spinBox->setValue(*actual_value);
-                // std::cout << "[Init] " << accessor.getFieldName() << " bound to PTR: " << instance 
-                //           << " Initial Value: " << *actual_value << std::endl;
-            }
+            if (actual_value) spinBox->setValue(*actual_value);
 
-            // 【写入数据并实时打印反射监控】
-            QObject::connect(spinBox, &QDoubleSpinBox::valueChanged, 
-                [accessor, instance](double newValue) mutable {
-                    std::cout << "\n>>> [Reflection Triggered: Float] <<<" << std::endl;
-                    std::cout << "  Field Name : " << accessor.getFieldName() << std::endl;
-                    std::cout << "  Target PTR : " << instance << std::endl;
+            // 【准备上下文信息】
+            Entity currentEnt = EditorSelection::Get().GetSelected();
+            std::string compName = accessor.getOwnerTypeMeta().getTypeName();
+            std::string fieldName = accessor.getFieldName();
 
-                    // 1. 打印写入前内存里的真实值
-                    float* old_val_ptr = static_cast<float*>(accessor.get(instance));
-                    if (old_val_ptr) {
-                        std::cout << "  Old Memory Val: " << *old_val_ptr << std::endl;
-                    } else {
-                        std::cout << "  [WARNING] Memory Access Failed before set!" << std::endl;
+            // ==========================================
+            // 绑定生命周期回调 (加上 mutable！)
+            // ==========================================
+
+            // 1. 拖拽开始：去 ECS 里捞最新的真值
+            spinBox->onDragStart = [accessor, currentEnt, compName]() mutable -> double {
+                void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                if (comp) return *static_cast<float*>(accessor.get(comp));
+                return 0.0;
+            };
+
+            // 2. 拖拽中：不产生撤销记录，直接反射写入内存
+            spinBox->onDragUpdate = [accessor, currentEnt, compName](double val) mutable {
+                void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                if (comp) {
+                    float fVal = static_cast<float>(val);
+                    accessor.set(comp, &fVal);
+                }
+            };
+
+            // 3. 拖拽结束：生成唯一的一条 Undo/Redo 指令！(不需要 accessor，不用加 mutable)
+            spinBox->onDragEnd = [currentEnt, compName, fieldName](double oldVal, double newVal) {
+                if (oldVal == newVal) return; // 没变就不压栈
+
+                // 构造安全获取指针的 Lambda
+                auto getter = [currentEnt, compName]() -> void* {
+                    return EditorContext::Get().GetComponentByName(currentEnt, compName);
+                };
+
+                // 执行并压栈
+                EditorContext::Get().GetCommandManager()->ExecuteCommand(
+                    std::make_unique<EditPropertyCommand<float>>(
+                        currentEnt, compName, fieldName, 
+                        static_cast<float>(oldVal), static_cast<float>(newVal), getter
+                    )
+                );
+            };
+
+            // 4. 兼容用户手动键盘打字输入并回车的情况
+            QObject::connect(spinBox, &QDoubleSpinBox::editingFinished, 
+                [spinBox, accessor, currentEnt, compName, fieldName]() mutable {
+                    void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                    if (!comp) return;
+                    
+                    float oldVal = *static_cast<float*>(accessor.get(comp));
+                    float newVal = static_cast<float>(spinBox->value());
+                    
+                    if (oldVal != newVal) {
+                        auto getter = [currentEnt, compName]() -> void* { 
+                            return EditorContext::Get().GetComponentByName(currentEnt, compName); 
+                        };
+                        
+                        EditorContext::Get().GetCommandManager()->ExecuteCommand(
+                            std::make_unique<EditPropertyCommand<float>>(
+                                currentEnt, compName, fieldName, oldVal, newVal, getter
+                            )
+                        );
                     }
-
-                    // 2. 执行反射写入
-                    float updated_value = static_cast<float>(newValue);
-                    std::cout << "  Writing Val: " << updated_value << "..." << std::endl;
-                    accessor.set(instance, &updated_value);
-
-                    // 3. 再次读取，验证是否真正写入成功
-                    float* new_val_ptr = static_cast<float*>(accessor.get(instance));
-                    if (new_val_ptr) {
-                        std::cout << "  New Memory Val: " << *new_val_ptr << " (Success!)" << std::endl;
-                    }
-                    std::cout << ">>> ------------------------------- <<<\n" << std::endl;
                 }
             );
 
             return spinBox;
         }
     };
-
 
     // 2. Vector3 Drawer
     class Vector3Drawer : public IPropertyDrawer {
@@ -191,95 +323,15 @@ namespace Lizeral {
     };
 
 
-    class DragDoubleSpinBox : public QDoubleSpinBox {
-        QPoint m_lastPos;
-        bool m_isDragging = false;
-        QElapsedTimer m_clickTimer;
-        
-    public:
-        DragDoubleSpinBox(QWidget* parent = nullptr) : QDoubleSpinBox(parent) {
-            setButtonSymbols(QAbstractSpinBox::NoButtons); // 隐藏上下箭头
-            setCursor(Qt::SizeHorCursor);
-            setAlignment(Qt::AlignCenter); // 居中显示
-            
-            // 【核心魔法】：默认让内部的 QLineEdit 不拦截鼠标事件，把事件全部透传给当前的框！
-            lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-            
-            // 设置神似引擎编辑器的样式
-            setStyleSheet(
-                "DragDoubleSpinBox { background-color: #3d3d3d; border: 1px solid #2d2d2d; border-radius: 2px; color: #eeeeee; }"
-                "DragDoubleSpinBox:hover { background-color: #4d4d4d; border: 1px solid #555555; }"
-                "DragDoubleSpinBox:focus { background-color: #2b2b2b; border: 1px solid #4CAF50; color: white; }"
-            );
-
-            // 【核心魔法2】：当用户输入完毕（按下回车，或者点击了别的地方失去焦点）时，恢复透传状态
-            QObject::connect(this, &QDoubleSpinBox::editingFinished, [this]() {
-                lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-            });
-        }
-
-    protected:
-        void mousePressEvent(QMouseEvent* event) override {
-            if (event->button() == Qt::LeftButton) {
-                // 修复 Qt 6 警告：使用 globalPosition().toPoint()
-                m_lastPos = event->globalPosition().toPoint();
-                m_isDragging = false;
-                m_clickTimer.start();
-                event->accept();
-            } else {
-                QDoubleSpinBox::mousePressEvent(event);
-            }
-        }
-
-        void mouseMoveEvent(QMouseEvent* event) override {
-            if (event->buttons() & Qt::LeftButton) {
-                // 长按超过 150ms 或移动距离超过 3 像素，判定为拖拽
-                if (m_clickTimer.elapsed() > 150 || (event->globalPosition().toPoint() - m_lastPos).manhattanLength() > 3) {
-                    m_isDragging = true;
-                    
-                    int dx = event->globalPosition().toPoint().x() - m_lastPos.x();
-                    
-                    // 核心：根据偏移量直接更新数值
-                    double delta = dx * singleStep();
-                    setValue(value() + delta);
-                    
-                    m_lastPos = event->globalPosition().toPoint();
-                    setCursor(Qt::BlankCursor); // 拖拽时隐藏鼠标
-                    event->accept();
-                }
-            } else {
-                QDoubleSpinBox::mouseMoveEvent(event);
-            }
-        }
-
-        void mouseReleaseEvent(QMouseEvent* event) override {
-            setCursor(Qt::SizeHorCursor); // 恢复鼠标显示
-            
-            if (event->button() == Qt::LeftButton) {
-                if (!m_isDragging) {
-                    // 如果没有产生拖拽，说明这是一次纯点击！
-                    // 暂时关闭“鼠标透明”，允许内部文本框被激活并输入
-                    lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-                    setFocus();
-                    lineEdit()->setFocus();
-                    lineEdit()->selectAll(); // 自动全选文字，方便直接打字覆盖
-                }
-                m_isDragging = false;
-                event->accept();
-            } else {
-                QDoubleSpinBox::mouseReleaseEvent(event);
-            }
-        }
-    };
-
+    // 无限拖拽 Vector3 Drawer
     // 无限拖拽 Vector3 Drawer
     class InfiniteVector3Drawer : public IPropertyDrawer {
     public:
         QWidget* DrawProperty(Reflection::FieldAccessor& accessor, void* instance, QWidget* parent) override {
             QWidget* widget = new QWidget(parent);
             QHBoxLayout* layout = new QHBoxLayout(widget);
-            layout->setContentsMargins(0, 2, 0, 2); // 压缩垂直边距
-            layout->setSpacing(4); // 控件间距
+            layout->setContentsMargins(0, 2, 0, 2); 
+            layout->setSpacing(4); 
 
             auto createAxisLayout = [&](QString labelText, DragDoubleSpinBox*& box, QString color) {
                 QHBoxLayout* axisLayout = new QHBoxLayout();
@@ -297,8 +349,6 @@ namespace Lizeral {
                 box->setMinimumWidth(40);
                 box->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
-                layout->setSpacing(2);
-
                 axisLayout->addWidget(label);
                 axisLayout->addWidget(box);
                 return axisLayout;
@@ -309,18 +359,91 @@ namespace Lizeral {
             layout->addLayout(createAxisLayout("Y", yBox, "#83FF4B"));
             layout->addLayout(createAxisLayout("Z", zBox, "#4B8BFF"));
 
-            // 数据绑定逻辑保持不变
+            // --- 初始数据绑定 ---
             Vector3* vec = static_cast<Vector3*>(accessor.get(instance));
             if (vec) { xBox->setValue(vec->x); yBox->setValue(vec->y); zBox->setValue(vec->z); }
 
-            auto updateData = [accessor, instance, xBox, yBox, zBox]() mutable {
-                Vector3 newVec(xBox->value(), yBox->value(), zBox->value());
-                accessor.set(instance, &newVec);
+            // --- Command 系统上下文准备 ---
+            Entity currentEnt = EditorSelection::Get().GetSelected();
+            std::string compName = accessor.getOwnerTypeMeta().getTypeName();
+            std::string fieldName = accessor.getFieldName();
+
+            // 【核心魔法】：用一个共享指针在堆上分配一个 Vector3，用于记录任何一根轴开始拖拽时的完整初始状态
+            std::shared_ptr<Vector3> dragStartVec = std::make_shared<Vector3>();
+
+            // 封装一个绑定单轴逻辑的 Lambda
+            auto bindAxis = [&](DragDoubleSpinBox* box, int axisIndex) {
+                // 1. 拖拽开始：记录完整的 Vector3 旧值
+                box->onDragStart = [accessor, currentEnt, compName, axisIndex, dragStartVec]() mutable -> double {
+                    void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                    if (comp) {
+                        *dragStartVec = *static_cast<Vector3*>(accessor.get(comp));
+                        if (axisIndex == 0) return dragStartVec->x;
+                        if (axisIndex == 1) return dragStartVec->y;
+                        return dragStartVec->z;
+                    }
+                    return 0.0;
+                };
+
+                // 2. 拖拽中：只修改自己这根轴的数据，实时写入内存 (预览)
+                box->onDragUpdate = [accessor, currentEnt, compName, axisIndex](double val) mutable {
+                    void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                    if (comp) {
+                        Vector3 newVec = *static_cast<Vector3*>(accessor.get(comp));
+                        if (axisIndex == 0) newVec.x = static_cast<float>(val);
+                        else if (axisIndex == 1) newVec.y = static_cast<float>(val);
+                        else newVec.z = static_cast<float>(val);
+                        accessor.set(comp, &newVec);
+                    }
+                };
+
+                // 3. 拖拽结束：对比拖拽开始前的 Vector3 和现在的 Vector3，打包成 Command
+                box->onDragEnd = [accessor, currentEnt, compName, fieldName, dragStartVec](double oldVal, double newVal) mutable {
+                    if (oldVal == newVal) return;
+
+                    void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                    if (!comp) return;
+                    Vector3 finalVec = *static_cast<Vector3*>(accessor.get(comp));
+
+                    auto getter = [currentEnt, compName]() -> void* {
+                        return EditorContext::Get().GetComponentByName(currentEnt, compName);
+                    };
+
+                    EditorContext::Get().GetCommandManager()->ExecuteCommand(
+                        std::make_unique<EditPropertyCommand<Vector3>>(
+                            currentEnt, compName, fieldName, 
+                            *dragStartVec, finalVec, getter
+                        )
+                    );
+                };
+
+                // 4. 处理单次点击输入回车的情况
+                QObject::connect(box, &QDoubleSpinBox::editingFinished, 
+                    [box, accessor, currentEnt, compName, fieldName, axisIndex]() mutable {
+                        void* comp = EditorContext::Get().GetComponentByName(currentEnt, compName);
+                        if (!comp) return;
+
+                        Vector3 oldVec = *static_cast<Vector3*>(accessor.get(comp));
+                        Vector3 newVec = oldVec;
+
+                        float inputVal = static_cast<float>(box->value());
+                        if (axisIndex == 0) newVec.x = inputVal;
+                        else if (axisIndex == 1) newVec.y = inputVal;
+                        else newVec.z = inputVal;
+
+                        if (oldVec != newVec) { // 前提是你的 Vector3 有重载 != 运算符，如果没有，请用 x!=x || y!=y 替换
+                            auto getter = [currentEnt, compName]() -> void* { return EditorContext::Get().GetComponentByName(currentEnt, compName); };
+                            EditorContext::Get().GetCommandManager()->ExecuteCommand(
+                                std::make_unique<EditPropertyCommand<Vector3>>(currentEnt, compName, fieldName, oldVec, newVec, getter)
+                            );
+                        }
+                    }
+                );
             };
 
-            QObject::connect(xBox, &QDoubleSpinBox::valueChanged, updateData);
-            QObject::connect(yBox, &QDoubleSpinBox::valueChanged, updateData);
-            QObject::connect(zBox, &QDoubleSpinBox::valueChanged, updateData);
+            bindAxis(xBox, 0);
+            bindAxis(yBox, 1);
+            bindAxis(zBox, 2);
 
             return widget;
         }
