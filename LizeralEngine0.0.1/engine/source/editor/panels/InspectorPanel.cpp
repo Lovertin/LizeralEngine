@@ -28,7 +28,7 @@ namespace Lizeral {
         RegisterComponentType<CameraComponent>("CameraComponent");
         RegisterComponentType<CameraControlComponent>("CameraControlComponent");
         RegisterComponentType<DirectionLightComponent>("DirectionLightComponent");
-        RegisterComponentType<ModelComponent>("ModelComponent");
+        RegisterComponentType<VulkanModelComponent>("ModelComponent");
     }
     
     void InspectorPanel::ClearPanel() {

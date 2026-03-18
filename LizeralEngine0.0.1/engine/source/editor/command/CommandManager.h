@@ -7,8 +7,8 @@ namespace Lizeral {
 
     class CommandManager {
     public:
-        // 限制最大历史记录为 50 步，防止内存溢出
-        CommandManager(size_t maxHistory = 50) : m_MaxHistory(maxHistory) {}
+        // 限制最大历史记录为 100 步，防止内存溢出
+        CommandManager(size_t maxHistory = 100) : m_MaxHistory(maxHistory) {}
 
         void ExecuteCommand(std::unique_ptr<ICommand> command);
         void Undo();

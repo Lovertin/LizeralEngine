@@ -4,8 +4,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const Texture2D& instance);
+    inline PJson PSerializer::write(const Texture2D& instance);
     template<>
-    Texture2D& PSerializer::read(const PJson& json_context, Texture2D& instance);
+    inline Texture2D& PSerializer::read(const PJson& json_context, Texture2D& instance);
 }//namespace Lizeral
 

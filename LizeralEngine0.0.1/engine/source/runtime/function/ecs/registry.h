@@ -55,17 +55,27 @@ namespace Lizeral {
             get_pool<T>()->remove(entity);
         }
 
-        // 【新增】：彻底销毁实体！遍历所有组件池并将其拔除
         void destroy(Entity entity) {
             for (auto& pair : m_pools) {
                 pair.second->remove(entity);
             }
         }
 
+        void clear() {
+            // 1. 极速清空所有组件的内存池
+            for (auto& pair : m_pools) {
+                if (pair.second) {
+                    pair.second->clear();
+                }
+            }
+
+            m_next_entity_id = 0; 
+        }
+
         // 核心：创建视图
         template<typename... Components>
         View<Components...> view() {
-            // 简单优化：找到实体数量最少的那个组件池作为主  理，直接拿第一个类型的池子遍历
+            // 简单优化：找到实体数量最少的那个组件池作为主理，直接拿第一个类型的池子遍历
             // (更优的做法是比较 sizeof m_dense_entities 并选最小的)
             auto* pool = get_pool<std::tuple_element_t<0, std::tuple<Components...>>>();
             return View<Components...>(this, &pool->get_entities());

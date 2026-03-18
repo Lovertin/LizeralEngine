@@ -34,6 +34,7 @@
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/component_pool.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/entity.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/registry.h"
+#include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/Serializer/SceneSerializer.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/view.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/input/input.h"
 #include  "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/runtime/function/physics/phsicsEntityheaders.h"

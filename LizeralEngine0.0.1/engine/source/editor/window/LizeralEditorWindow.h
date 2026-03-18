@@ -3,6 +3,8 @@
 #include "editor/viewport/EngineViewportWidget.h"
 #include "editor/context/EditorContext.h"
 #include "editor/panels/EditorControlPanel.h"
+#include "runtime/core/meta/serializer/serializer.h"
+#include "runtime/function/ecs/Serializer/SceneSerializer.h"
 
 namespace Lizeral {
     namespace Reflection {
@@ -34,6 +36,9 @@ private:
     Lizeral::VulkanRenderingSystem m_renderSystem;
     Lizeral::CameraSystem m_cameraSystem;
     Lizeral::CameraControlSystem m_cameraControlSystem; 
+
+    // --- Serializer ---
+    PJson m_playModeSnapshot;
     
     QTimer* m_engineTimer { nullptr };
     QElapsedTimer m_timeTracker;

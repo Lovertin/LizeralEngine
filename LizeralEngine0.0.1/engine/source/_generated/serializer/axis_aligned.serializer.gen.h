@@ -4,8 +4,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const AxisAlignedBox& instance);
+    inline PJson PSerializer::write(const AxisAlignedBox& instance);
     template<>
-    AxisAlignedBox& PSerializer::read(const PJson& json_context, AxisAlignedBox& instance);
+    inline AxisAlignedBox& PSerializer::read(const PJson& json_context, AxisAlignedBox& instance);
 }//namespace Lizeral
 

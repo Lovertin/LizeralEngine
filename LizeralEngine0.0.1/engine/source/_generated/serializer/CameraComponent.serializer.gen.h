@@ -5,8 +5,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const CameraComponent& instance);
+    inline PJson PSerializer::write(const CameraComponent& instance);
     template<>
-    CameraComponent& PSerializer::read(const PJson& json_context, CameraComponent& instance);
+    inline CameraComponent& PSerializer::read(const PJson& json_context, CameraComponent& instance);
 }//namespace Lizeral
 

@@ -5,8 +5,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const RigidBodyComponent& instance);
+    inline PJson PSerializer::write(const RigidBodyComponent& instance);
     template<>
-    RigidBodyComponent& PSerializer::read(const PJson& json_context, RigidBodyComponent& instance);
+    inline RigidBodyComponent& PSerializer::read(const PJson& json_context, RigidBodyComponent& instance);
 }//namespace Lizeral
 

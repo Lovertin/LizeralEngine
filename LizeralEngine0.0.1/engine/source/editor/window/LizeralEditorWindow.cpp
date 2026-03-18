@@ -45,6 +45,7 @@ void LizeralEditorWindow::setupUI(){
     connect(m_controlPanel, &Lizeral::EditorControlPanel::OnPlayModeEntered, this, [this]() {
         std::cout << "[Editor] Saving Scene Snapshot..." << std::endl;
         // TODO: 调用你的 PSerializer 将 m_globalRegistry 存入 "temp_snapshot.json"
+        m_playModeSnapshot = Lizeral::SceneSerializer::Serialize(m_globalRegistry);
     });
 
     // 监听 Stop 信号：恢复快照并刷新界面
@@ -53,6 +54,7 @@ void LizeralEditorWindow::setupUI(){
         
         // TODO: 1. m_globalRegistry->clear(); 
         // TODO: 2. 调用 PSerializer 从 "temp_snapshot.json" 恢复数据
+        Lizeral::SceneSerializer::Deserialize(m_playModeSnapshot, m_globalRegistry);
 
         // 强制刷新大纲面板和 Inspector
         if (m_outlinerPanel) m_outlinerPanel->Refresh();

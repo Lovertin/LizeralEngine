@@ -6,7 +6,7 @@
 namespace Lizeral{
     {{#class_defines}}
     template<>
-    PJson PSerializer::write(const {{class_name}}& instance){
+    inline PJson PSerializer::write(const {{class_name}}& instance){
         PJson::object  ret_context;
         {{#class_base_class_defines}}auto&&  json_context_{{class_base_class_index}} = PSerializer::write(*({{class_base_class_name}}*)&instance);
         assert(json_context_{{class_base_class_index}}.is_object());
@@ -22,7 +22,7 @@ namespace Lizeral{
         return  PJson(ret_context);
     }
     template<>
-    {{class_name}}& PSerializer::read(const PJson& json_context, {{class_name}}& instance){
+    inline {{class_name}}& PSerializer::read(const PJson& json_context, {{class_name}}& instance){
         assert(json_context.is_object());
         {{#class_base_class_defines}}PSerializer::read(json_context,*({{class_base_class_name}}*)&instance);{{/class_base_class_defines}}
         {{#class_field_defines}}

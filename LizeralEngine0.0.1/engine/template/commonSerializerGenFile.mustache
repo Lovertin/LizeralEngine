@@ -6,8 +6,8 @@
 
 namespace Lizeral{
     {{#class_defines}}template<>
-    PJson PSerializer::write(const {{class_name}}& instance);
+    inline PJson PSerializer::write(const {{class_name}}& instance);
     template<>
-    {{class_name}}& PSerializer::read(const PJson& json_context, {{class_name}}& instance);
+    inline {{class_name}}& PSerializer::read(const PJson& json_context, {{class_name}}& instance);
     {{/class_defines}}
 }//namespace Lizeral

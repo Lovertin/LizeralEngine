@@ -5,8 +5,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const DirectionLightComponent& instance);
+    inline PJson PSerializer::write(const DirectionLightComponent& instance);
     template<>
-    DirectionLightComponent& PSerializer::read(const PJson& json_context, DirectionLightComponent& instance);
+    inline DirectionLightComponent& PSerializer::read(const PJson& json_context, DirectionLightComponent& instance);
 }//namespace Lizeral
 

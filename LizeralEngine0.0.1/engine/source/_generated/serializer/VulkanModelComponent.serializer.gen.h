@@ -5,8 +5,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const VulkanModelComponent& instance);
+    inline PJson PSerializer::write(const VulkanModelComponent& instance);
     template<>
-    VulkanModelComponent& PSerializer::read(const PJson& json_context, VulkanModelComponent& instance);
+    inline VulkanModelComponent& PSerializer::read(const PJson& json_context, VulkanModelComponent& instance);
 }//namespace Lizeral
 

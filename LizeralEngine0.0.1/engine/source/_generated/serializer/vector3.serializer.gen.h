@@ -4,8 +4,8 @@
 
 namespace Lizeral{
     template<>
-    PJson PSerializer::write(const Vector3& instance);
+    inline PJson PSerializer::write(const Vector3& instance);
     template<>
-    Vector3& PSerializer::read(const PJson& json_context, Vector3& instance);
+    inline Vector3& PSerializer::read(const PJson& json_context, Vector3& instance);
 }//namespace Lizeral
 

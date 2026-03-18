@@ -13,6 +13,8 @@ namespace Lizeral {
         virtual ~IPool() = default;
         virtual bool has(Entity entity) const = 0;
         virtual void remove(Entity entity) = 0;
+
+        virtual void clear() = 0;
     };
 
     // 2. 具体的组件池 (Sparse Set 实现)
@@ -79,6 +81,12 @@ namespace Lizeral {
             m_components.pop_back();
             m_dense_entities.pop_back();
             m_entity_to_index.erase(entity);
+        }
+
+        void clear() override {
+            m_components.clear();
+            m_dense_entities.clear();
+            m_entity_to_index.clear();
         }
 
         // 提供给 View 遍历用的迭代器

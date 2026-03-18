@@ -101,12 +101,15 @@ set(PHYSICS_SANDBOX_SOURCES
     ${SRC_ECS}
     ${SRC_PHYSICS}
     ${SRC_LOG}
-    ${SRC_INPUT}
-    ${SRC_RENDER}
+    ${SRC_INPUT}  
+    ${SRC_RENDER} 
     ${SRC_TYPE}
     ${VULKAN_SRC_TYPE}
     ${SRC_RESOURCE}
     ${SRC_VENFOR}
+    ${SRC_META}      
+    ${SRC_GENERATED} 
+    "3rdparty/json11/json11.cpp"
     "source/runtime/function/sandbox/PhysicsBaseTest/sandbox.cpp"
 )
 
