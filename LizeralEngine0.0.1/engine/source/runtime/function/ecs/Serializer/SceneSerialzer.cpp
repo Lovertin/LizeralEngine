@@ -89,15 +89,48 @@ namespace Lizeral {
 
     // --- 磁盘操作 ---
     void SceneSerializer::SaveToFile(Registry* registry, const std::string& filepath) {
-        // 你可以根据你的 PJson 库提供的 dump() 序列化为字符串
-        // PJson json = Serialize(registry);
-        // std::ofstream out(filepath);
-        // out << json.dump(); 
-        // out.close();
+        // 1. 获取场景的 JSON 对象
+        PJson json = Serialize(registry);
+        
+        // 2. 使用 json11 的 dump() 转为格式化字符串
+        std::string jsonString = json.dump(); 
+
+        // 3. 写入文件
+        std::ofstream out(filepath);
+        if (out.is_open()) {
+            out << jsonString;
+            out.close();
+            std::cout << "[SceneSerializer] Successfully saved scene to: " << filepath << std::endl;
+        } else {
+            std::cerr << "[SceneSerializer] Error: Could not open file for writing: " << filepath << std::endl;
+        }
     }
 
     void SceneSerializer::LoadFromFile(const std::string& filepath, Registry* registry) {
-        // 读取文本文件，解析为 PJson，然后调用 Deserialize()
+        // 1. 读取文件内容
+        std::ifstream in(filepath);
+        if (!in.is_open()) {
+            std::cerr << "[SceneSerializer] Error: Could not open file for reading: " << filepath << std::endl;
+            return;
+        }
+
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        std::string jsonString = buffer.str();
+        in.close();
+
+        // 2. 解析 JSON 字符串
+        std::string err;
+        PJson json = PJson::parse(jsonString, err);
+        
+        if (!err.empty()) {
+            std::cerr << "[SceneSerializer] JSON Parsing Error: " << err << std::endl;
+            return;
+        }
+
+        // 3. 反序列化，重建 ECS 世界！
+        Deserialize(json, registry);
+        std::cout << "[SceneSerializer] Successfully loaded scene from: " << filepath << std::endl;
     }
 
 } // namespace Lizeral

@@ -1,5 +1,7 @@
 #include "LizeralEditorWindow.h"
 #include <QShortcut>
+#include <QFileDialog>
+#include <QMessageBox>
 
 LizeralEditorWindow::LizeralEditorWindow(){
 
@@ -41,6 +43,35 @@ void LizeralEditorWindow::setupUI(){
     m_controlPanel = new Lizeral::EditorControlPanel(this);
     addToolBar(Qt::TopToolBarArea, m_controlPanel);
 
+    // --- 监听 Save 信号 ---
+    connect(m_controlPanel, &Lizeral::EditorControlPanel::OnSaveScene, this, [this]() {
+        // 呼出系统的保存文件对话框
+        QString filePath = QFileDialog::getSaveFileName(
+            this, "Save Scene", "", "JSON Files (*.json)");
+            
+        if (!filePath.isEmpty()) {
+            Lizeral::SceneSerializer::SaveToFile(m_globalRegistry, filePath.toStdString());
+        }
+    });
+
+    // --- 监听 Load 信号 ---
+    connect(m_controlPanel, &Lizeral::EditorControlPanel::OnLoadScene, this, [this]() {
+        // 呼出系统的打开文件对话框
+        QString filePath = QFileDialog::getOpenFileName(
+            this, "Load Scene", "", "JSON Files (*.json)");
+            
+        if (!filePath.isEmpty()) {
+            m_renderSystem.WaitIdle();
+            // 加载场景
+            Lizeral::SceneSerializer::LoadFromFile(filePath.toStdString(), m_globalRegistry);
+            
+            // 【非常重要】：场景变了，必须清空撤销栈，并强制刷新所有 UI！
+            Lizeral::EditorContext::Get().GetCommandManager()->Clear();
+            if (m_outlinerPanel) m_outlinerPanel->Refresh();
+            Lizeral::EditorSelection::Get().SelectEntity(Lizeral::null_entity);
+        }
+    });
+
     // 监听 Play 信号：保存快照
     connect(m_controlPanel, &Lizeral::EditorControlPanel::OnPlayModeEntered, this, [this]() {
         std::cout << "[Editor] Saving Scene Snapshot..." << std::endl;
@@ -51,7 +82,8 @@ void LizeralEditorWindow::setupUI(){
     // 监听 Stop 信号：恢复快照并刷新界面
     connect(m_controlPanel, &Lizeral::EditorControlPanel::OnEditModeEntered, this, [this]() {
         std::cout << "[Editor] Restoring Scene Snapshot..." << std::endl;
-        
+
+        m_renderSystem.WaitIdle();
         // TODO: 1. m_globalRegistry->clear(); 
         // TODO: 2. 调用 PSerializer 从 "temp_snapshot.json" 恢复数据
         Lizeral::SceneSerializer::Deserialize(m_playModeSnapshot, m_globalRegistry);

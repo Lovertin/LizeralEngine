@@ -77,6 +77,13 @@ namespace Lizeral {
 
         void SetDefaultFBO(unsigned int fbo) { /* VulkanRenderer handles target */ }
 
+        void WaitIdle() {
+            // m_device 是你的 VkDevice 逻辑设备句柄
+            if (m_device) {
+                m_device->WaitIdle();
+            }
+        }
+
     private:
         // --- 核心 RHI 句柄 (不拥有生命周期，由外部传入) ---
         VulkanContext* m_context { nullptr };

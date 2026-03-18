@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime/function/ecs/registry.h"
 #include "runtime/core/meta/serializer/serializer.h"
+#include <sstream>
 #include <string>
 
 namespace Lizeral {
