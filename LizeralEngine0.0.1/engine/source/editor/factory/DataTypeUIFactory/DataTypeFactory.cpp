@@ -9,6 +9,7 @@
 #include <QCursor>
 #include <QPushButton>
 #include <QFileDialog>
+#include <QElapsedTimer>
 
 #include <sstream>
 #include <iostream>
@@ -190,35 +191,84 @@ namespace Lizeral {
     };
 
 
-    // 3. 自定义支持拖拽的 SpinBox (Godot Style)
     class DragDoubleSpinBox : public QDoubleSpinBox {
         QPoint m_lastPos;
         bool m_isDragging = false;
+        QElapsedTimer m_clickTimer;
+        
     public:
         DragDoubleSpinBox(QWidget* parent = nullptr) : QDoubleSpinBox(parent) {
-            setCursor(Qt::SizeHorCursor); // 鼠标悬浮时变成左右拖拽图标
-            setButtonSymbols(QAbstractSpinBox::NoButtons); // 隐藏上下小箭头，更像 Godot
+            setButtonSymbols(QAbstractSpinBox::NoButtons); // 隐藏上下箭头
+            setCursor(Qt::SizeHorCursor);
+            setAlignment(Qt::AlignCenter); // 居中显示
+            
+            // 【核心魔法】：默认让内部的 QLineEdit 不拦截鼠标事件，把事件全部透传给当前的框！
+            lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            
+            // 设置神似引擎编辑器的样式
+            setStyleSheet(
+                "DragDoubleSpinBox { background-color: #3d3d3d; border: 1px solid #2d2d2d; border-radius: 2px; color: #eeeeee; }"
+                "DragDoubleSpinBox:hover { background-color: #4d4d4d; border: 1px solid #555555; }"
+                "DragDoubleSpinBox:focus { background-color: #2b2b2b; border: 1px solid #4CAF50; color: white; }"
+            );
+
+            // 【核心魔法2】：当用户输入完毕（按下回车，或者点击了别的地方失去焦点）时，恢复透传状态
+            QObject::connect(this, &QDoubleSpinBox::editingFinished, [this]() {
+                lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            });
         }
+
     protected:
         void mousePressEvent(QMouseEvent* event) override {
             if (event->button() == Qt::LeftButton) {
-                m_isDragging = true;
-                m_lastPos = event->pos();
+                // 修复 Qt 6 警告：使用 globalPosition().toPoint()
+                m_lastPos = event->globalPosition().toPoint();
+                m_isDragging = false;
+                m_clickTimer.start();
                 event->accept();
-            } else { QDoubleSpinBox::mousePressEvent(event); }
+            } else {
+                QDoubleSpinBox::mousePressEvent(event);
+            }
         }
+
         void mouseMoveEvent(QMouseEvent* event) override {
-            if (m_isDragging) {
-                // 计算鼠标水平移动了多少像素，乘以步长
-                double delta = (event->pos().x() - m_lastPos.x()) * singleStep();
-                setValue(value() + delta);
-                m_lastPos = event->pos();
-                event->accept();
-            } else { QDoubleSpinBox::mouseMoveEvent(event); }
+            if (event->buttons() & Qt::LeftButton) {
+                // 长按超过 150ms 或移动距离超过 3 像素，判定为拖拽
+                if (m_clickTimer.elapsed() > 150 || (event->globalPosition().toPoint() - m_lastPos).manhattanLength() > 3) {
+                    m_isDragging = true;
+                    
+                    int dx = event->globalPosition().toPoint().x() - m_lastPos.x();
+                    
+                    // 核心：根据偏移量直接更新数值
+                    double delta = dx * singleStep();
+                    setValue(value() + delta);
+                    
+                    m_lastPos = event->globalPosition().toPoint();
+                    setCursor(Qt::BlankCursor); // 拖拽时隐藏鼠标
+                    event->accept();
+                }
+            } else {
+                QDoubleSpinBox::mouseMoveEvent(event);
+            }
         }
+
         void mouseReleaseEvent(QMouseEvent* event) override {
-            if (event->button() == Qt::LeftButton) { m_isDragging = false; }
-            QDoubleSpinBox::mouseReleaseEvent(event);
+            setCursor(Qt::SizeHorCursor); // 恢复鼠标显示
+            
+            if (event->button() == Qt::LeftButton) {
+                if (!m_isDragging) {
+                    // 如果没有产生拖拽，说明这是一次纯点击！
+                    // 暂时关闭“鼠标透明”，允许内部文本框被激活并输入
+                    lineEdit()->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+                    setFocus();
+                    lineEdit()->setFocus();
+                    lineEdit()->selectAll(); // 自动全选文字，方便直接打字覆盖
+                }
+                m_isDragging = false;
+                event->accept();
+            } else {
+                QDoubleSpinBox::mouseReleaseEvent(event);
+            }
         }
     };
 
@@ -228,23 +278,38 @@ namespace Lizeral {
         QWidget* DrawProperty(Reflection::FieldAccessor& accessor, void* instance, QWidget* parent) override {
             QWidget* widget = new QWidget(parent);
             QHBoxLayout* layout = new QHBoxLayout(widget);
-            layout->setContentsMargins(0, 0, 0, 0);
+            layout->setContentsMargins(0, 2, 0, 2); // 压缩垂直边距
+            layout->setSpacing(4); // 控件间距
 
-            DragDoubleSpinBox* xBox = new DragDoubleSpinBox(widget);
-            DragDoubleSpinBox* yBox = new DragDoubleSpinBox(widget);
-            DragDoubleSpinBox* zBox = new DragDoubleSpinBox(widget);
-
-            auto configBox = [](DragDoubleSpinBox* box) {
+            auto createAxisLayout = [&](QString labelText, DragDoubleSpinBox*& box, QString color) {
+                QHBoxLayout* axisLayout = new QHBoxLayout();
+                axisLayout->setSpacing(2);
+                axisLayout->setContentsMargins(0, 0, 0, 0);
+                
+                QLabel* label = new QLabel(labelText);
+                label->setStyleSheet("color: " + color + "; font-weight: bold; font-size: 10px;");
+                
+                box = new DragDoubleSpinBox(widget);
                 box->setRange(-999999.0, 999999.0);
                 box->setDecimals(3);
                 box->setSingleStep(0.1);
+                box->setMaximumWidth(120); 
+                box->setMinimumWidth(40);
+                box->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+                layout->setSpacing(2);
+
+                axisLayout->addWidget(label);
+                axisLayout->addWidget(box);
+                return axisLayout;
             };
-            configBox(xBox); configBox(yBox); configBox(zBox);
 
-            layout->addWidget(new QLabel("X:")); layout->addWidget(xBox);
-            layout->addWidget(new QLabel("Y:")); layout->addWidget(yBox);
-            layout->addWidget(new QLabel("Z:")); layout->addWidget(zBox);
+            DragDoubleSpinBox *xBox, *yBox, *zBox;
+            layout->addLayout(createAxisLayout("X", xBox, "#FF4B4B"));
+            layout->addLayout(createAxisLayout("Y", yBox, "#83FF4B"));
+            layout->addLayout(createAxisLayout("Z", zBox, "#4B8BFF"));
 
+            // 数据绑定逻辑保持不变
             Vector3* vec = static_cast<Vector3*>(accessor.get(instance));
             if (vec) { xBox->setValue(vec->x); yBox->setValue(vec->y); zBox->setValue(vec->z); }
 

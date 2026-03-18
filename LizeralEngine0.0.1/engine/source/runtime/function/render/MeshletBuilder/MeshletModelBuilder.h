@@ -29,7 +29,11 @@ namespace Lizeral {
         float baseColorFactor[4];
         float metallicFactor;
         float roughnessFactor;
-        float padding[2]; // 补齐 16 字节
+        int albedoTex;      // 全局 Bindless 数组里的 Index，-1 表示没有
+        int normalTex;
+        int ormTex;
+        int emissiveTex;
+        int pad0, pad1;     // 凑齐对齐
     };
 
     class MeshletModelBuilder {

@@ -219,22 +219,14 @@ namespace Lizeral {
 
         std::cout << "[RenderingSystem] Shutting down..." << std::endl;
 
-        // =======================================================
-        // ★ 修复区 1：清理所有包含显存的容器
-        // =======================================================
         m_modelCache.clear();      // 释放所有物体的 Vertex/Index BDA Buffer
         m_globalTextures.clear();  // 释放所有 Bindless 贴图
 
-        // =======================================================
-        // ★ 修复区 2：手动销毁所有动态创建的全局大 Buffer (核心漏网之鱼)
-        // =======================================================
         if (m_rtInstanceBuffer) m_rtInstanceBuffer.reset();
         if (m_globalInstanceBuffer) m_globalInstanceBuffer.reset(); // 释放 10000 个矩阵的显存
         if (m_frameResource.buffer) m_frameResource.buffer.reset(); // 释放 FrameData 显存
 
-        // =======================================================
-        // ★ 修复区 3：销毁常规 Vulkan 资源
-        // =======================================================
+
         DestroyPipelines(device);
         DestroyDescriptors(device);
         DestroyAttachments();
@@ -243,10 +235,7 @@ namespace Lizeral {
             vkDestroySampler(device, m_gBufferSampler, nullptr);
             m_gBufferSampler = VK_NULL_HANDLE;
         }
-
-        // =======================================================
-        // ★ 修复区 4：销毁光追与命令池
-        // =======================================================
+        
         if (m_tlas) m_tlas.reset();
         if (m_resourceCommandPool) m_resourceCommandPool.reset();
 
@@ -814,7 +803,7 @@ namespace Lizeral {
             break; // 通常只有一个主光源
         }
 
-        Matrix4x4 currentVP = projMatUnjittered * viewMat;
+        Matrix4x4 currentVP = projMatUnjittered * viewMat; //projMatUnjittered is important !!!
 
         GlobalFrameData frameData{};
         // ★ 修复：将所有相机矩阵转置 (transpose) 后再喂给 VRAM！

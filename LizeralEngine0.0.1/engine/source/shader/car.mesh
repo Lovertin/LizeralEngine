@@ -7,25 +7,21 @@
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(triangles, max_vertices = 64, max_primitives = 124) out;
 
-// ==========================================================
-// 1. 基础数据结构与 BDA
-// ==========================================================
 struct Vertex { vec3 pos; vec3 normal; vec2 uv; };
 struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; uint textureID; };
 
-layout(location = 3) out vec4 fragCurrentPosClip[];
-layout(location = 4) out vec4 fragPrevPosClip[];
 layout(location = 0) out vec3 fragNormal[];
 layout(location = 1) out vec2 fragUV[];
-layout(location = 2) flat out uint fragTexID[];
+layout(location = 2) flat out uint fragMatID[]; 
+layout(location = 3) out vec4 fragCurrentPosClip[];
+layout(location = 4) out vec4 fragPrevPosClip[];
+layout(location = 5) out vec3 fragWorldPos[];
 
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer { Vertex v[]; };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MeshletBuffer { Meshlet m[]; };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer IndexBuffer { uint i[]; };
 
-// ==========================================================
-// 2. 全局环境数据与指针结构 (严格对齐 C++ 与 Task Shader)
-// ==========================================================
+
 struct GlobalFrameData {
     mat4 viewProj;
     mat4 invViewProj;
@@ -87,6 +83,9 @@ void main() {
         mat4 currentMvp = pc.frameDataAddr.frame.viewProj * pc.instanceDataAddr.model;
         mat4 prevMvp    = pc.frameDataAddr.frame.prevViewProj * pc.instanceDataAddr.prevModel;
 
+        vec4 worldPos = pc.instanceDataAddr.model * vec4(vertex.pos, 1.0);
+        fragWorldPos[tid] = worldPos.xyz;
+
         vec4 unjitteredClipPos = currentMvp * vec4(vertex.pos, 1.0);
     
         fragCurrentPosClip[tid] = unjitteredClipPos;
@@ -101,7 +100,7 @@ void main() {
         // 从实例指针读取模型矩阵算 Normal
         fragNormal[tid] = normalize(mat3(pc.instanceDataAddr.model) * vertex.normal);
         fragUV[tid] = vertex.uv;
-        fragTexID[tid] = meshlet.textureID; 
+        fragMatID[tid] = meshlet.textureID; 
     }
 
     IndexBuffer iBuf = IndexBuffer(pc.iBuf);

@@ -6,23 +6,27 @@
 
 layout(location = 0) in vec3 fragNormal;
 layout(location = 1) in vec2 fragUV;
-layout(location = 2) flat in uint fragTexID;
-
+layout(location = 2) flat in uint fragMatID; // ★ 材质 ID
 layout(location = 3) in vec4 fragCurrentPosClip;
 layout(location = 4) in vec4 fragPrevPosClip;
+layout(location = 5) in vec3 fragWorldPos;   // ★ 世界坐标
 
 layout(location = 2) out vec2 outVelocity;
-
 layout(location = 0) out vec4 outAlbedoMetallic; // RT0
 layout(location = 1) out vec4 outNormalRoughness; // RT1
 
 layout(binding = 0) uniform sampler2D GlobalTextures[1024]; 
 
+// ★ 全新升级的 PBR 材质结构
 struct Material {
     vec4 baseColorFactor;
     float metallicFactor;
     float roughnessFactor;
-    vec2 padding;
+    int albedoTex;
+    int normalTex;
+    int ormTex;
+    int emissiveTex;
+    int pad0, pad1;
 };
 
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
@@ -69,33 +73,79 @@ layout(push_constant) uniform PushConstants {
     uint textureOffset;
 } pc;
 
+vec3 PerturbNormal(vec3 worldNormal, vec3 worldPos, vec2 uv, vec3 normalMapSample) {
+    // 对世界坐标和 UV 进行屏幕空间求导 (算出像素间的变化率)
+    vec3 q1  = dFdx(worldPos);
+    vec3 q2  = dFdy(worldPos);
+    vec2 st1 = dFdx(uv);
+    vec2 st2 = dFdy(uv);
+
+    vec3 N   = normalize(worldNormal);
+    // 叉乘推导出完美的切线 T 和副切线 B
+    vec3 T   = normalize(q1 * st2.t - q2 * st1.t);
+    vec3 B   = -normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    // 将 0~1 的法线贴图解压为 -1~1，并转换到世界空间
+    vec3 tNormal = normalMapSample * 2.0 - 1.0;
+    return normalize(TBN * tNormal);
+}
+
 void main() {
-    
-    // 1. 获取材质数据
     MaterialBuffer matBuf = MaterialBuffer(pc.matBuf);
-    // ★ 修复：减去当前模型的偏移量，拿到局部材质 ID
-    uint localMatID = fragTexID - pc.textureOffset; 
+    uint localMatID = fragMatID - pc.textureOffset; 
     Material mat = matBuf.m[localMatID];
 
-    // 2. 无绑定贴图采样
-    uint texIndex = fragTexID % 1024; 
-    vec4 texColor = texture(GlobalTextures[nonuniformEXT(texIndex)], fragUV);
+    // ====================================================
+    // 1. 解析 BaseColor (Albedo)
+    // ====================================================
+    vec4 albedo = mat.baseColorFactor;
+    if (mat.albedoTex >= 0) {
+        albedo *= texture(GlobalTextures[nonuniformEXT(mat.albedoTex)], fragUV);
+    }
 
+    // ====================================================
+    // 2. 解析 ORM (Occlusion, Roughness, Metallic)
+    // ====================================================
+    float ao = 1.0;
+    float roughness = mat.roughnessFactor;
+    float metallic = mat.metallicFactor;
+    
+    if (mat.ormTex >= 0) {
+        vec3 orm = texture(GlobalTextures[nonuniformEXT(mat.ormTex)], fragUV).rgb;
+        ao = orm.r;              // R 通道存 AO
+        roughness *= orm.g;      // G 通道存 Roughness
+        metallic *= orm.b;       // B 通道存 Metallic
+    }
+
+    // ====================================================
+    // 3. 解析 Normal Map
+    // ====================================================
+    vec3 finalNormal = normalize(fragNormal);
+    if (mat.normalTex >= 0) {
+        vec3 normalMapSample = texture(GlobalTextures[nonuniformEXT(mat.normalTex)], fragUV).rgb;
+        finalNormal = PerturbNormal(finalNormal, fragWorldPos, fragUV, normalMapSample);
+    }
+
+    // ====================================================
+    // 4. 计算运动向量 (TAA)
+    // ====================================================
     vec2 currentNDC = fragCurrentPosClip.xy / fragCurrentPosClip.w;
     vec2 prevNDC = fragPrevPosClip.xy / fragPrevPosClip.w;
-
     vec2 currentUV = currentNDC * 0.5 + 0.5;
     vec2 prevUV = prevNDC * 0.5 + 0.5;
-
     outVelocity = currentUV - prevUV;
 
-    // 3. 计算 PBR 基础参数
-    vec4 albedo = texColor * mat.baseColorFactor;
+    // ====================================================
+    // 5. 组装 G-Buffer！
+    // ====================================================
+    // 注意：我们将 AO 预乘进了 Albedo 中，这是一种针对间接光渲染极其高效的 Hack 做法
+    // 在真实 3A 中，AO 通常单独存，然后在 Lighting Pass 仅乘给 GI
+    vec3 finalAlbedo = albedo.rgb * ao;
 
-    // ★ 4. 暴力填入 G-Buffer，光照计算被彻底剥离到下一个 Pass！
     // RT0: RGB 存颜色，Alpha 存金属度
-    outAlbedoMetallic = vec4(albedo.rgb, mat.metallicFactor);
+    outAlbedoMetallic = vec4(finalAlbedo, metallic);
 
-    // RT1: RGB 存法线(记得归一化)，Alpha 存粗糙度
-    outNormalRoughness = vec4(normalize(fragNormal), mat.roughnessFactor);
+    // RT1: RGB 存带细节的法线，Alpha 存粗糙度
+    outNormalRoughness = vec4(finalNormal, roughness);
 }
