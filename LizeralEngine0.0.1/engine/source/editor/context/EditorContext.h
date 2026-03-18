@@ -7,6 +7,10 @@
 #include <string>
 
 namespace Lizeral {
+    enum class EditorMode{
+        Edit,
+        Play
+    };
 
     class EditorContext {
     public:
@@ -23,10 +27,15 @@ namespace Lizeral {
         // 将反射系统的字符串，翻译为 ECS 的真实内存指针！
         void* GetComponentByName(Entity entity, const std::string& compName);
 
+        EditorMode getMode() const { return m_mode ;} 
+
+        void setMode(const EditorMode mode) {m_mode = mode ;}
+
     private:
         EditorContext() = default;
         CommandManager m_CommandManager;
         Registry* m_Registry = nullptr;
+        EditorMode m_mode;
     };
 
 } // namespace Lizeral

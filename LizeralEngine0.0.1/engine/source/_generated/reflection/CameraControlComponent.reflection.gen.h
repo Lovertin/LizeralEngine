@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/core/meta/serializer/serializer.h"
 #include "runtime\function\ecs\components\Camera\CameraControlComponent.h"
 
 namespace Lizeral{

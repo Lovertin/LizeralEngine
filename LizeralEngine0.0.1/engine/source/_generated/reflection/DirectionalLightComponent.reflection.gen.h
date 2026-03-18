@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/core/meta/serializer/serializer.h"
 #include "runtime\function\ecs\components\Light\DirectionalLightComponent.h"
 
 namespace Lizeral{

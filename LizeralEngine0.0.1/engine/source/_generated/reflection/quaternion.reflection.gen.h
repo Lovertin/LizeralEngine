@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/core/meta/serializer/serializer.h"
 #include "runtime\core\math\quaternion.h"
 
 namespace Lizeral{

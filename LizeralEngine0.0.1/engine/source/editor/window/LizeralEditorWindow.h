@@ -2,6 +2,7 @@
 #include "editor/EditorHeader.h"
 #include "editor/viewport/EngineViewportWidget.h"
 #include "editor/context/EditorContext.h"
+#include "editor/panels/EditorControlPanel.h"
 
 namespace Lizeral {
     namespace Reflection {
@@ -22,6 +23,7 @@ private:
     Lizeral::Registry* m_globalRegistry { nullptr };
     Lizeral::SceneOutlinerPanel* m_outlinerPanel { nullptr };
     Lizeral::InspectorPanel* m_inspectorPanel { nullptr };
+    Lizeral::EditorControlPanel* m_controlPanel { nullptr };
     
     // 【新增】：持有视口指针
     Lizeral::EngineViewportWidget* m_viewportWidget { nullptr };

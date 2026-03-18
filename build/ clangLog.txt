@@ -206,6 +206,7 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/EditorOnly/EditorOnlyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Name/NameComponent.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\array \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/ecs/components/Model/VulkanModelComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/EditorOnly/EditorOnlyComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Light/DirectionalLightComponent.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/ecs/components/Model/ModelComponent.h \
@@ -242,14 +243,17 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/physics/PhysicsSystem.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/RHIContext.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/RHIDevice.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanBLAS.h \
+  vulkan/vulkan.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanBuffer.h \
-  vulkan/vulkan.h vma/vk_mem_alloc.h \
+  vma/vk_mem_alloc.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanCommandBuffer.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanCommandPool.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanComputePipeline.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanContext.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/RHIContext.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanDescriptorBuilder.h \
+  C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\deque \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanDevice.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/RHIDevice.h \
   C:\Program\ Files\Microsoft\ Visual\ Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\optional \
@@ -258,8 +262,20 @@ parser_header.o: C:/Lizeral\ Engine/build/parser_header.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanSwapchain.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanTexture.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/core/vendor/stb_image/stb_image.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/rhi/vulkan/VulkanTLAS.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/VulkanRenderer/VulkanRenderer.h \
   GLFW/glfw3.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/render/VulkanRenderingSystem/VulkanRenderingSystem.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanContext.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanDevice.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/VulkanRenderer/VulkanRenderer.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanBuffer.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanCommandPool.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanCommandBuffer.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanTexture.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanTLAS.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/render/rhi/vulkan/VulkanBLAS.h \
+  C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source\runtime/function/Vulkan_res_type/VulkanModelResource.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/Material.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Material/PBRMaterial.h \
   C:/Lizeral\ Engine/LizeralEngine0.0.1/engine/source/runtime/function/res_type/Model/Mesh.h \

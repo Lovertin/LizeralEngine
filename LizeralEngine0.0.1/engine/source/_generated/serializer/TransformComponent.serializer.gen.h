@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/core/meta/serializer/serializer.h"
 #include "runtime\function\ecs\components\Transform\TransformComponent.h"
 #include "_generated\serializer\component.serializer.gen.h"
 

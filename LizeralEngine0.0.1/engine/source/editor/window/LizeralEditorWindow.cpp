@@ -37,6 +37,27 @@ LizeralEditorWindow::~LizeralEditorWindow(){
 }
 
 void LizeralEditorWindow::setupUI(){
+    // --- 0. 顶部控制栏 (独立封装的 Widget) ---
+    m_controlPanel = new Lizeral::EditorControlPanel(this);
+    addToolBar(Qt::TopToolBarArea, m_controlPanel);
+
+    // 监听 Play 信号：保存快照
+    connect(m_controlPanel, &Lizeral::EditorControlPanel::OnPlayModeEntered, this, [this]() {
+        std::cout << "[Editor] Saving Scene Snapshot..." << std::endl;
+        // TODO: 调用你的 PSerializer 将 m_globalRegistry 存入 "temp_snapshot.json"
+    });
+
+    // 监听 Stop 信号：恢复快照并刷新界面
+    connect(m_controlPanel, &Lizeral::EditorControlPanel::OnEditModeEntered, this, [this]() {
+        std::cout << "[Editor] Restoring Scene Snapshot..." << std::endl;
+        
+        // TODO: 1. m_globalRegistry->clear(); 
+        // TODO: 2. 调用 PSerializer 从 "temp_snapshot.json" 恢复数据
+
+        // 强制刷新大纲面板和 Inspector
+        if (m_outlinerPanel) m_outlinerPanel->Refresh();
+        Lizeral::EditorSelection::Get().SelectEntity(Lizeral::null_entity); 
+    });
 
     // --- A. 中央区域：真实的 OpenGL 视口 ---
     QWidget* centralWidget = new QWidget(this);
@@ -204,7 +225,10 @@ void LizeralEditorWindow::EngineTick()
     if (deltaTime > 0.1f) deltaTime = 0.1f;
 
     // 执行引擎逻辑
-    m_physicsSystem.Tick(deltaTime, *m_globalRegistry);
+    if(Lizeral::EditorContext::Get().getMode() == Lizeral::EditorMode::Play){
+        m_physicsSystem.Tick(deltaTime, *m_globalRegistry);
+    }
+
     m_cameraControlSystem.Tick(deltaTime,*m_globalRegistry);
     m_cameraSystem.Tick(*m_globalRegistry);
 

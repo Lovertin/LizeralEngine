@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/core/meta/serializer/serializer.h"
 #include "runtime\function\res_type\Material\PBRMaterial.h"
 #include "_generated\serializer\Material.serializer.gen.h"
 

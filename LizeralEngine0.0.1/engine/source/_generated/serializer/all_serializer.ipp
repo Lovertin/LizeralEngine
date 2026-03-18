@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/core/meta/serializer/serializer.h"
 #include "_generated\serializer\TransformComponent.serializer.gen.h"
 #include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
 #include "_generated\serializer\PBRMaterial.serializer.gen.h"
