@@ -1,0 +1,35 @@
+#version 460
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+
+layout(local_size_x = 3, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = 3, max_primitives = 1) out;
+
+struct Vertex {
+    vec3 pos;
+    vec3 color;
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer {
+    Vertex vertices[];
+};
+
+layout(push_constant) uniform PushConstants {
+    VertexBuffer vertexBuffer;
+} pc;
+
+layout(location = 0) out vec3 fragColor[];
+
+void main() {
+    SetMeshOutputsEXT(3, 1); 
+
+    uint tid = gl_LocalInvocationID.x;
+
+    gl_MeshVerticesEXT[tid].gl_Position = vec4(pc.vertexBuffer.vertices[tid].pos, 1.0);
+    fragColor[tid] = pc.vertexBuffer.vertices[tid].color;
+
+    if (tid == 0) {
+        gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
+    }
+}

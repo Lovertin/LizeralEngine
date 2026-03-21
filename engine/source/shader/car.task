@@ -1,0 +1,113 @@
+#version 460
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_KHR_shader_subgroup_ballot : require 
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct MeshletBounds { vec3 center; float radius; };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer BoundsBuffer { MeshletBounds b[]; };
+
+struct GlobalFrameData {
+    mat4 viewProj;
+    mat4 invViewProj;
+    mat4 prevViewProj;
+    vec3 cameraPos;
+    float padding1;
+    vec3 lightDir;
+    float lightIntensity;
+    vec3 lightColor;
+    uint frameIndex;
+    vec2 jitter;
+    vec2 padding2;
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer FrameDataBuffer {
+    GlobalFrameData frame;
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer InstanceDataBuffer {
+    mat4 model;
+    mat4 prevModel;
+};
+
+
+// PushConstants (mesh shader as well) 
+
+layout(push_constant) uniform PushConstants {
+    FrameDataBuffer frameDataAddr;
+    InstanceDataBuffer instanceDataAddr;
+    
+    uint64_t vBuf;
+    uint64_t mBuf;
+    uint64_t iBuf;
+    uint64_t bBuf;
+    uint64_t matBuf;
+    uint totalMeshlets;
+    uint textureOffset;
+} pc;
+
+struct TaskPayload { uint meshletIndices[64]; };
+taskPayloadSharedEXT TaskPayload payload;
+
+shared uint s_visibleCount;
+
+void main() {
+    uint tid = gl_LocalInvocationID.x;
+    uint meshletID = gl_GlobalInvocationID.x;
+
+    if (tid == 0) s_visibleCount = 0;
+    barrier();
+
+    //load data form BDA
+    mat4 currentMvp = pc.frameDataAddr.frame.viewProj * pc.instanceDataAddr.model;
+    mat4 m = transpose(currentMvp);
+    
+    vec4 planes[6];
+    planes[0] = m[3] + m[0]; // Left
+    planes[1] = m[3] - m[0]; // Right
+    planes[2] = m[3] + m[1]; // Bottom
+    planes[3] = m[3] - m[1]; // Top
+    planes[4] = m[2];        // Near (OpenGL/Vulkan depth range handled here)
+    planes[5] = m[3] - m[2]; // Far
+    for (int i = 0; i < 6; i++) planes[i] /= length(planes[i].xyz);
+
+    bool visible = false;
+    if (meshletID < pc.totalMeshlets) {
+        visible = true; 
+
+        BoundsBuffer boundsBuf = BoundsBuffer(pc.bBuf);
+        MeshletBounds bounds = boundsBuf.b[meshletID];
+        
+        for (int i = 0; i < 6; i++) {
+            if (dot(planes[i].xyz, bounds.center) + planes[i].w < -bounds.radius) {
+                visible = false; break;
+            }
+        }
+    }
+
+    // Subgroup 
+    uvec4 ballot = subgroupBallot(visible);
+    uint subgroupCount = subgroupBallotBitCount(ballot);
+    uint subgroupLocalIdx = subgroupBallotExclusiveBitCount(ballot);
+
+    uint subgroupOffset = 0;
+    if (subgroupElect()) {
+        subgroupOffset = atomicAdd(s_visibleCount, subgroupCount);
+    }
+    subgroupOffset = subgroupBroadcastFirst(subgroupOffset);
+
+    uint finalIdx = subgroupOffset + subgroupLocalIdx;
+
+    if (visible) {
+        payload.meshletIndices[finalIdx] = meshletID;
+    }
+
+    barrier(); 
+    
+    if (tid == 0) {
+        EmitMeshTasksEXT(s_visibleCount, 1, 1);
+    }
+}

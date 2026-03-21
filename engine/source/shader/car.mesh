@@ -1,0 +1,115 @@
+#version 460
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = 64, max_primitives = 124) out;
+
+struct Vertex { vec3 pos; vec3 normal; vec2 uv; };
+struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; uint textureID; };
+
+layout(location = 0) out vec3 fragNormal[];
+layout(location = 1) out vec2 fragUV[];
+layout(location = 2) flat out uint fragMatID[]; 
+layout(location = 3) out vec4 fragCurrentPosClip[];
+layout(location = 4) out vec4 fragPrevPosClip[];
+layout(location = 5) out vec3 fragWorldPos[];
+
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer { Vertex v[]; };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MeshletBuffer { Meshlet m[]; };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer IndexBuffer { uint i[]; };
+
+
+struct GlobalFrameData {
+    mat4 viewProj;
+    mat4 invViewProj;
+    mat4 prevViewProj;
+    vec3 cameraPos;
+    float padding1;
+    vec3 lightDir;
+    float lightIntensity;
+    vec3 lightColor;
+    uint frameIndex;
+    vec2 jitter;
+    vec2 padding2;
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer FrameDataBuffer {
+    GlobalFrameData frame;
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer InstanceDataBuffer {
+    mat4 model;
+    mat4 prevModel;
+};
+
+// 瘦身版 PushConstants
+layout(push_constant) uniform PushConstants {
+    FrameDataBuffer frameDataAddr;       
+    InstanceDataBuffer instanceDataAddr; 
+    
+    uint64_t vBuf;
+    uint64_t mBuf;
+    uint64_t iBuf;
+    uint64_t bBuf;
+    uint64_t matBuf;
+    uint totalMeshlets;
+    uint textureOffset;
+} pc;
+
+struct TaskPayload { uint meshletIndices[64]; };
+taskPayloadSharedEXT TaskPayload payload;
+
+void main() {
+    uint meshletID = payload.meshletIndices[gl_WorkGroupID.x]; 
+    uint tid = gl_LocalInvocationID.x;
+
+    if (meshletID >= pc.totalMeshlets) return;
+
+    MeshletBuffer mBuf = MeshletBuffer(pc.mBuf);
+    Meshlet meshlet = mBuf.m[meshletID];
+
+    SetMeshOutputsEXT(meshlet.vCount, meshlet.tCount);
+
+    if (tid < meshlet.vCount) {
+        VertexBuffer vBuf = VertexBuffer(pc.vBuf);
+        Vertex vertex = vBuf.v[meshlet.vOff + tid];
+
+        // ==========================================================
+        // ★ 3. 从 BDA 指针里读矩阵，算出 MVP
+        // ==========================================================
+        mat4 currentMvp = pc.frameDataAddr.frame.viewProj * pc.instanceDataAddr.model;
+        mat4 prevMvp    = pc.frameDataAddr.frame.prevViewProj * pc.instanceDataAddr.prevModel;
+
+        vec4 worldPos = pc.instanceDataAddr.model * vec4(vertex.pos, 1.0);
+        fragWorldPos[tid] = worldPos.xyz;
+
+        vec4 unjitteredClipPos = currentMvp * vec4(vertex.pos, 1.0);
+    
+        fragCurrentPosClip[tid] = unjitteredClipPos;
+        fragPrevPosClip[tid]    = prevMvp * vec4(vertex.pos, 1.0);
+        
+        vec4 jitteredClipPos = unjitteredClipPos;
+        // 从全局显存读取 Jitter
+        jitteredClipPos.xy += pc.frameDataAddr.frame.jitter * jitteredClipPos.w; 
+        
+        gl_MeshVerticesEXT[tid].gl_Position = jitteredClipPos;
+        
+        // 从实例指针读取模型矩阵算 Normal
+        fragNormal[tid] = normalize(mat3(pc.instanceDataAddr.model) * vertex.normal);
+        fragUV[tid] = vertex.uv;
+        fragMatID[tid] = meshlet.textureID; 
+    }
+
+    IndexBuffer iBuf = IndexBuffer(pc.iBuf);
+    for (uint i = tid; i < meshlet.tCount; i += 64) {
+        uint indexOffset = meshlet.tOff + i * 3;
+        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(
+            iBuf.i[indexOffset + 0], 
+            iBuf.i[indexOffset + 1], 
+            iBuf.i[indexOffset + 2]
+        );
+    }
+}

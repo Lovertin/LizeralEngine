@@ -1,0 +1,56 @@
+#pragma once 
+#include "editor/EditorHeader.h"
+#include "editor/viewport/EngineViewportWidget.h"
+#include "editor/context/EditorContext.h"
+#include "editor/panels/EditorControlPanel.h"
+#include "runtime/function/physics/PhysicsSystem.h"
+#include "runtime/core/meta/serializer/serializer.h"
+#include "runtime/function/ecs/Serializer/SceneSerializer.h"
+
+namespace Lizeral {
+    namespace Reflection {
+        class TypeMetaRegister {
+        public:
+            static void Register(); 
+        };
+    }
+}
+
+class LizeralEditorWindow : public QMainWindow {
+public:
+    LizeralEditorWindow();
+
+    ~LizeralEditorWindow();
+
+private:
+    Lizeral::Registry* m_globalRegistry { nullptr };
+    Lizeral::SceneOutlinerPanel* m_outlinerPanel { nullptr };
+    Lizeral::InspectorPanel* m_inspectorPanel { nullptr };
+    Lizeral::EditorControlPanel* m_controlPanel { nullptr };
+    
+    Lizeral::EngineViewportWidget* m_viewportWidget { nullptr };
+
+    Lizeral::PhysicsScene m_physicsScene;
+    Lizeral::PhysicsSystem m_physicsSystem;
+    Lizeral::VulkanRenderingSystem m_renderSystem;
+    Lizeral::CameraSystem m_cameraSystem;
+    Lizeral::CameraControlSystem m_cameraControlSystem; 
+
+    // --- Serializer ---
+    PJson m_playModeSnapshot;
+    
+    QTimer* m_engineTimer { nullptr };
+    QElapsedTimer m_timeTracker;
+
+    float m_lastTime = 0.0f;
+
+    void loadStyleSheet(const QString& sheetName);
+
+    void setupUI();
+
+    void populateTestData();
+
+    void initEngineSystems();
+
+    void EngineTick();
+};

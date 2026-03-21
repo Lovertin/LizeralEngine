@@ -1,0 +1,71 @@
+/* UE5_Dark.qss */
+
+/* 1. 全局碳黑底色和微小字体 */
+QWidget {
+    background-color: #1e1e1e;
+    color: #c8c8c8;
+    font-family: "Segoe UI", "Arial";
+    font-size: 11px;
+}
+
+/* 2. 输入框 (DragDoubleSpinBox 和 QLineEdit) */
+QDoubleSpinBox, QLineEdit {
+    background-color: #0e0e0e; 
+    border: 1px solid #303030;
+    border-radius: 2px;
+    /* 【极其重要】：右边留出 18px 的 padding，防止文字被按钮挡住 */
+    padding: 2px 18px 2px 4px; 
+    selection-background-color: #0070e0; 
+}
+QDoubleSpinBox:hover, QLineEdit:hover {
+    border: 1px solid #555555;
+}
+QDoubleSpinBox:focus, QLineEdit:focus {
+    border: 1px solid #0070e0; 
+    background-color: #151515;
+}
+
+/* 3. 悬停反馈 */
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #353535;
+}
+QDoubleSpinBox::up-button:pressed, QDoubleSpinBox::down-button:pressed {
+    background-color: #0070e0;
+}
+
+/* 3. 面板与滚动条缩编 */
+QScrollArea { border: none; }
+QLabel { background: transparent; }
+
+/* 4. UE风格的极其低调的按钮 */
+QPushButton {
+    background-color: #353535;
+    border: 1px solid #202020;
+    border-radius: 2px;
+    padding: 4px;
+    font-weight: bold;
+}
+QPushButton:hover { background-color: #454545; }
+QPushButton:pressed { background-color: #0070e0; color: white; border: none; }
+
+
+/* 5. 修复 CheckBox (复选框) */
+QCheckBox {
+    spacing: 8px;
+    color: #c8c8c8;
+}
+QCheckBox::indicator {
+    width: 14px; 
+    height: 14px;
+    background-color: #0e0e0e;
+    border: 1px solid #303030;
+    border-radius: 2px;
+}
+QCheckBox::indicator:hover {
+    border: 1px solid #555555;
+}
+QCheckBox::indicator:checked {
+    background-color: #0070e0; 
+    border: 1px solid #0070e0;
+    image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 14 14' xmlns='http://www.w3.org/2000/svg'><path d='M3 7.5 L6 10.5 L11 3.5' stroke='%23ffffff' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}

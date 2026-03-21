@@ -1,0 +1,30 @@
+# 忽略 Visual Studio 临时文件 (罪魁祸首)
+.vs/
+*.user
+*.suo
+*.db
+*.ipch
+*.opendb
+
+# 忽略编译输出目录
+out/
+build/
+cmake-build-*/
+x64/
+Debug/
+Release/
+
+# 忽略构建产物
+*.obj
+*.pdb
+*.ilk
+*.tlog
+*.idb
+*.exe
+*.dll
+*.lib
+
+# 保留 engine/bin 下的 dll 和 exe (如果你确实想上传编译好的引擎)
+!engine/bin/*.dll
+!engine/bin/*.exe
+LizeralEngine0.0.1/asset/
