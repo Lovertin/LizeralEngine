@@ -451,6 +451,11 @@ namespace Lizeral {
             uint32_t pointLightCount;
         };
 
+        struct LightingSpecializationData {
+            int32_t giQualityLevel; 
+            int32_t shadowQualityLevel;
+        };
+
         VkPushConstantRange graphicsPushRange{}; 
         graphicsPushRange.stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT; 
         graphicsPushRange.size = sizeof(PushConstants); 
@@ -572,7 +577,7 @@ namespace Lizeral {
 
         // Fullscreen Quad 
         VkShaderModule fsVertShader    = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "lighting_vert.spv"));
-        VkShaderModule lightFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "lighting_frag.spv"));
+        VkShaderModule lightFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "lighting_uber.spv"));
         VkShaderModule svgfTemporalFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "svgf_temporal_frag.spv"));
         VkShaderModule svgfATrousFragShader   = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "svgf_atrous_frag.spv"));
         VkShaderModule taaFragShader   = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "taa_frag.spv"));
@@ -598,6 +603,29 @@ namespace Lizeral {
             .SetPipelineLayout(m_graphicsPipelineLayout)
             .Build(m_device, { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16_SFLOAT }, VK_FORMAT_D32_SFLOAT); 
 
+
+        //Specialization Constants
+        LightingSpecializationData specData{};
+        specData.giQualityLevel = 2; // RTGI (0: off, 1: SSGI, 2: RTGI)
+        specData.shadowQualityLevel = 1;  // shadow (0: hard, 1: soft)
+
+        VkSpecializationMapEntry specEntries[2] = {};
+        // layout(constant_id = 0) const int GI_QUALITY_LEVEL;
+        specEntries[0].constantID = 0;
+        specEntries[0].offset = offsetof(LightingSpecializationData, giQualityLevel);
+        specEntries[0].size = sizeof(int32_t);
+
+        // layout(constant_id = 1) const int ENABLE_SHADOWS;
+        specEntries[1].constantID = 1;
+        specEntries[1].offset = offsetof(LightingSpecializationData, shadowQualityLevel);
+        specEntries[1].size = sizeof(int32_t);
+
+        VkSpecializationInfo specInfo{};
+        specInfo.mapEntryCount = 2;
+        specInfo.pMapEntries = specEntries;
+        specInfo.dataSize = sizeof(LightingSpecializationData);
+        specInfo.pData = &specData;
+
         // Lighting Pipeline
         VkDescriptorSetLayout lightSetLayouts[2] = { m_lightingLayouts[0], m_descriptorSetLayout };
         VkPipelineLayoutCreateInfo lightPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; 
@@ -609,7 +637,7 @@ namespace Lizeral {
 
         m_lightingPipeline = VulkanPipelineBuilder()
             .AddShaderStage(VK_SHADER_STAGE_VERTEX_BIT, fsVertShader)
-            .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, lightFragShader)
+            .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, lightFragShader, &specInfo)
             .SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
             .SetMultisampling(VK_SAMPLE_COUNT_1_BIT)
@@ -1058,8 +1086,8 @@ namespace Lizeral {
         TransitionImageLayout(cmd, m_gVelocity.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         struct LightingPushConstants {
-            uint64_t frameDataAddr; 
-            uint64_t instanceDescAddr;   
+            uint64_t frameDataAddr;
+            uint64_t instanceDescAddr;
             uint64_t pointLightsAddr;
             uint32_t stepSize;
             uint32_t pointLightCount;

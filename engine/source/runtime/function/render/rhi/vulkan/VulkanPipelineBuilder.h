@@ -11,7 +11,7 @@ namespace Lizeral {
     public:
         VulkanPipelineBuilder();
 
-        VulkanPipelineBuilder& AddShaderStage(VkShaderStageFlagBits stage, VkShaderModule shaderModule);
+        VulkanPipelineBuilder& AddShaderStage(VkShaderStageFlagBits stage, VkShaderModule shaderModule,const VkSpecializationInfo* specInfo = nullptr);
         VulkanPipelineBuilder& SetVertexInput(const VkPipelineVertexInputStateCreateInfo& vertexInputInfo);
         VulkanPipelineBuilder& SetInputAssembly(VkPrimitiveTopology topology, bool primitiveRestartEnable = false);
         VulkanPipelineBuilder& SetRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);

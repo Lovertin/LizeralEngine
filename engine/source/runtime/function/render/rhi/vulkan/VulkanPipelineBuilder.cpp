@@ -22,10 +22,11 @@ namespace Lizeral {
         m_dynamicStateInfo.pDynamicStates = m_dynamicStates.data();
     }
 
-    VulkanPipelineBuilder& VulkanPipelineBuilder::AddShaderStage(VkShaderStageFlagBits stage, VkShaderModule shaderModule) {
+    VulkanPipelineBuilder& VulkanPipelineBuilder::AddShaderStage(VkShaderStageFlagBits stage, VkShaderModule shaderModule,const VkSpecializationInfo* specInfo) {
         VkPipelineShaderStageCreateInfo shaderStageInfo{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
         shaderStageInfo.stage = stage;
         shaderStageInfo.module = shaderModule;
+        shaderStageInfo.pSpecializationInfo = specInfo;
         shaderStageInfo.pName = "main";
         m_shaderStages.push_back(shaderStageInfo);
         return *this;

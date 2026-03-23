@@ -1,6 +1,6 @@
 
 // Lizeral Engine - Screen Space Ray Marching
-
+#include "Common/SceneShared.glsl" 
 
 vec3 ScreenSpaceRayMarch(vec3 rayOrigin, vec3 rayDir, out float hitMask) {
     // TODO: expose to cpp
@@ -14,7 +14,7 @@ vec3 ScreenSpaceRayMarch(vec3 rayOrigin, vec3 rayDir, out float hitMask) {
     for(int i = 0; i < MAX_STEPS; i++) {
         currentPos += rayDir * STEP_SIZE;
 
-        vec4 clipSpace = pc.viewProj * vec4(currentPos, 1.0);
+        vec4 clipSpace = pc.frameData.frame.viewProj * vec4(currentPos, 1.0);
         vec3 ndc = clipSpace.xyz / clipSpace.w;
 
         vec2 screenUV = ndc.xy * 0.5 + 0.5;

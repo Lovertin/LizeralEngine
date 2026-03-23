@@ -159,8 +159,7 @@ namespace Lizeral {
         std::unique_ptr<VulkanBuffer> m_rtInstanceBuffer;
         std::unique_ptr<VulkanBuffer> m_globalInstanceBuffer;
         std::unique_ptr<VulkanBuffer> m_pointLightBuffer;
-        
-        // --- 状态数据 ---
+
         uint32_t m_width = 1280, m_height = 720;
         uint32_t m_frameIndex = 0;
         bool m_firstFrame = true, m_isFirstFrameRun = true;
