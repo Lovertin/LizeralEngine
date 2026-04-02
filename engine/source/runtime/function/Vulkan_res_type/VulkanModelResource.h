@@ -14,6 +14,7 @@ namespace Lizeral {
         std::unique_ptr<VulkanBuffer> boundsBuffer;
         std::unique_ptr<VulkanBuffer> materialBuffer;
         std::unique_ptr<VulkanBuffer> globalIndexBuffer;
+        std::unique_ptr<VulkanBuffer> primitiveMaterialIdBuffer;
 
         uint64_t vAddr = 0;         
         uint64_t mAddr = 0;         
@@ -21,10 +22,12 @@ namespace Lizeral {
         uint64_t bAddr = 0;         
         uint64_t matAddr = 0;       
         uint64_t globalIAddr = 0;
+        uint64_t primMatIdAddr = 0;
         
         uint32_t totalMeshlets = 0; 
         uint32_t textureOffset = 0; 
         uint32_t textureCount = 0;  
+        uint32_t materialCount = 0;
         std::shared_ptr<VulkanBLAS> blas;
 
         bool IsValid() const { return vAddr != 0; }

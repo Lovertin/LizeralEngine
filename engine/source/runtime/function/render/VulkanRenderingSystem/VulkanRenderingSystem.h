@@ -57,8 +57,13 @@ namespace Lizeral {
     };
 
     struct RTInstanceDesc {
-                uint64_t vertexBuffer; uint64_t indexBuffer; uint64_t materialBuffer;
-                uint32_t textureOffset; uint32_t padding[3];
+        uint64_t vertexBuffer;
+        uint64_t indexBuffer;
+        uint64_t materialBuffer;
+        uint64_t primitiveMaterialIdBuffer;
+        uint32_t textureOffset;
+        uint32_t materialCount;
+        uint32_t padding[2];
     };
 
     struct GPUInstanceData {
@@ -77,6 +82,7 @@ namespace Lizeral {
         
         void Shutdown();
         void Resize(uint32_t width, uint32_t height);
+        void InvalidateTemporalHistory();
         void SetViewport(int x, int y, uint32_t width, uint32_t height);
         void SetDefaultFBO(unsigned int fbo) { /* VulkanRenderer handles target */ }
 

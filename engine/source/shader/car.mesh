@@ -8,7 +8,7 @@ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(triangles, max_vertices = 64, max_primitives = 124) out;
 
 struct Vertex { vec3 pos; vec3 normal; vec2 uv; };
-struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; uint textureID; };
+struct Meshlet { uint vOff; uint tOff; uint vCount; uint tCount; uint materialID; };
 
 layout(location = 0) out vec3 fragNormal[];
 layout(location = 1) out vec2 fragUV[];
@@ -45,7 +45,6 @@ layout(buffer_reference, scalar, buffer_reference_align = 16) readonly buffer In
     mat4 prevModel;
 };
 
-// 瘦身版 PushConstants
 layout(push_constant) uniform PushConstants {
     FrameDataBuffer frameDataAddr;       
     InstanceDataBuffer instanceDataAddr; 
@@ -77,9 +76,6 @@ void main() {
         VertexBuffer vBuf = VertexBuffer(pc.vBuf);
         Vertex vertex = vBuf.v[meshlet.vOff + tid];
 
-        // ==========================================================
-        // ★ 3. 从 BDA 指针里读矩阵，算出 MVP
-        // ==========================================================
         mat4 currentMvp = pc.frameDataAddr.frame.viewProj * pc.instanceDataAddr.model;
         mat4 prevMvp    = pc.frameDataAddr.frame.prevViewProj * pc.instanceDataAddr.prevModel;
 
@@ -92,15 +88,13 @@ void main() {
         fragPrevPosClip[tid]    = prevMvp * vec4(vertex.pos, 1.0);
         
         vec4 jitteredClipPos = unjitteredClipPos;
-        // 从全局显存读取 Jitter
         jitteredClipPos.xy += pc.frameDataAddr.frame.jitter * jitteredClipPos.w; 
         
         gl_MeshVerticesEXT[tid].gl_Position = jitteredClipPos;
         
-        // 从实例指针读取模型矩阵算 Normal
         fragNormal[tid] = normalize(mat3(pc.instanceDataAddr.model) * vertex.normal);
         fragUV[tid] = vertex.uv;
-        fragMatID[tid] = meshlet.textureID; 
+        fragMatID[tid] = meshlet.materialID; 
     }
 
     IndexBuffer iBuf = IndexBuffer(pc.iBuf);

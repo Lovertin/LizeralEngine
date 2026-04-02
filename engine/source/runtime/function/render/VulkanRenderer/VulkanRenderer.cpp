@@ -242,8 +242,12 @@ namespace Lizeral {
 
         VkResult result = vkQueuePresentKHR(m_device->GetPresentQueue(), &presentInfo);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        // VK_SUBOPTIMAL_KHR is still renderable on many laptop/HiDPI setups.
+        // Recreating swapchain every time may continuously invalidate temporal history.
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             m_swapchainOutdated = true;
+        } else if (result == VK_SUBOPTIMAL_KHR) {
+            m_swapchainOutdated = false;
         } else if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to present swapchain image!");
         }

@@ -33,8 +33,10 @@ struct RTInstanceDesc {
     uint64_t vertexBuffer;
     uint64_t indexBuffer;
     uint64_t materialBuffer;
+    uint64_t primitiveMaterialIdBuffer;
     uint textureOffset;
-    uint pad0, pad1, pad2;
+    uint materialCount;
+    uint pad0, pad1;
 };
 
 layout(push_constant) uniform PushConstants {
@@ -48,6 +50,19 @@ layout(push_constant) uniform PushConstants {
 // BDA 
 layout(buffer_reference, scalar) readonly buffer VertexBuffer { float vData[]; };
 layout(buffer_reference, scalar) readonly buffer IndexBuffer { uint iData[]; };
+layout(buffer_reference, scalar) readonly buffer PrimitiveMaterialIdBuffer { uint materialId[]; };
+
+struct Material {
+    vec4 baseColorFactor;
+    float metallicFactor;
+    float roughnessFactor;
+    int albedoTex;
+    int normalTex;
+    int ormTex;
+    int emissiveTex;
+    int pad0, pad1;
+};
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
 layout(buffer_reference, scalar) readonly buffer InstanceDescBuffer { RTInstanceDesc instances[]; };
 
 #endif // SCENE_SHARED_GLSL

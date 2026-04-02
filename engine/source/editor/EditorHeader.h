@@ -37,6 +37,3 @@
 #include "runtime/function/input/input.h"
 
 #include "runtime/resource/resourceManager/resourceManager.h"
-#include "runtime/function/res_type/Model/Model.h"
-#include "runtime/function/res_type/shader/shader.h"
-#include "runtime/function/res_type/Material/PBRMaterial.h"

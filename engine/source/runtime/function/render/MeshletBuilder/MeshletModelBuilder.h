@@ -1,40 +1,13 @@
 #pragma once
 
+#include "runtime/resource/material/materialAsset.h"
+#include "runtime/resource/meshletAssetTypes.h"
+
 #include <vector>
 #include <string>
 #include <cstdint>
 
 namespace Lizeral {
-
-    struct MeshletVertex {
-        float pos[3];
-        float normal[3];
-        float uv[2];
-    };
-
-    struct MeshletBounds {
-        float center[3];
-        float radius;
-    };
-
-    struct MeshletDescriptor {
-        uint32_t vertexOffset;    
-        uint32_t triangleOffset;  
-        uint32_t vertexCount;     
-        uint32_t triangleCount;   
-        uint32_t textureID;    
-    };
-
-    struct MaterialData {
-        float baseColorFactor[4];
-        float metallicFactor;
-        float roughnessFactor;
-        int albedoTex; 
-        int normalTex;
-        int ormTex;
-        int emissiveTex;
-        int pad0, pad1;
-    };
 
     class MeshletModelBuilder {
     public:
@@ -47,6 +20,7 @@ namespace Lizeral {
 
         const std::vector<std::vector<unsigned char>>& GetAllTextures() const { return m_allTextures; }
         const std::vector<MaterialData>& GetMaterials() const { return m_materials; }
+        const std::vector<Resource::MaterialAsset>& GetMaterialAssets() const { return m_materialAssets; }
 
 
     private:
@@ -57,6 +31,7 @@ namespace Lizeral {
 
         std::vector<std::vector<unsigned char>> m_allTextures;
         std::vector<MaterialData> m_materials;
+        std::vector<Resource::MaterialAsset> m_materialAssets;
     };
 
 } // namespace Lizeral

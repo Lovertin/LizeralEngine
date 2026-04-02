@@ -54,12 +54,27 @@ struct RTInstanceDesc {
     uint64_t vertexBuffer;
     uint64_t indexBuffer;
     uint64_t materialBuffer;
+    uint64_t primitiveMaterialIdBuffer;
     uint textureOffset;
-    uint pad0, pad1, pad2;
+    uint materialCount;
+    uint pad0, pad1;
 };
 
 layout(buffer_reference, scalar) readonly buffer VertexBuffer { float vData[]; };
 layout(buffer_reference, scalar) readonly buffer IndexBuffer { uint iData[]; };
+layout(buffer_reference, scalar) readonly buffer PrimitiveMaterialIdBuffer { uint materialId[]; };
+
+struct Material {
+    vec4 baseColorFactor;
+    float metallicFactor;
+    float roughnessFactor;
+    int albedoTex;
+    int normalTex;
+    int ormTex;
+    int emissiveTex;
+    int pad0, pad1;
+};
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
 layout(buffer_reference, scalar) readonly buffer InstanceDescBuffer { RTInstanceDesc instances[]; };
 
 uint pcg_hash(uint seed) {
@@ -77,6 +92,32 @@ vec3 ReconstructWorldPos(vec2 uv, float depth) {
     vec4 ndc = vec4(uv * 2.0 - 1.0, depth, 1.0);
     vec4 worldPos = pc.frameData.frame.invViewProj * ndc; 
     return worldPos.xyz / worldPos.w;
+}
+
+vec3 ComputeGeometricNormal(vec3 worldPos, vec3 shadingNormal) {
+    vec3 dpdx = dFdx(worldPos);
+    vec3 dpdy = dFdy(worldPos);
+    vec3 geomNormal = normalize(cross(dpdx, dpdy));
+    if (dot(geomNormal, shadingNormal) < 0.0) {
+        geomNormal = -geomNormal;
+    }
+    return geomNormal;
+}
+
+vec3 StabilizeShadingNormal(vec3 shadingNormal, vec3 geomNormal) {
+    vec3 n = normalize(shadingNormal);
+    if (dot(n, geomNormal) < 0.0) {
+        n = -n;
+    }
+    return n;
+}
+
+float ApplySpecularAA(vec3 normalWS, float roughness) {
+    vec3 dndx = dFdx(normalWS);
+    vec3 dndy = dFdy(normalWS);
+    float variance = max(dot(dndx, dndx), dot(dndy, dndy));
+    float aa = clamp(variance, 0.0, 1.0);
+    return clamp(sqrt(roughness * roughness + aa), 0.05, 1.0);
 }
 
 vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
@@ -106,7 +147,28 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
         vec2 uv1 = vec2(verts.vData[i1 * 8 + 6], verts.vData[i1 * 8 + 7]);
         vec2 uv2 = vec2(verts.vData[i2 * 8 + 6], verts.vData[i2 * 8 + 7]);
         vec2 hitUV = uv0 * (1.0 - bary.x - bary.y) + uv1 * bary.x + uv2 * bary.y;
-        vec3 hitAlbedo = texture(bindlessTextures[nonuniformEXT(desc.textureOffset)], hitUV).rgb;
+        vec3 hitAlbedo = vec3(1.0);
+        float hitMetallic = 0.0;
+        float hitRoughness = 1.0;
+        if (desc.materialCount > 0u && desc.materialBuffer != 0ul && desc.primitiveMaterialIdBuffer != 0ul) {
+            PrimitiveMaterialIdBuffer primMatIds = PrimitiveMaterialIdBuffer(desc.primitiveMaterialIdBuffer);
+            MaterialBuffer materials = MaterialBuffer(desc.materialBuffer);
+            uint materialId = min(primMatIds.materialId[primID], desc.materialCount - 1u);
+            Material hitMaterial = materials.m[materialId];
+            hitAlbedo = hitMaterial.baseColorFactor.rgb;
+            hitMetallic = hitMaterial.metallicFactor;
+            hitRoughness = hitMaterial.roughnessFactor;
+            if (hitMaterial.albedoTex >= 0) {
+                hitAlbedo *= texture(bindlessTextures[nonuniformEXT(hitMaterial.albedoTex)], hitUV).rgb;
+            }
+            if (hitMaterial.ormTex >= 0) {
+                vec3 orm = texture(bindlessTextures[nonuniformEXT(hitMaterial.ormTex)], hitUV).rgb;
+                hitRoughness *= orm.g;
+                hitMetallic *= orm.b;
+            }
+        }
+        hitMetallic = clamp(hitMetallic, 0.0, 1.0);
+        hitRoughness = clamp(hitRoughness, 0.05, 1.0);
         
         vec3 n0 = vec3(verts.vData[i0 * 8 + 3], verts.vData[i0 * 8 + 4], verts.vData[i0 * 8 + 5]);
         vec3 n1 = vec3(verts.vData[i1 * 8 + 3], verts.vData[i1 * 8 + 4], verts.vData[i1 * 8 + 5]);
@@ -115,6 +177,8 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
         
         mat4x3 objToWorld = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, true);
         vec3 hitWorldNormal = normalize(mat3(objToWorld) * localNormal);
+        vec3 hitDiffuse = hitAlbedo * (1.0 - hitMetallic);
+        float roughnessAtten = 1.0 - 0.5 * hitRoughness;
 
         vec3 directLightAtHit = vec3(0.0);
         
@@ -126,7 +190,7 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
             while(rayQueryProceedEXT(rqShadow)) {}
             
             if (rayQueryGetIntersectionTypeEXT(rqShadow, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
-                directLightAtHit += hitAlbedo * pc.frameData.frame.lightColor * pc.frameData.frame.lightIntensity * NdotL_main / 3.14159265;
+                directLightAtHit += hitDiffuse * pc.frameData.frame.lightColor * pc.frameData.frame.lightIntensity * NdotL_main * roughnessAtten / 3.14159265;
             }
         }
 
@@ -158,7 +222,7 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
                     while(rayQueryProceedEXT(rqShadowPL)) {}
                     
                     if (rayQueryGetIntersectionTypeEXT(rqShadowPL, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
-                        vec3 plContribution = hitAlbedo * pl.colorAndIntensity.rgb * pl.colorAndIntensity.a * NdotL_pl * falloff / 3.14159265;
+                        vec3 plContribution = hitDiffuse * pl.colorAndIntensity.rgb * pl.colorAndIntensity.a * NdotL_pl * falloff * roughnessAtten / 3.14159265;
                         
                         directLightAtHit += plContribution * float(pc.pointLightCount);
                     }
@@ -166,7 +230,7 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
             }
         }
 
-        vec3 ambient = hitAlbedo * 0.01;
+        vec3 ambient = hitDiffuse * 0.01;
         
         return directLightAtHit + ambient;
     }
@@ -223,23 +287,32 @@ void main() {
     vec3 normal = normalize(normalRoughness.rgb + vec3(0.0001));
     float roughness = clamp(normalRoughness.a, 0.05, 1.0); 
 
-    vec3 worldPos = ReconstructWorldPos(inUV, depth);
+    // GBuffer depth is jittered in geometry pass; remove jitter from UV first.
+    vec2 unjitteredUV = inUV - pc.frameData.frame.jitter * 0.5;
+    vec3 worldPos = ReconstructWorldPos(unjitteredUV, depth);
     vec3 viewDir = normalize(pc.frameData.frame.cameraPos - worldPos);
+    vec3 geomNormal = ComputeGeometricNormal(worldPos, normal);
+    vec3 shadingNormal = StabilizeShadingNormal(normal, geomNormal);
+    roughness = ApplySpecularAA(shadingNormal, roughness);
+    vec3 pointLightNormal = geomNormal;
     
-    uint baseSeed = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + pc.frameData.frame.frameIndex * 26699u;
-    vec3 rayOrigin = worldPos + normal * 0.05;
-    float tMin = 0.001;     
+    uint baseSeed = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u;
+    uint giBaseSeed = baseSeed + pc.frameData.frame.frameIndex * 26699u;
+    float rayBias = 0.002;
+    vec3 rayOrigin = worldPos + geomNormal * rayBias;
+    float tMin = rayBias;     
     uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    uint shadowRayFlags = rayFlags | gl_RayFlagsCullBackFacingTrianglesEXT;
 
     vec3 finalDirectLight = vec3(0.0);
 
     vec3 mainLightDir = normalize(pc.frameData.frame.lightDir);
-    float lightRadius = 0.05; 
+    float lightRadius = 0.03; 
     vec3 lightUp = abs(mainLightDir.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
     vec3 lightRight = normalize(cross(lightUp, mainLightDir));
     lightUp = cross(mainLightDir, lightRight);
 
-    int NUM_SAMPLES = 4;
+    int NUM_SAMPLES = 8;
     float shadowSum = 0.0; 
     float baseAngle = rand(baseSeed) * 2.0 * 3.14159265;
     
@@ -249,17 +322,21 @@ void main() {
         vec2 diskOffset = vec2(r * cos(theta), r * sin(theta));
         vec3 jitteredRayDir = normalize(mainLightDir + lightRight * diskOffset.x + lightUp * diskOffset.y);
 
+        float ndotlShadow = abs(dot(geomNormal, jitteredRayDir));
+        float shadowBias = mix(0.004, 0.0005, ndotlShadow);
+        vec3 shadowOrigin = worldPos + geomNormal * shadowBias + jitteredRayDir * (shadowBias * 0.2);
+
         rayQueryEXT rayQuery;
-        rayQueryInitializeEXT(rayQuery, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, jitteredRayDir, 1000.0);
+        rayQueryInitializeEXT(rayQuery, topLevelAS, shadowRayFlags, 0xFF, shadowOrigin, shadowBias, jitteredRayDir, 1000.0);
         while(rayQueryProceedEXT(rayQuery)) {}
         if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
             shadowSum += 1.0;
         }
     }
-    float shadow = pow(shadowSum / float(NUM_SAMPLES), 2.0);
+    float shadow = shadowSum / float(NUM_SAMPLES);
 
     float NdotL_main;
-    vec3 mainBrdf = CalculateBRDF(normal, viewDir, mainLightDir, albedo, metallic, roughness, NdotL_main);
+    vec3 mainBrdf = CalculateBRDF(shadingNormal, viewDir, mainLightDir, albedo, metallic, roughness, NdotL_main);
     finalDirectLight += mainBrdf * pc.frameData.frame.lightColor * pc.frameData.frame.lightIntensity * NdotL_main * shadow;
 
     if (pc.pointLightsAddr != 0 && pc.pointLightCount > 0) {
@@ -277,7 +354,7 @@ void main() {
 
 
             if (distance < radius) {
-                L /= distance; // 归一化光照方向
+                L /= distance; // 瑜版帊绔撮崠鏍у帨閻撗勬煙閸?
 
                 // UE4 Inverse Square Falloff
                 float d_over_r = distance / radius;
@@ -285,16 +362,24 @@ void main() {
                 float falloff = clamp(1.0 - d_over_r_4, 0.0, 1.0);
                 falloff = (falloff * falloff) / (distance * distance + 1.0);
 
+                const bool ENABLE_POINT_LIGHT_SHADOWS = false;
                 float plShadow = 1.0;
-                rayQueryEXT rq;
-                rayQueryInitializeEXT(rq, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, L, distance);
-                while(rayQueryProceedEXT(rq)) {}
-                if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-                    plShadow = 0.0;
+                if (ENABLE_POINT_LIGHT_SHADOWS) {
+                    float ndotlShadow = abs(dot(geomNormal, L));
+                    float shadowBias = mix(0.004, 0.0005, ndotlShadow);
+                    vec3 shadowOrigin = worldPos + geomNormal * shadowBias + L * (shadowBias * 0.2);
+
+                    rayQueryEXT rq;
+                    rayQueryInitializeEXT(rq, topLevelAS, shadowRayFlags, 0xFF, shadowOrigin, shadowBias, L, distance);
+                    while(rayQueryProceedEXT(rq)) {}
+                    if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+                        plShadow = 0.0;
+                    }
                 }
 
+                float pointRoughness = max(roughness, 0.2);
                 float NdotL_pl;
-                vec3 plBrdf = CalculateBRDF(normal, viewDir, L, albedo, metallic, roughness, NdotL_pl);
+                vec3 plBrdf = CalculateBRDF(pointLightNormal, viewDir, L, albedo, metallic, pointRoughness, NdotL_pl);
                 
                 finalDirectLight += plBrdf * lightColor * intensity * NdotL_pl * falloff * plShadow;
             }
@@ -303,14 +388,14 @@ void main() {
 
     outDirectLight = vec4(finalDirectLight, 1.0);
 
-    vec3 w_tbn = normal;
+    vec3 w_tbn = shadingNormal;
     vec3 u_tbn = normalize(cross((abs(w_tbn.x) > 0.1 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)), w_tbn));
     vec3 v_tbn = cross(w_tbn, u_tbn);
     mat3 tbn_hemisphere = mat3(u_tbn, v_tbn, w_tbn);
 
     int numGisamples = 4; 
     vec3 giSum = vec3(0.0);
-    uint giSeed = baseSeed + pc.frameData.frame.frameIndex * 161803u; 
+    uint giSeed = giBaseSeed + pc.frameData.frame.frameIndex * 161803u; 
 
     for(int i = 0; i < numGisamples; i++) {
         float r1 = rand(giSeed);
@@ -319,7 +404,7 @@ void main() {
         float phi = 2.0 * 3.14159265 * r2;
         vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - r1)));
         vec3 giDirection = normalize(tbn_hemisphere * localDir);
-        vec3 col = TraceGlobalIlluminationRay(worldPos + normal * 0.05, giDirection,giSeed);
+        vec3 col = TraceGlobalIlluminationRay(worldPos + geomNormal * rayBias, giDirection,giSeed);
         giSum += min(col, vec3(5.0));
     }
     
@@ -328,3 +413,4 @@ void main() {
     vec3 indirectLight = bouncedColor * giMultiplier;
     outNoisyGI = vec4(indirectLight, 1.0);
 }
+

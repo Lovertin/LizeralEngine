@@ -29,7 +29,7 @@ namespace Lizeral {
         RegisterComponentType<CameraControlComponent>("CameraControlComponent");
         RegisterComponentType<DirectionLightComponent>("DirectionLightComponent");
         RegisterComponentType<PointLightComponent>("PointLightComponent");
-        RegisterComponentType<VulkanModelComponent>("ModelComponent");
+        RegisterComponentType<VulkanModelComponent>("VulkanModelComponent");
     }
     
     void InspectorPanel::ClearPanel() {
@@ -110,7 +110,7 @@ namespace Lizeral {
         tryDrawComponent((CameraControlComponent*)nullptr, "CameraControlComponent");
         tryDrawComponent((DirectionLightComponent*)nullptr, "DirectionLightComponent");
         tryDrawComponent((PointLightComponent*)nullptr, "PointLightComponent");
-        tryDrawComponent((VulkanModelComponent*)nullptr, "ModelComponent");
+        tryDrawComponent((VulkanModelComponent*)nullptr, "VulkanModelComponent");
 
         QPushButton* addCompBtn = new QPushButton("Add Component", m_ContentWidget);
         addCompBtn->setStyleSheet("QPushButton { margin-top: 15px; padding: 8px; font-weight: bold; background-color: #4CAF50; color: white; border-radius: 4px; } QPushButton:hover { background-color: #45a049; }");

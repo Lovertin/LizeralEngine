@@ -64,7 +64,7 @@ file(GLOB_RECURSE VULKAN_SRC_TYPE "source/runtime/function/Vulkan_res_type/*.cpp
 file(GLOB_RECURSE SRC_TYPE "source/runtime/function/res_type/*.cpp")
 
 # I. Resource 
-file(GLOB_RECURSE SRC_RESOURCE "source/runtime/resource/*.cpp")
+file(GLOB_RECURSE SRC_RESOURCE CONFIGURE_DEPENDS "source/runtime/resource/*.cpp")
 
 # J. Vendor package
 file(GLOB_RECURSE SRC_VENFOR "source/runtime/core/vendor/stb_image/*.cpp")

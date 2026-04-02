@@ -7,6 +7,7 @@
 
 #include <QWidget>
 #include <QEvent>
+#include <QFocusEvent>
 #include <memory>
 #include <vulkan/vulkan.h>
 
@@ -38,6 +39,8 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
 
 private:
     void InitVulkan();

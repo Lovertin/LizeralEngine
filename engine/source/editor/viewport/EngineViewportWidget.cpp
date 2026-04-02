@@ -66,7 +66,7 @@ namespace Lizeral {
 
         m_renderer = std::make_unique<VulkanRenderer>(m_context.get(), m_device.get(), w, h);
         VkExtent2D actualExt = m_renderer->GetSwapchainExtent();
-        m_RenderSystem->Initialize(m_context.get(), m_device.get(), m_renderer.get(), w, h);
+        m_RenderSystem->Initialize(m_context.get(), m_device.get(), m_renderer.get(), actualExt.width, actualExt.height);
         
         m_isVulkanInitialized = true;
 
@@ -86,6 +86,10 @@ namespace Lizeral {
         uint32_t h = static_cast<uint32_t>(event->size().height() * dpiScale);
         
         if (w > 0 && h > 0) {
+            VkExtent2D currentExt = m_renderer->GetSwapchainExtent();
+            if (currentExt.width == w && currentExt.height == h && !m_renderer->IsSwapchainOutdated()) {
+                return;
+            }
             m_renderer->RecreateSwapchain(w, h);
             VkExtent2D actualExt = m_renderer->GetSwapchainExtent();
             m_RenderSystem->Resize(actualExt.width, actualExt.height);
@@ -106,25 +110,27 @@ namespace Lizeral {
             }
         }
 
-        if (QWidget* mainWindow = this->topLevelWidget()) {
-            float dpiScale = this->devicePixelRatioF();
-            uint32_t fullW = static_cast<uint32_t>(mainWindow->width() * dpiScale);
-            uint32_t fullH = static_cast<uint32_t>(mainWindow->height() * dpiScale);
-            
-            m_RenderSystem->SetViewport(0, 0, fullW, fullH);
-        }
+        VkExtent2D currentExt = m_renderer->GetSwapchainExtent();
+        m_RenderSystem->SetViewport(0, 0, currentExt.width, currentExt.height);
 
         // Invoke the black box mechanism
         m_RenderSystem->Tick(*m_Registry, 0.016f,m_debugLines); 
     }
 
     void EngineViewportWidget::mousePressEvent(QMouseEvent *event){
+        setFocus(Qt::MouseFocusReason);
+
         if (event->button() == Qt::RightButton) {
             m_isRoaming = true;
             m_roamStartGlobalPos = QCursor::pos(); 
             m_virtualMousePos = event->pos(); 
             Lizeral::Input::GetInstance().SetMouseButtonDown(Lizeral::MouseButton::Right, true);
+            Lizeral::Input::GetInstance().ResetMouse();
             setCursor(Qt::BlankCursor);
+        } else if (event->button() == Qt::LeftButton) {
+            // Reset first-sample mouse delta when returning focus to viewport.
+            Lizeral::Input::GetInstance().ResetMouse();
+            Lizeral::Input::GetInstance().SetMousePosition(event->pos().x(), event->pos().y());
         }
     }
 
@@ -171,5 +177,20 @@ namespace Lizeral {
         if (event->key() == Qt::Key_D) Lizeral::Input::GetInstance().SetKeyDown(Lizeral::Key::D, false);
         if (event->key() == Qt::Key_Q) Lizeral::Input::GetInstance().SetKeyDown(Lizeral::Key::Q, false);
         if (event->key() == Qt::Key_E) Lizeral::Input::GetInstance().SetKeyDown(Lizeral::Key::E, false);
+    }
+
+    void EngineViewportWidget::focusInEvent(QFocusEvent* event) {
+        QWidget::focusInEvent(event);
+        // Avoid a large first mouse delta when focus returns to viewport.
+        Lizeral::Input::GetInstance().ResetMouse();
+    }
+
+    void EngineViewportWidget::focusOutEvent(QFocusEvent* event) {
+        QWidget::focusOutEvent(event);
+
+        // Leaving viewport focus (e.g. clicking editor panels) should not keep stale input states.
+        m_isRoaming = false;
+        setCursor(Qt::ArrowCursor);
+        Lizeral::Input::GetInstance().ResetState();
     }
 }

@@ -306,6 +306,13 @@ namespace Lizeral {
 
         UpdateDescriptorSets();
 
+        InvalidateTemporalHistory();
+    }
+
+    void VulkanRenderingSystem::InvalidateTemporalHistory() {
+        // Force temporal passes (TAA / SVGF) to re-bootstrap from current frame.
+        m_frameIndex = 0;
+        m_prevModelMats.clear();
         m_isFirstFrameRun = true;
         m_firstFrame = true;
     }
@@ -327,7 +334,7 @@ namespace Lizeral {
         uint32_t currentTexOffset = static_cast<uint32_t>(m_globalTextures.size());
         MeshletModelBuilder builder;
         if (!builder.LoadAndSliceModel(path, currentTexOffset)) {
-            throw std::runtime_error("Failed to load GLB: " + path);
+            throw std::runtime_error("Failed to load model asset: " + path);
         }
 
         for (const auto& texData : builder.GetAllTextures()) {
@@ -346,6 +353,7 @@ namespace Lizeral {
         res.totalMeshlets = static_cast<uint32_t>(builder.GetMeshlets().size());
         res.textureOffset = currentTexOffset;
         res.textureCount = static_cast<uint32_t>(builder.GetAllTextures().size());
+        res.materialCount = static_cast<uint32_t>(builder.GetMaterials().size());
 
         res.vertexBuffer   = CreateBDABuffer(builder.GetVertices());
         res.meshletBuffer  = CreateBDABuffer(builder.GetMeshlets());
@@ -364,10 +372,15 @@ namespace Lizeral {
         const auto& meshlets = builder.GetMeshlets();
 
         std::vector<uint32_t> globalIndices;
+        std::vector<uint32_t> primitiveMaterialIds;
         globalIndices.reserve(microIndices.size());
+        primitiveMaterialIds.reserve(microIndices.size() / 3);
         for (const auto& m : meshlets) {
             for (uint32_t i = 0; i < m.triangleCount * 3; i++) {
                 globalIndices.push_back(m.vertexOffset + microIndices[m.triangleOffset + i]); 
+            }
+            for (uint32_t tri = 0; tri < m.triangleCount; ++tri) {
+                primitiveMaterialIds.push_back(m.materialID);
             }
         }
 
@@ -378,6 +391,11 @@ namespace Lizeral {
         if (vertexCount > 0 && indexCount > 0) {
             res.globalIndexBuffer = CreateBDABuffer(globalIndices);
             res.globalIAddr = res.globalIndexBuffer->GetDeviceAddress();
+            res.primitiveMaterialIdBuffer = CreateBDABuffer(primitiveMaterialIds);
+            res.primMatIdAddr = res.primitiveMaterialIdBuffer ? res.primitiveMaterialIdBuffer->GetDeviceAddress() : 0;
+            if (!res.primitiveMaterialIdBuffer) {
+                res.materialCount = 0;
+            }
 
             std::cout << "[VulkanBLAS] Triggering BLAS build for: " << path << std::endl;
             // BDA for globalIAddr
@@ -604,10 +622,12 @@ namespace Lizeral {
             .Build(m_device, { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16_SFLOAT }, VK_FORMAT_D32_SFLOAT); 
 
 
-        //Specialization Constants
+        // Specialization constants.
+        // Editor default profile: stability first. Keep GI disabled by default.
+        // Future DLC path can re-enable SSGI/RTGI via profile switch.
         LightingSpecializationData specData{};
-        specData.giQualityLevel = 2; // RTGI (0: off, 1: SSGI, 2: RTGI)
-        specData.shadowQualityLevel = 1;  // shadow (0: hard, 1: soft)
+        specData.giQualityLevel = 0; // GI (0: off, 1: SSGI, 2: RTGI)
+        specData.shadowQualityLevel = 0;  // shadow (0: hard, 1: soft)
 
         VkSpecializationMapEntry specEntries[2] = {};
         // layout(constant_id = 0) const int GI_QUALITY_LEVEL;
@@ -823,11 +843,23 @@ namespace Lizeral {
 
 
     void VulkanRenderingSystem::Tick(Registry& registry, float deltaTime,const std::vector<DebugLineVertex>& debugLines) {
-        m_frameIndex++;
-
         if (!m_CmdDrawMeshTasksEXT) {
             m_CmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(m_device->GetNativeDevice(), "vkCmdDrawMeshTasksEXT");
         }
+
+        // Keep render targets in sync with the real swapchain size.
+        // Some fullscreen / HiDPI transitions may bypass widget resize callbacks.
+        VkExtent2D swapExtent = m_renderer->GetSwapchainExtent();
+        if (swapExtent.width > 0 && swapExtent.height > 0 &&
+            (swapExtent.width != m_width || swapExtent.height != m_height)) {
+            Resize(swapExtent.width, swapExtent.height);
+        }
+
+        VkCommandBuffer cmd = m_renderer->BeginFrame();
+        if (cmd == VK_NULL_HANDLE) return;
+
+        // Advance temporal frame index only when a frame is actually rendered.
+        m_frameIndex++;
 
         // TAA Jitter caculate
         uint32_t jitterIndex = m_frameIndex % 8 + 1; 
@@ -836,9 +868,9 @@ namespace Lizeral {
         float ndcJitterX = (jitterX * 2.0f) / static_cast<float>(m_width > 0 ? m_width : 1); 
         float ndcJitterY = (jitterY * 2.0f) / static_cast<float>(m_height > 0 ? m_height : 1);
 
-        uint32_t ping = m_frameIndex % 2;       
-        VkCommandBuffer cmd = m_renderer->BeginFrame();
-        if (cmd == VK_NULL_HANDLE) return; 
+        // Descriptor/history ping-pong must follow renderer frame slot (fence-protected),
+        // not temporal frame index (which can be reset by editor interactions).
+        uint32_t ping = m_renderer->GetCurrentFrameSlot();
 
         VkViewport viewport{ 0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f };
         VkRect2D scissor{ {0, 0}, {m_width, m_height} };
@@ -866,9 +898,11 @@ namespace Lizeral {
             break; 
         }
 
-        Lizeral::Vector3 lightDir(1.0f, 0.5f, 1.0f);
-        Lizeral::Vector3 lightColor(1.0f, 0.85f, 0.7f);
-        float lightIntensity = 4.0f;
+        // No implicit directional sun by default.
+        // Directional lighting is enabled only when a DirectionLightComponent exists.
+        Lizeral::Vector3 lightDir(0.0f, -1.0f, 0.0f);
+        Lizeral::Vector3 lightColor(1.0f, 1.0f, 1.0f);
+        float lightIntensity = 0.0f;
 
         auto lightView = registry.view<TransformComponent, DirectionLightComponent>();
         for (auto entity : lightView) {
@@ -881,6 +915,9 @@ namespace Lizeral {
         }
 
         Matrix4x4 currentVP = projMatUnjittered * viewMat; //projMatUnjittered is important !!!
+        if (m_isFirstFrameRun) {
+            m_prevViewProj = currentVP;
+        }
 
         GlobalFrameData frameData{};
         frameData.viewProj = currentVP.transpose();
@@ -902,10 +939,6 @@ namespace Lizeral {
 
         m_frameResource.buffer->WriteData(&frameData, sizeof(GlobalFrameData));
 
-        struct RTInstanceDesc {
-            uint64_t vertexBuffer; uint64_t indexBuffer; uint64_t materialBuffer;
-            uint32_t textureOffset; uint32_t padding[3];
-        };
         RTInstanceDesc* mappedDesc = static_cast<RTInstanceDesc*>(m_rtInstanceBuffer->Map());
 
         std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
@@ -924,7 +957,11 @@ namespace Lizeral {
             mappedDesc[customInstanceId].vertexBuffer = res.vAddr;
             mappedDesc[customInstanceId].indexBuffer  = res.globalIAddr;
             mappedDesc[customInstanceId].materialBuffer = res.matAddr;
+            mappedDesc[customInstanceId].primitiveMaterialIdBuffer = res.primMatIdAddr;
             mappedDesc[customInstanceId].textureOffset  = res.textureOffset;
+            mappedDesc[customInstanceId].materialCount = res.materialCount;
+            mappedDesc[customInstanceId].padding[0] = 0;
+            mappedDesc[customInstanceId].padding[1] = 0;
 
             Matrix4x4 modelMat = transform.getMatrix(); 
             VkTransformMatrixKHR vkTransform{};
@@ -993,7 +1030,6 @@ namespace Lizeral {
 
         Matrix4x4 currentViewProjJittered = projMatJittered * viewMat;
         Matrix4x4 currentViewProjUnjittered = projMatUnjittered * viewMat;
-        if (m_isFirstFrameRun) m_prevViewProj = currentViewProjUnjittered;
 
         struct PushConstants {
             uint64_t frameDataAddr; 
@@ -1037,7 +1073,7 @@ namespace Lizeral {
             pushData.modelDataAddr = baseInstanceAddr + (currentInstanceIndex * sizeof(GPUInstanceData));
             pushData.vertexBuffer = res.vAddr; pushData.meshletBuffer = res.mAddr; pushData.indexBuffer = res.iAddr; 
             pushData.boundsBuffer = res.bAddr; pushData.materialBuffer = res.matAddr;
-            pushData.totalMeshlets = res.totalMeshlets; pushData.textureOffset = res.textureOffset; 
+            pushData.totalMeshlets = res.totalMeshlets; pushData.textureOffset = 0; 
 
             vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushData);
             m_prevModelMats[entityId] = currentModel;

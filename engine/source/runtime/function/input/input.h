@@ -45,6 +45,7 @@ namespace Lizeral{
         Vector2 GetMouseDelta();
 
         void ResetMouse();
+        void ResetState();
 
         void SetKeyDown(Key key, bool isDown);
         void SetMouseButtonDown(MouseButton button, bool isDown);

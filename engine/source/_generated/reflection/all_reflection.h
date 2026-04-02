@@ -3,14 +3,8 @@
 #include "_generated/serializer/all_serializer.h"
 #include "_generated\reflection\TransformComponent.reflection.gen.h"
 #include "_generated\reflection\RigidBodyComponent.reflection.gen.h"
-#include "_generated\reflection\PBRMaterial.reflection.gen.h"
-#include "_generated\reflection\Texture2D.reflection.gen.h"
-#include "_generated\reflection\ModelComponent.reflection.gen.h"
-#include "_generated\reflection\TextureCube.reflection.gen.h"
-#include "_generated\reflection\Material.reflection.gen.h"
 #include "_generated\reflection\PointLightComponent.reflection.gen.h"
 #include "_generated\reflection\NameComponent.reflection.gen.h"
-#include "_generated\reflection\Mesh.reflection.gen.h"
 #include "_generated\reflection\quaternion.reflection.gen.h"
 #include "_generated\reflection\DirectionalLightComponent.reflection.gen.h"
 #include "_generated\reflection\vector3.reflection.gen.h"
@@ -32,14 +26,8 @@ namespace Reflection{
     void TypeMetaRegister::Register(){
     TypeWrappersRegister::TransformComponent();
     TypeWrappersRegister::RigidBodyComponent();
-    TypeWrappersRegister::PBRMaterial();
-    TypeWrappersRegister::Texture2D();
-    TypeWrappersRegister::ModelComponent();
-    TypeWrappersRegister::TextureCube();
-    TypeWrappersRegister::Material();
     TypeWrappersRegister::PointLightComponent();
     TypeWrappersRegister::NameComponent();
-    TypeWrappersRegister::Mesh();
     TypeWrappersRegister::Quaternion();
     TypeWrappersRegister::DirectionLightComponent();
     TypeWrappersRegister::Vector3();

@@ -30,7 +30,6 @@ layout(set = 1, binding = 0) uniform sampler2D bindlessTextures[];
 
 #include "ssrm_lib.glsl"
 
-// 4. RTGI 光追求交函数 (保留在主文件，因为依赖 topLevelAS 和 bindlessTextures)
 vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
     rayQueryEXT rayQuery;
     uint rayFlags = gl_RayFlagsOpaqueEXT;
@@ -50,19 +49,67 @@ vec3 TraceGlobalIlluminationRay(vec3 origin, vec3 direction, inout uint seed) {
         uint i2 = indices.iData[primID * 3 + 2];
         VertexBuffer verts = VertexBuffer(desc.vertexBuffer);
         
-        // 采样命中点的反照率 (仅做一次反弹，不进行二次光源计算以节省性能)
+        
         vec2 uv0 = vec2(verts.vData[i0 * 8 + 6], verts.vData[i0 * 8 + 7]);
         vec2 uv1 = vec2(verts.vData[i1 * 8 + 6], verts.vData[i1 * 8 + 7]);
         vec2 uv2 = vec2(verts.vData[i2 * 8 + 6], verts.vData[i2 * 8 + 7]);
         vec2 hitUV = uv0 * (1.0 - bary.x - bary.y) + uv1 * bary.x + uv2 * bary.y;
-        vec3 hitAlbedo = texture(bindlessTextures[nonuniformEXT(desc.textureOffset)], hitUV).rgb;
+        vec3 hitAlbedo = vec3(1.0);
+        float hitMetallic = 0.0;
+        float hitRoughness = 1.0;
+        if (desc.materialCount > 0u && desc.materialBuffer != 0ul && desc.primitiveMaterialIdBuffer != 0ul) {
+            PrimitiveMaterialIdBuffer primMatIds = PrimitiveMaterialIdBuffer(desc.primitiveMaterialIdBuffer);
+            MaterialBuffer materials = MaterialBuffer(desc.materialBuffer);
+            uint materialId = min(primMatIds.materialId[primID], desc.materialCount - 1u);
+            Material hitMaterial = materials.m[materialId];
+            hitAlbedo = hitMaterial.baseColorFactor.rgb;
+            hitMetallic = hitMaterial.metallicFactor;
+            hitRoughness = hitMaterial.roughnessFactor;
+            if (hitMaterial.albedoTex >= 0) {
+                hitAlbedo *= texture(bindlessTextures[nonuniformEXT(hitMaterial.albedoTex)], hitUV).rgb;
+            }
+            if (hitMaterial.ormTex >= 0) {
+                vec3 orm = texture(bindlessTextures[nonuniformEXT(hitMaterial.ormTex)], hitUV).rgb;
+                hitRoughness *= orm.g;
+                hitMetallic *= orm.b;
+            }
+        }
+        hitMetallic = clamp(hitMetallic, 0.0, 1.0);
+        hitRoughness = clamp(hitRoughness, 0.05, 1.0);
         
-        // 极简的二次光照估计 (环境光)
-        vec3 bouncedLight = hitAlbedo * pc.frameData.frame.lightColor * pc.frameData.frame.lightIntensity * 0.5;
+        vec3 bounceDiffuse = hitAlbedo * (1.0 - hitMetallic);
+        float roughnessAtten = 1.0 - 0.5 * hitRoughness;
+        vec3 bouncedLight = bounceDiffuse * pc.frameData.frame.lightColor * pc.frameData.frame.lightIntensity * 0.5 * roughnessAtten;
         return bouncedLight;
     }
     
     return mix(vec3(0.1, 0.2, 0.3), vec3(0.01, 0.02, 0.05), direction.y * 0.5 + 0.5); // Skybox Fallback
+}
+
+vec3 ComputeGeometricNormal(vec3 worldPos, vec3 shadingNormal) {
+    vec3 dpdx = dFdx(worldPos);
+    vec3 dpdy = dFdy(worldPos);
+    vec3 geomNormal = normalize(cross(dpdx, dpdy));
+    if (dot(geomNormal, shadingNormal) < 0.0) {
+        geomNormal = -geomNormal;
+    }
+    return geomNormal;
+}
+
+vec3 StabilizeShadingNormal(vec3 shadingNormal, vec3 geomNormal) {
+    vec3 n = normalize(shadingNormal);
+    if (dot(n, geomNormal) < 0.0) {
+        n = -n;
+    }
+    return n;
+}
+
+float ApplySpecularAA(vec3 normalWS, float roughness) {
+    vec3 dndx = dFdx(normalWS);
+    vec3 dndy = dFdy(normalWS);
+    float variance = max(dot(dndx, dndx), dot(dndy, dndy));
+    float aa = clamp(variance, 0.0, 1.0);
+    return clamp(sqrt(roughness * roughness + aa), 0.05, 1.0);
 }
 
 void main() {
@@ -74,7 +121,6 @@ void main() {
         return;
     }
 
-    // --- G-Buffer 解析 ---
     vec4 albedoMetallic = texture(samplerAlbedoMetallic, inUV);
     vec4 normalRoughness = texture(samplerNormalRoughness, inUV);
     vec3 albedo = albedoMetallic.rgb; 
@@ -82,31 +128,33 @@ void main() {
     vec3 normal = normalize(normalRoughness.rgb + vec3(0.0001));
     float roughness = clamp(normalRoughness.a, 0.05, 1.0); 
 
-    vec3 worldPos = ReconstructWorldPos(inUV, depth, pc.frameData.frame.invViewProj);
+    // GBuffer depth is generated from jittered clip-space position in geometry pass.
+    // Undo jitter in UV before reconstructing world position with unjittered invViewProj.
+    vec2 unjitteredUV = inUV - pc.frameData.frame.jitter * 0.5;
+    vec3 worldPos = ReconstructWorldPos(unjitteredUV, depth, pc.frameData.frame.invViewProj);
     vec3 viewDir = normalize(pc.frameData.frame.cameraPos - worldPos);
+    vec3 geomNormal = ComputeGeometricNormal(worldPos, normal);
 
-    // --- 光线追踪公共变量准备 ---
-    uint baseSeed = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + pc.frameData.frame.frameIndex * 26699u;
-    vec3 rayOrigin = worldPos + normal * 0.05;
-    float tMin = 0.001;     
+    uint baseSeed = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u;
+    uint giBaseSeed = baseSeed + pc.frameData.frame.frameIndex * 26699u;
+    float rayBias = 0.002;
+    vec3 rayOrigin = worldPos + geomNormal * rayBias;
+    float tMin = rayBias;     
     uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    uint shadowRayFlags = rayFlags | gl_RayFlagsCullBackFacingTrianglesEXT;
 
-    // =================================================================
-    // 阶段 A: 直接光照计算 (Direct Lighting)
-    // =================================================================
     vec3 finalDirectLight = vec3(0.0);
     vec3 mainLightDir = normalize(pc.frameData.frame.lightDir);
     
     float shadow = 1.0; 
-    
-    // [变体控制]: 是否计算主光源软阴影
+
     if (SHADOW_QUALITY == 1) {
-        float lightRadius = 0.05; 
+        float lightRadius = 0.03; 
         vec3 lightUp = abs(mainLightDir.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
         vec3 lightRight = normalize(cross(lightUp, mainLightDir));
         lightUp = cross(mainLightDir, lightRight);
 
-        int NUM_SAMPLES = 4;
+        int NUM_SAMPLES = 8;
         float shadowSum = 0.0; 
         float baseAngle = rand(baseSeed) * 2.0 * 3.14159265;
         
@@ -116,23 +164,31 @@ void main() {
             vec2 diskOffset = vec2(r * cos(theta), r * sin(theta));
             vec3 jitteredRayDir = normalize(mainLightDir + lightRight * diskOffset.x + lightUp * diskOffset.y);
 
+            float ndotlShadow = abs(dot(geomNormal, jitteredRayDir));
+            float shadowBias = mix(0.004, 0.0005, ndotlShadow);
+            vec3 shadowOrigin = worldPos + geomNormal * shadowBias + jitteredRayDir * (shadowBias * 0.2);
+
             rayQueryEXT rayQuery;
-            rayQueryInitializeEXT(rayQuery, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, jitteredRayDir, 1000.0);
+            rayQueryInitializeEXT(rayQuery, topLevelAS, shadowRayFlags, 0xFF, shadowOrigin, shadowBias, jitteredRayDir, 1000.0);
             while(rayQueryProceedEXT(rayQuery)) {}
             if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
                 shadowSum += 1.0;
             }
         }
-        shadow = pow(shadowSum / float(NUM_SAMPLES), 2.0);
+        shadow = shadowSum / float(NUM_SAMPLES);
     } else if(SHADOW_QUALITY == 0){
+        float ndotlShadow = abs(dot(geomNormal, mainLightDir));
+        float shadowBias = mix(0.004, 0.0005, ndotlShadow);
+        vec3 shadowOrigin = worldPos + geomNormal * shadowBias + mainLightDir * (shadowBias * 0.2);
+
         rayQueryEXT rayQuery;
-        rayQueryInitializeEXT(rayQuery, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, mainLightDir, 1000.0);
+        rayQueryInitializeEXT(rayQuery, topLevelAS, shadowRayFlags, 0xFF, shadowOrigin, shadowBias, mainLightDir, 1000.0);
         while(rayQueryProceedEXT(rayQuery)) {}
         
         if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-            shadow = 0.0; // 被遮挡就是纯黑
+            shadow = 0.0; 
         } else {
-            shadow = 1.0; // 没被遮挡就是纯亮
+            shadow = 1.0; 
         }
     }
 
@@ -140,7 +196,6 @@ void main() {
     vec3 mainBrdf = CalculateBRDF(normal, viewDir, mainLightDir, albedo, metallic, roughness, NdotL_main);
     finalDirectLight += mainBrdf * pc.frameData.frame.lightColor * pc.frameData.frame.lightIntensity * NdotL_main * shadow;
 
-    // --- 点光源计算 ---
     if (pc.pointLightsAddr != 0 && pc.pointLightCount > 0) {
         PointLightBuffer plBuf = PointLightBuffer(pc.pointLightsAddr);
         
@@ -159,13 +214,19 @@ void main() {
 
                 float falloff = CalculatePointLightFalloff(distance, radius);
 
+                const bool ENABLE_POINT_LIGHT_SHADOWS = false;
                 float plShadow = 1.0;
-                
-                rayQueryEXT rq;
-                rayQueryInitializeEXT(rq, topLevelAS, rayFlags, 0xFF, rayOrigin, tMin, L, distance);
-                while(rayQueryProceedEXT(rq)) {}
-                if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-                    plShadow = 0.0;
+                if (ENABLE_POINT_LIGHT_SHADOWS) {
+                    float ndotlShadow = abs(dot(geomNormal, L));
+                    float shadowBias = mix(0.004, 0.0005, ndotlShadow);
+                    vec3 shadowOrigin = worldPos + geomNormal * shadowBias + L * (shadowBias * 0.2);
+
+                    rayQueryEXT rq;
+                    rayQueryInitializeEXT(rq, topLevelAS, shadowRayFlags, 0xFF, shadowOrigin, shadowBias, L, distance);
+                    while(rayQueryProceedEXT(rq)) {}
+                    if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+                        plShadow = 0.0;
+                    }
                 }
 
                 float NdotL_pl;
@@ -188,7 +249,7 @@ void main() {
 
     int numGisamples = 1; 
     vec3 giSum = vec3(0.0);
-    uint giSeed = baseSeed + pc.frameData.frame.frameIndex * 161803u; 
+    uint giSeed = giBaseSeed + pc.frameData.frame.frameIndex * 161803u; 
 
     if (GI_QUALITY_LEVEL == 2) {
         // 2 level RTGI
@@ -217,7 +278,7 @@ void main() {
         vec3 giDirection = normalize(tbn_hemisphere * localDir);
 
         float hitMask = 0.0;
-        vec3 hitColor = ScreenSpaceRayMarch(worldPos + normal * 0.05, giDirection, hitMask);
+        vec3 hitColor = ScreenSpaceRayMarch(worldPos + geomNormal * rayBias, giDirection, hitMask);
 
         if (hitMask > 0.5) {
             indirectLight = hitColor * albedo * pc.frameData.frame.lightColor * sqrt(pc.frameData.frame.lightIntensity) * 0.05;
@@ -226,7 +287,6 @@ void main() {
         }
 
     } else {
-        // --- 级别 0: 关闭动态 GI (仅环境光) ---
         indirectLight = albedo * 0.01;
     }
     
@@ -239,3 +299,5 @@ void main() {
 
     outNoisyGI = vec4(indirectLight, 1.0);
 }
+
+

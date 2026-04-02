@@ -83,7 +83,7 @@ vec3 PerturbNormal(vec3 worldNormal, vec3 worldPos, vec2 uv, vec3 normalMapSampl
 
 void main() {
     MaterialBuffer matBuf = MaterialBuffer(pc.matBuf);
-    uint localMatID = fragMatID - pc.textureOffset; 
+    uint localMatID = fragMatID; 
     Material mat = matBuf.m[localMatID];
 
     vec4 albedo = mat.baseColorFactor;
@@ -97,7 +97,8 @@ void main() {
     
     if (mat.ormTex >= 0) {
         vec3 orm = texture(GlobalTextures[nonuniformEXT(mat.ormTex)], fragUV).rgb;
-        ao = orm.r;              // R :AO
+        // Keep AO disabled for now. Many imported "ORM" textures here are actually MR-only
+        // (R channel undefined), which can black out the whole scene if used as AO directly.
         roughness *= orm.g;      // G :Roughness
         metallic *= orm.b;       // B :Metallic
     }
@@ -108,11 +109,19 @@ void main() {
         finalNormal = PerturbNormal(finalNormal, fragWorldPos, fragUV, normalMapSample);
     }
 
-    vec2 currentNDC = fragCurrentPosClip.xy / fragCurrentPosClip.w;
-    vec2 prevNDC = fragPrevPosClip.xy / fragPrevPosClip.w;
-    vec2 currentUV = currentNDC * 0.5 + 0.5;
-    vec2 prevUV = prevNDC * 0.5 + 0.5;
-    outVelocity = currentUV - prevUV;
+    vec2 velocity = vec2(0.0);
+    if (abs(fragCurrentPosClip.w) > 1e-6 && abs(fragPrevPosClip.w) > 1e-6) {
+        vec2 currentNDC = fragCurrentPosClip.xy / fragCurrentPosClip.w;
+        vec2 prevNDC = fragPrevPosClip.xy / fragPrevPosClip.w;
+        vec2 currentUV = currentNDC * 0.5 + 0.5;
+        vec2 prevUV = prevNDC * 0.5 + 0.5;
+        velocity = currentUV - prevUV;
+        velocity = clamp(velocity, vec2(-1.0), vec2(1.0));
+        if (any(isnan(velocity)) || any(isinf(velocity))) {
+            velocity = vec2(0.0);
+        }
+    }
+    outVelocity = velocity;
 
     vec3 finalAlbedo = albedo.rgb * ao;
 

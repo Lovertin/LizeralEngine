@@ -29,6 +29,8 @@ namespace Lizeral {
 
         VkExtent2D GetSwapchainExtent() const; 
 
+        uint32_t GetCurrentFrameSlot() const { return m_currentFrame; }
+
         void RecreateSwapchain(uint32_t width, uint32_t height);
         
         bool IsSwapchainOutdated() const { return m_swapchainOutdated; }

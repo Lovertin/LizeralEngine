@@ -23,6 +23,16 @@ namespace Lizeral {
         s_firstMouseInput = true;
     }
 
+    void Input::ResetState() {
+        std::memset(m_keys, 0, sizeof(m_keys));
+        std::memset(m_lastKeys, 0, sizeof(m_lastKeys));
+        std::memset(m_mouseButtons, 0, sizeof(m_mouseButtons));
+        std::memset(m_lastMouseButtons, 0, sizeof(m_lastMouseButtons));
+        m_mouseDelta = Vector2(0.0f, 0.0f);
+        m_scrollDelta = 0.0f;
+        s_firstMouseInput = true;
+    }
+
     bool Input::GetKey(Key key) {
         return m_keys[static_cast<int>(key)];
     }

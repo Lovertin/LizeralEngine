@@ -71,8 +71,13 @@ void main() {
     planes[2] = m[3] + m[1]; // Bottom
     planes[3] = m[3] - m[1]; // Top
     planes[4] = m[2];        // Near (OpenGL/Vulkan depth range handled here)
-    planes[5] = m[3] - m[2]; // Far
-    for (int i = 0; i < 6; i++) planes[i] /= length(planes[i].xyz);
+    planes[5] = m[3] - m[2]; // Far (disabled below for infinite reverse-Z stability)
+    for (int i = 0; i < 6; i++) {
+        float nlen = length(planes[i].xyz);
+        if (nlen > 1e-6) {
+            planes[i] /= nlen;
+        }
+    }
 
     bool visible = false;
     if (meshletID < pc.totalMeshlets) {
@@ -81,8 +86,11 @@ void main() {
         BoundsBuffer boundsBuf = BoundsBuffer(pc.bBuf);
         MeshletBounds bounds = boundsBuf.b[meshletID];
         
-        for (int i = 0; i < 6; i++) {
-            if (dot(planes[i].xyz, bounds.center) + planes[i].w < -bounds.radius) {
+        // Conservative culling to avoid meshlet flicker near frustum boundaries.
+        // For infinite reverse-Z projection, skip far plane culling.
+        float inflatedRadius = bounds.radius * 1.05 + 0.01;
+        for (int i = 0; i < 5; i++) {
+            if (dot(planes[i].xyz, bounds.center) + planes[i].w < -inflatedRadius) {
                 visible = false; break;
             }
         }

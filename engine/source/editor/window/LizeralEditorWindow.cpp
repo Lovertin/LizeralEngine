@@ -214,7 +214,7 @@ void LizeralEditorWindow::setupUI(){
 
 void LizeralEditorWindow::populateTestData(){
 
-    Lizeral::ResourceManager::GetInstance().SetRootPath("");
+    // Lizeral::ResourceManager::GetInstance().SetRootPath("");
 
     Lizeral::Entity camEntity = m_globalRegistry->create();
     m_globalRegistry->emplace<Lizeral::NameComponent>(camEntity, "Main Camera");

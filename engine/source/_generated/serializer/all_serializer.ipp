@@ -2,14 +2,8 @@
 #include "runtime/core/meta/serializer/serializer.h"
 #include "_generated\serializer\TransformComponent.serializer.gen.h"
 #include "_generated\serializer\RigidBodyComponent.serializer.gen.h"
-#include "_generated\serializer\PBRMaterial.serializer.gen.h"
-#include "_generated\serializer\Texture2D.serializer.gen.h"
-#include "_generated\serializer\ModelComponent.serializer.gen.h"
-#include "_generated\serializer\TextureCube.serializer.gen.h"
-#include "_generated\serializer\Material.serializer.gen.h"
 #include "_generated\serializer\PointLightComponent.serializer.gen.h"
 #include "_generated\serializer\NameComponent.serializer.gen.h"
-#include "_generated\serializer\Mesh.serializer.gen.h"
 #include "_generated\serializer\quaternion.serializer.gen.h"
 #include "_generated\serializer\DirectionalLightComponent.serializer.gen.h"
 #include "_generated\serializer\vector3.serializer.gen.h"
@@ -85,142 +79,6 @@ namespace Lizeral{
         return instance;
     }
     template<>
-    inline PJson PSerializer::write(const PBRMaterial& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Material*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        ret_context.insert_or_assign("Albedo", PSerializer::write(instance.m_Albedo));
-        ret_context.insert_or_assign("Metallic", PSerializer::write(instance.m_Metallic));
-        ret_context.insert_or_assign("Roughness", PSerializer::write(instance.m_Roughness));
-        ret_context.insert_or_assign("AO", PSerializer::write(instance.m_AO));
-        ret_context.insert_or_assign("AlbedoMapPath", PSerializer::write(instance.m_AlbedoMapPath));
-        ret_context.insert_or_assign("IrradianceMapPath", PSerializer::write(instance.m_IrradianceMapPath));
-        ret_context.insert_or_assign("PrefilterMapPath", PSerializer::write(instance.m_PrefilterMapPath));
-        return  PJson(ret_context);
-    }
-    template<>
-    inline PBRMaterial& PSerializer::read(const PJson& json_context, PBRMaterial& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Material*)&instance);
-        if(!json_context["Albedo"].is_null()){
-            PSerializer::read(json_context["Albedo"], instance.m_Albedo);
-        }
-        if(!json_context["Metallic"].is_null()){
-            PSerializer::read(json_context["Metallic"], instance.m_Metallic);
-        }
-        if(!json_context["Roughness"].is_null()){
-            PSerializer::read(json_context["Roughness"], instance.m_Roughness);
-        }
-        if(!json_context["AO"].is_null()){
-            PSerializer::read(json_context["AO"], instance.m_AO);
-        }
-        if(!json_context["AlbedoMapPath"].is_null()){
-            PSerializer::read(json_context["AlbedoMapPath"], instance.m_AlbedoMapPath);
-        }
-        if(!json_context["IrradianceMapPath"].is_null()){
-            PSerializer::read(json_context["IrradianceMapPath"], instance.m_IrradianceMapPath);
-        }
-        if(!json_context["PrefilterMapPath"].is_null()){
-            PSerializer::read(json_context["PrefilterMapPath"], instance.m_PrefilterMapPath);
-        }
-        return instance;
-    }
-    template<>
-    inline PJson PSerializer::write(const Texture2D& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        ret_context.insert_or_assign("Path", PSerializer::write(instance.m_Path));
-        return  PJson(ret_context);
-    }
-    template<>
-    inline Texture2D& PSerializer::read(const PJson& json_context, Texture2D& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
-        if(!json_context["Path"].is_null()){
-            PSerializer::read(json_context["Path"], instance.m_Path);
-        }
-        return instance;
-    }
-    template<>
-    inline PJson PSerializer::write(const ModelComponent& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        ret_context.insert_or_assign("ModelPath", PSerializer::write(instance.m_ModelPath));
-        PJson::array m_OverrideMaterialPaths_json;
-        for (auto& item : instance.m_OverrideMaterialPaths){
-            m_OverrideMaterialPaths_json.emplace_back(PSerializer::write(item));
-        }
-        ret_context.insert_or_assign("OverrideMaterialPaths",m_OverrideMaterialPaths_json);
-        
-        ret_context.insert_or_assign("UseGlobalMaterial", PSerializer::write(instance.m_UseGlobalMaterial));
-        return  PJson(ret_context);
-    }
-    template<>
-    inline ModelComponent& PSerializer::read(const PJson& json_context, ModelComponent& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Component*)&instance);
-        if(!json_context["ModelPath"].is_null()){
-            PSerializer::read(json_context["ModelPath"], instance.m_ModelPath);
-        }
-        if(!json_context["OverrideMaterialPaths"].is_null()){
-            assert(json_context["OverrideMaterialPaths"].is_array());
-            PJson::array array_m_OverrideMaterialPaths = json_context["OverrideMaterialPaths"].array_items();
-            instance.m_OverrideMaterialPaths.resize(array_m_OverrideMaterialPaths.size());
-            for (size_t index=0; index < array_m_OverrideMaterialPaths.size();++index){
-                PSerializer::read(array_m_OverrideMaterialPaths[index], instance.m_OverrideMaterialPaths[index]);
-            }
-        }
-        if(!json_context["UseGlobalMaterial"].is_null()){
-            PSerializer::read(json_context["UseGlobalMaterial"], instance.m_UseGlobalMaterial);
-        }
-        return instance;
-    }
-    template<>
-    inline PJson PSerializer::write(const TextureCube& instance){
-        PJson::object  ret_context;
-        auto&&  json_context_0 = PSerializer::write(*(Lizeral::Resource*)&instance);
-        assert(json_context_0.is_object());
-        auto&& json_context_map_0 = json_context_0.object_items();
-        ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
-        
-        return  PJson(ret_context);
-    }
-    template<>
-    inline TextureCube& PSerializer::read(const PJson& json_context, TextureCube& instance){
-        assert(json_context.is_object());
-        PSerializer::read(json_context,*(Lizeral::Resource*)&instance);
-        
-        return instance;
-    }
-    template<>
-    inline PJson PSerializer::write(const Material& instance){
-        PJson::object  ret_context;
-        
-        ret_context.insert_or_assign("VertShaderPath", PSerializer::write(instance.m_VertShaderPath));
-        ret_context.insert_or_assign("FragShaderPath", PSerializer::write(instance.m_FragShaderPath));
-        return  PJson(ret_context);
-    }
-    template<>
-    inline Material& PSerializer::read(const PJson& json_context, Material& instance){
-        assert(json_context.is_object());
-        
-        if(!json_context["VertShaderPath"].is_null()){
-            PSerializer::read(json_context["VertShaderPath"], instance.m_VertShaderPath);
-        }
-        if(!json_context["FragShaderPath"].is_null()){
-            PSerializer::read(json_context["FragShaderPath"], instance.m_FragShaderPath);
-        }
-        return instance;
-    }
-    template<>
     inline PJson PSerializer::write(const PointLightComponent& instance){
         PJson::object  ret_context;
         auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
@@ -264,20 +122,6 @@ namespace Lizeral{
         if(!json_context["name"].is_null()){
             PSerializer::read(json_context["name"], instance.m_name);
         }
-        return instance;
-    }
-    template<>
-    inline PJson PSerializer::write(const Mesh& instance){
-        PJson::object  ret_context;
-        
-        
-        return  PJson(ret_context);
-    }
-    template<>
-    inline Mesh& PSerializer::read(const PJson& json_context, Mesh& instance){
-        assert(json_context.is_object());
-        
-        
         return instance;
     }
     template<>
