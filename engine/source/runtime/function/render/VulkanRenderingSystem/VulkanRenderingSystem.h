@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace Lizeral {
 
@@ -73,6 +74,12 @@ namespace Lizeral {
 
     class VulkanRenderingSystem {
     public:
+        enum class RenderPipelinePreset : uint8_t {
+            Stable = 0,   // GI off, shadow hard
+            SSGI = 1,     // GI SSGI, shadow hard
+            RTGI = 2      // GI RTGI, shadow soft
+        };
+
         VulkanRenderingSystem() = default;
         ~VulkanRenderingSystem() {}
 
@@ -84,6 +91,8 @@ namespace Lizeral {
         void Resize(uint32_t width, uint32_t height);
         void InvalidateTemporalHistory();
         void SetViewport(int x, int y, uint32_t width, uint32_t height);
+        void SetRenderPipelinePreset(RenderPipelinePreset preset);
+        RenderPipelinePreset GetRenderPipelinePreset() const { return m_renderPreset; }
         void SetDefaultFBO(unsigned int fbo) { /* VulkanRenderer handles target */ }
 
         void WaitIdle() {
@@ -171,6 +180,13 @@ namespace Lizeral {
         bool m_firstFrame = true, m_isFirstFrameRun = true;
         Matrix4x4 m_prevViewProj;
         std::unordered_map<uint32_t, Matrix4x4> m_prevModelMats;
+        RenderPipelinePreset m_renderPreset = RenderPipelinePreset::Stable;
+
+        struct LightingProfile {
+            int32_t giQualityLevel = 0;     // 0: off, 1: SSGI, 2: RTGI
+            int32_t shadowQualityLevel = 0; // 0: hard, 1: soft
+        };
+        LightingProfile m_lightingProfile{};
 
         PFN_vkCmdDrawMeshTasksEXT m_CmdDrawMeshTasksEXT = nullptr;
         int m_viewX = 0, m_viewY = 0, m_viewW = 1280, m_viewH = 720;
@@ -188,10 +204,12 @@ namespace Lizeral {
 
         void BuildPipelines();
         void UpdateDescriptorSets();
+        void UpdateLightingAccelerationStructureDescriptor(uint32_t ping, VkAccelerationStructureKHR tlasHandle);
         VulkanModelResource& GetOrLoadModel(const std::string& path);
 
         void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspectMask);
         float CreateHaltonSequence(uint32_t index, uint32_t base);
+        LightingProfile ResolveLightingProfile(RenderPipelinePreset preset) const;
     };
 
 } // namespace Lizeral

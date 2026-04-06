@@ -40,10 +40,21 @@ namespace Lizeral {
     }
 
     void VulkanTLAS::Build(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<VkAccelerationStructureInstanceKHR>& instances, bool isUpdate) {
-        if (instances.empty()) return;
-
         VkDevice logicalDevice = m_device->GetNativeDevice();
-        uint32_t instanceCount = static_cast<uint32_t>(instances.size());
+        std::vector<VkAccelerationStructureInstanceKHR> buildInstances = instances;
+        if (buildInstances.empty()) {
+            VkAccelerationStructureInstanceKHR fallbackInstance{};
+            fallbackInstance.transform = {
+                1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f
+            };
+            fallbackInstance.mask = 0;
+            fallbackInstance.accelerationStructureReference = 0;
+            buildInstances.push_back(fallbackInstance);
+        }
+
+        uint32_t instanceCount = static_cast<uint32_t>(buildInstances.size());
         
         uint32_t idx = frameIndex % m_maxFrames;
 
@@ -65,7 +76,7 @@ namespace Lizeral {
 
         void* mappedData;
         vkMapMemory(logicalDevice, m_instanceMemory[idx], 0, sizeof(VkAccelerationStructureInstanceKHR) * instanceCount, 0, &mappedData);
-        memcpy(mappedData, instances.data(), sizeof(VkAccelerationStructureInstanceKHR) * instanceCount);
+        memcpy(mappedData, buildInstances.data(), sizeof(VkAccelerationStructureInstanceKHR) * instanceCount);
         vkUnmapMemory(logicalDevice, m_instanceMemory[idx]);
 
         VkAccelerationStructureGeometryKHR geometry{};

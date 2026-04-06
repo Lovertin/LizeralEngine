@@ -122,6 +122,7 @@ void LizeralEditorWindow::setupUI(){
     centralWidget->setStyleSheet("background-color: #1e1e1e;"); 
     QVBoxLayout* centralLayout = new QVBoxLayout(centralWidget);
     centralLayout->setContentsMargins(0, 0, 0, 0);
+    m_renderSystem.SetRenderPipelinePreset(Lizeral::VulkanRenderingSystem::RenderPipelinePreset::Stable);
 
     m_viewportWidget = new Lizeral::EngineViewportWidget(m_globalRegistry, &m_renderSystem, centralWidget);
 

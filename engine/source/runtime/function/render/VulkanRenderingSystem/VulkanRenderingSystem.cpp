@@ -13,6 +13,35 @@
 
 namespace Lizeral {
 
+    VulkanRenderingSystem::LightingProfile VulkanRenderingSystem::ResolveLightingProfile(RenderPipelinePreset preset) const {
+        switch (preset) {
+            case RenderPipelinePreset::SSGI:
+                return LightingProfile{1, 0};
+            case RenderPipelinePreset::RTGI:
+                return LightingProfile{2, 1};
+            case RenderPipelinePreset::Stable:
+            default:
+                return LightingProfile{0, 0};
+        }
+    }
+
+    void VulkanRenderingSystem::SetRenderPipelinePreset(RenderPipelinePreset preset) {
+        if (m_renderPreset == preset) return;
+
+        m_renderPreset = preset;
+        m_lightingProfile = ResolveLightingProfile(preset);
+
+        // Allow preset switch at runtime by rebuilding descriptor state and pipelines.
+        if (m_device != nullptr) {
+            VkDevice device = m_device->GetNativeDevice();
+            vkDeviceWaitIdle(device);
+            DestroyPipelines(device);
+            DestroyDescriptors(device);
+            BuildPipelines();
+            InvalidateTemporalHistory();
+        }
+    }
+
     template <typename T>
     std::unique_ptr<VulkanBuffer> VulkanRenderingSystem::CreateBDABuffer(const std::vector<T>& data) {
         if (data.empty()) return nullptr;
@@ -134,6 +163,7 @@ namespace Lizeral {
         m_renderer = renderer;
         m_width = width;
         m_height = height;
+        m_lightingProfile = ResolveLightingProfile(m_renderPreset);
 
         std::cout << "[VulkanRenderingSystem] Initializing..." << std::endl;
 
@@ -315,6 +345,26 @@ namespace Lizeral {
         m_prevModelMats.clear();
         m_isFirstFrameRun = true;
         m_firstFrame = true;
+    }
+
+    void VulkanRenderingSystem::UpdateLightingAccelerationStructureDescriptor(uint32_t ping, VkAccelerationStructureKHR tlasHandle) {
+        if (m_device == nullptr || tlasHandle == VK_NULL_HANDLE) {
+            return;
+        }
+
+        VkWriteDescriptorSetAccelerationStructureKHR asWrite{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
+        asWrite.accelerationStructureCount = 1;
+        asWrite.pAccelerationStructures = &tlasHandle;
+
+        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        write.dstSet = m_lightingSets[ping];
+        write.dstBinding = 4;
+        write.dstArrayElement = 0;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        write.descriptorCount = 1;
+        write.pNext = &asWrite;
+
+        vkUpdateDescriptorSets(m_device->GetNativeDevice(), 1, &write, 0, nullptr);
     }
 
     void VulkanRenderingSystem::SetViewport(int x, int y, uint32_t width, uint32_t height) {
@@ -622,12 +672,9 @@ namespace Lizeral {
             .Build(m_device, { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16_SFLOAT }, VK_FORMAT_D32_SFLOAT); 
 
 
-        // Specialization constants.
-        // Editor default profile: stability first. Keep GI disabled by default.
-        // Future DLC path can re-enable SSGI/RTGI via profile switch.
         LightingSpecializationData specData{};
-        specData.giQualityLevel = 0; // GI (0: off, 1: SSGI, 2: RTGI)
-        specData.shadowQualityLevel = 0;  // shadow (0: hard, 1: soft)
+        specData.giQualityLevel = m_lightingProfile.giQualityLevel;
+        specData.shadowQualityLevel = m_lightingProfile.shadowQualityLevel;
 
         VkSpecializationMapEntry specEntries[2] = {};
         // layout(constant_id = 0) const int GI_QUALITY_LEVEL;
@@ -792,7 +839,7 @@ namespace Lizeral {
         viewportState.viewportCount = 1; viewportState.scissorCount = 1;
 
         VkPipelineRasterizationStateCreateInfo rasterizer{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-        rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f; 
         rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
@@ -989,21 +1036,7 @@ namespace Lizeral {
 
         // hot swap Descriptor
         VkAccelerationStructureKHR currentTlas = m_tlas->GetHandle(ping);
-        if (currentTlas != VK_NULL_HANDLE) {
-            VkWriteDescriptorSetAccelerationStructureKHR asWrite{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
-            asWrite.accelerationStructureCount = 1; 
-            asWrite.pAccelerationStructures = &currentTlas;
-
-            VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-            write.dstSet = m_lightingSets[ping]; 
-            write.dstBinding = 4; 
-            write.dstArrayElement = 0;
-            write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-            write.descriptorCount = 1; 
-            write.pNext = &asWrite;
-            
-            vkUpdateDescriptorSets(m_device->GetNativeDevice(), 1, &write, 0, nullptr);
-        }
+        UpdateLightingAccelerationStructureDescriptor(ping, currentTlas);
 
         //  G-Buffer Pass
         VkImageLayout currentLayout = m_firstFrame ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1250,6 +1283,9 @@ namespace Lizeral {
                 lightWrites[b].pImageInfo = &gInfos[b];
             }
             vkUpdateDescriptorSets(device, 4, lightWrites, 0, nullptr);
+            if (m_tlas) {
+                UpdateLightingAccelerationStructureDescriptor(ping, m_tlas->GetHandle(ping));
+            }
 
             // SVGF Temporal Pass Sets
             VkDescriptorImageInfo temporalInfos[6] = {

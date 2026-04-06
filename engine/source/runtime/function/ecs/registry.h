@@ -6,6 +6,8 @@
 #include <typeindex>
 #include <memory>
 #include <algorithm>
+#include <limits>
+#include <tuple>
 
 namespace Lizeral {
 
@@ -29,6 +31,28 @@ namespace Lizeral {
             return static_cast<Pool<T>*>(m_pools[type].get());
         }
 
+        template<typename T>
+        Pool<T>* try_get_pool() {
+            std::type_index type = std::type_index(typeid(T));
+            auto it = m_pools.find(type);
+            if (it == m_pools.end()) {
+                return nullptr;
+            }
+
+            return static_cast<Pool<T>*>(it->second.get());
+        }
+
+        template<typename T>
+        const Pool<T>* try_get_pool() const {
+            std::type_index type = std::type_index(typeid(T));
+            auto it = m_pools.find(type);
+            if (it == m_pools.end()) {
+                return nullptr;
+            }
+
+            return static_cast<const Pool<T>*>(it->second.get());
+        }
+
         template<typename T, typename... Args>
         T& emplace(Entity entity, Args&&... args) {
             return get_pool<T>()->emplace(entity, std::forward<Args>(args)...);
@@ -36,17 +60,36 @@ namespace Lizeral {
 
         template<typename T>
         T& get(Entity entity) {
-            return get_pool<T>()->get(entity);
+            auto* pool = try_get_pool<T>();
+            assert(pool && "Component pool does not exist.");
+            return pool->get(entity);
+        }
+
+        template<typename T>
+        const T& get(Entity entity) const {
+            auto* pool = try_get_pool<T>();
+            assert(pool && "Component pool does not exist.");
+            return pool->get(entity);
         }
 
         template<typename T>
         bool has(Entity entity) {
-            return get_pool<T>()->has(entity);
+            auto* pool = try_get_pool<T>();
+            return pool && pool->has(entity);
+        }
+
+        template<typename T>
+        bool has(Entity entity) const {
+            auto* pool = try_get_pool<T>();
+            return pool && pool->has(entity);
         }
 
         template<typename T>
         void remove(Entity entity) {
-            get_pool<T>()->remove(entity);
+            auto* pool = try_get_pool<T>();
+            if (pool) {
+                pool->remove(entity);
+            }
         }
 
         void destroy(Entity entity) {
@@ -68,8 +111,30 @@ namespace Lizeral {
 
         template<typename... Components>
         View<Components...> view() {
-            auto* pool = get_pool<std::tuple_element_t<0, std::tuple<Components...>>>();
-            return View<Components...>(this, &pool->get_entities());
+            static const std::vector<Entity> empty_entities;
+
+            const std::vector<Entity>* smallest_pool_entities = &empty_entities;
+            size_t smallest_pool_size = std::numeric_limits<size_t>::max();
+            bool has_missing_pool = false;
+
+            ([&] {
+                auto* pool = try_get_pool<Components>();
+                if (!pool) {
+                    has_missing_pool = true;
+                    return;
+                }
+
+                if (pool->size() < smallest_pool_size) {
+                    smallest_pool_size = pool->size();
+                    smallest_pool_entities = &pool->get_entities();
+                }
+            }(), ...);
+
+            if (has_missing_pool) {
+                return View<Components...>(this, &empty_entities);
+            }
+
+            return View<Components...>(this, smallest_pool_entities);
         }
     };
     
