@@ -3,9 +3,9 @@
 #include "runtime/core/meta/reflection/reflection.h"
 
 namespace Lizeral {
-    class Resource {
+    class ResourceAsset {
     public:
-        virtual ~Resource() = default;
+        virtual ~ResourceAsset() = default;
 
         const std::string& GetPath() const { return m_path; }
         void SetPath(const std::string& path) { m_path = path; }

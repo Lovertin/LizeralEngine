@@ -228,6 +228,180 @@ namespace Lizeral{
         return instance;
     }
     template<>
+    inline PJson PSerializer::write(const Resource::MaterialFactors& instance){
+        PJson::object ret_context;
+        PJson::array baseColor;
+        for (int i = 0; i < 4; ++i) {
+            baseColor.emplace_back(PSerializer::write(instance.baseColorFactor[i]));
+        }
+        PJson::array emissive;
+        for (int i = 0; i < 3; ++i) {
+            emissive.emplace_back(PSerializer::write(instance.emissiveFactor[i]));
+        }
+        ret_context.insert_or_assign("baseColorFactor", PJson(baseColor));
+        ret_context.insert_or_assign("metallicFactor", PSerializer::write(instance.metallicFactor));
+        ret_context.insert_or_assign("roughnessFactor", PSerializer::write(instance.roughnessFactor));
+        ret_context.insert_or_assign("emissiveFactor", PJson(emissive));
+        return PJson(ret_context);
+    }
+    template<>
+    inline Resource::MaterialFactors& PSerializer::read(const PJson& json_context, Resource::MaterialFactors& instance){
+        assert(json_context.is_object());
+        if (json_context["baseColorFactor"].is_array()) {
+            PJson::array items = json_context["baseColorFactor"].array_items();
+            for (size_t index = 0; index < items.size() && index < 4; ++index) {
+                PSerializer::read(items[index], instance.baseColorFactor[index]);
+            }
+        }
+        if (!json_context["metallicFactor"].is_null()) {
+            PSerializer::read(json_context["metallicFactor"], instance.metallicFactor);
+        }
+        if (!json_context["roughnessFactor"].is_null()) {
+            PSerializer::read(json_context["roughnessFactor"], instance.roughnessFactor);
+        }
+        if (json_context["emissiveFactor"].is_array()) {
+            PJson::array items = json_context["emissiveFactor"].array_items();
+            for (size_t index = 0; index < items.size() && index < 3; ++index) {
+                PSerializer::read(items[index], instance.emissiveFactor[index]);
+            }
+        }
+        return instance;
+    }
+    template<>
+    inline PJson PSerializer::write(const Resource::MaterialTextureSlots& instance){
+        PJson::object ret_context;
+        ret_context.insert_or_assign("albedoTex", PSerializer::write(instance.albedoTex));
+        ret_context.insert_or_assign("normalTex", PSerializer::write(instance.normalTex));
+        ret_context.insert_or_assign("ormTex", PSerializer::write(instance.ormTex));
+        ret_context.insert_or_assign("emissiveTex", PSerializer::write(instance.emissiveTex));
+        return PJson(ret_context);
+    }
+    template<>
+    inline Resource::MaterialTextureSlots& PSerializer::read(const PJson& json_context, Resource::MaterialTextureSlots& instance){
+        assert(json_context.is_object());
+        if (!json_context["albedoTex"].is_null()) {
+            PSerializer::read(json_context["albedoTex"], instance.albedoTex);
+        }
+        if (!json_context["normalTex"].is_null()) {
+            PSerializer::read(json_context["normalTex"], instance.normalTex);
+        }
+        if (!json_context["ormTex"].is_null()) {
+            PSerializer::read(json_context["ormTex"], instance.ormTex);
+        }
+        if (!json_context["emissiveTex"].is_null()) {
+            PSerializer::read(json_context["emissiveTex"], instance.emissiveTex);
+        }
+        return instance;
+    }
+    template<>
+    inline PJson PSerializer::write(const Resource::MaterialInstance& instance){
+        PJson::object ret_context;
+        ret_context.insert_or_assign("baseMaterialIndex", PSerializer::write(instance.baseMaterialIndex));
+        ret_context.insert_or_assign("overrideMask", PSerializer::write(instance.overrideMask));
+        ret_context.insert_or_assign("factors", PSerializer::write(instance.factors));
+        ret_context.insert_or_assign("textures", PSerializer::write(instance.textures));
+        return PJson(ret_context);
+    }
+    template<>
+    inline Resource::MaterialInstance& PSerializer::read(const PJson& json_context, Resource::MaterialInstance& instance){
+        assert(json_context.is_object());
+        if (!json_context["baseMaterialIndex"].is_null()) {
+            PSerializer::read(json_context["baseMaterialIndex"], instance.baseMaterialIndex);
+        }
+        if (!json_context["overrideMask"].is_null()) {
+            PSerializer::read(json_context["overrideMask"], instance.overrideMask);
+        }
+        if (!json_context["factors"].is_null()) {
+            PSerializer::read(json_context["factors"], instance.factors);
+        }
+        if (!json_context["textures"].is_null()) {
+            PSerializer::read(json_context["textures"], instance.textures);
+        }
+        return instance;
+    }
+    template<>
+    inline PJson PSerializer::write(const VulkanTextureOverrideSet& instance){
+        PJson::object ret_context;
+        ret_context.insert_or_assign("albedoTexturePath", PSerializer::write(instance.albedoTexturePath));
+        ret_context.insert_or_assign("normalTexturePath", PSerializer::write(instance.normalTexturePath));
+        ret_context.insert_or_assign("ormTexturePath", PSerializer::write(instance.ormTexturePath));
+        ret_context.insert_or_assign("emissiveTexturePath", PSerializer::write(instance.emissiveTexturePath));
+        return PJson(ret_context);
+    }
+    template<>
+    inline VulkanTextureOverrideSet& PSerializer::read(const PJson& json_context, VulkanTextureOverrideSet& instance){
+        assert(json_context.is_object());
+        if (!json_context["albedoTexturePath"].is_null()) {
+            PSerializer::read(json_context["albedoTexturePath"], instance.albedoTexturePath);
+        }
+        if (!json_context["normalTexturePath"].is_null()) {
+            PSerializer::read(json_context["normalTexturePath"], instance.normalTexturePath);
+        }
+        if (!json_context["ormTexturePath"].is_null()) {
+            PSerializer::read(json_context["ormTexturePath"], instance.ormTexturePath);
+        }
+        if (!json_context["emissiveTexturePath"].is_null()) {
+            PSerializer::read(json_context["emissiveTexturePath"], instance.emissiveTexturePath);
+        }
+        return instance;
+    }
+    template<>
+    inline PJson PSerializer::write(const VulkanMaterialSlotOverride& instance){
+        PJson::object ret_context;
+        ret_context.insert_or_assign("meshAssetIndex", PSerializer::write(instance.meshAssetIndex));
+        ret_context.insert_or_assign("materialSlotIndex", PSerializer::write(instance.materialSlotIndex));
+        ret_context.insert_or_assign("enabled", PSerializer::write(instance.enabled));
+        ret_context.insert_or_assign("materialAssetPath", PSerializer::write(instance.materialAssetPath));
+        ret_context.insert_or_assign("materialInstance", PSerializer::write(instance.materialInstance));
+        ret_context.insert_or_assign("textureOverrides", PSerializer::write(instance.textureOverrides));
+        return PJson(ret_context);
+    }
+    template<>
+    inline VulkanMaterialSlotOverride& PSerializer::read(const PJson& json_context, VulkanMaterialSlotOverride& instance){
+        assert(json_context.is_object());
+        if (!json_context["meshAssetIndex"].is_null()) {
+            PSerializer::read(json_context["meshAssetIndex"], instance.meshAssetIndex);
+        }
+        if (!json_context["materialSlotIndex"].is_null()) {
+            PSerializer::read(json_context["materialSlotIndex"], instance.materialSlotIndex);
+        }
+        if (!json_context["enabled"].is_null()) {
+            PSerializer::read(json_context["enabled"], instance.enabled);
+        }
+        if (!json_context["materialAssetPath"].is_null()) {
+            PSerializer::read(json_context["materialAssetPath"], instance.materialAssetPath);
+        }
+        if (!json_context["materialInstance"].is_null()) {
+            PSerializer::read(json_context["materialInstance"], instance.materialInstance);
+        }
+        if (!json_context["textureOverrides"].is_null()) {
+            PSerializer::read(json_context["textureOverrides"], instance.textureOverrides);
+        }
+        return instance;
+    }
+    template<>
+    inline PJson PSerializer::write(const VulkanMeshAssetState& instance){
+        PJson::object ret_context;
+        ret_context.insert_or_assign("meshAssetIndex", PSerializer::write(instance.meshAssetIndex));
+        ret_context.insert_or_assign("visible", PSerializer::write(instance.visible));
+        ret_context.insert_or_assign("castShadow", PSerializer::write(instance.castShadow));
+        return PJson(ret_context);
+    }
+    template<>
+    inline VulkanMeshAssetState& PSerializer::read(const PJson& json_context, VulkanMeshAssetState& instance){
+        assert(json_context.is_object());
+        if (!json_context["meshAssetIndex"].is_null()) {
+            PSerializer::read(json_context["meshAssetIndex"], instance.meshAssetIndex);
+        }
+        if (!json_context["visible"].is_null()) {
+            PSerializer::read(json_context["visible"], instance.visible);
+        }
+        if (!json_context["castShadow"].is_null()) {
+            PSerializer::read(json_context["castShadow"], instance.castShadow);
+        }
+        return instance;
+    }
+    template<>
     inline PJson PSerializer::write(const VulkanModelComponent& instance){
         PJson::object  ret_context;
         auto&&  json_context_0 = PSerializer::write(*(Lizeral::Component*)&instance);
@@ -235,6 +409,19 @@ namespace Lizeral{
         auto&& json_context_map_0 = json_context_0.object_items();
         ret_context.insert(json_context_map_0.begin() , json_context_map_0.end());
         ret_context.insert_or_assign("ModelPath", PSerializer::write(instance.m_ModelPath));
+        ret_context.insert_or_assign("Visible", PSerializer::write(instance.m_IsVisible));
+        ret_context.insert_or_assign("CastShadow", PSerializer::write(instance.m_CastShadow));
+        ret_context.insert_or_assign("ReceiveShadow", PSerializer::write(instance.m_ReceiveShadow));
+        PJson::array materialOverrides;
+        for (const auto& item : instance.m_MaterialOverrides) {
+            materialOverrides.emplace_back(PSerializer::write(item));
+        }
+        ret_context.insert_or_assign("MaterialOverrides", PJson(materialOverrides));
+        PJson::array meshStates;
+        for (const auto& item : instance.m_MeshAssetStates) {
+            meshStates.emplace_back(PSerializer::write(item));
+        }
+        ret_context.insert_or_assign("MeshAssetStates", PJson(meshStates));
         return  PJson(ret_context);
     }
     template<>
@@ -243,6 +430,29 @@ namespace Lizeral{
         PSerializer::read(json_context,*(Lizeral::Component*)&instance);
         if(!json_context["ModelPath"].is_null()){
             PSerializer::read(json_context["ModelPath"], instance.m_ModelPath);
+        }
+        if(!json_context["Visible"].is_null()){
+            PSerializer::read(json_context["Visible"], instance.m_IsVisible);
+        }
+        if(!json_context["CastShadow"].is_null()){
+            PSerializer::read(json_context["CastShadow"], instance.m_CastShadow);
+        }
+        if(!json_context["ReceiveShadow"].is_null()){
+            PSerializer::read(json_context["ReceiveShadow"], instance.m_ReceiveShadow);
+        }
+        if (json_context["MaterialOverrides"].is_array()) {
+            PJson::array items = json_context["MaterialOverrides"].array_items();
+            instance.m_MaterialOverrides.resize(items.size());
+            for (size_t index = 0; index < items.size(); ++index) {
+                PSerializer::read(items[index], instance.m_MaterialOverrides[index]);
+            }
+        }
+        if (json_context["MeshAssetStates"].is_array()) {
+            PJson::array items = json_context["MeshAssetStates"].array_items();
+            instance.m_MeshAssetStates.resize(items.size());
+            for (size_t index = 0; index < items.size(); ++index) {
+                PSerializer::read(items[index], instance.m_MeshAssetStates[index]);
+            }
         }
         return instance;
     }

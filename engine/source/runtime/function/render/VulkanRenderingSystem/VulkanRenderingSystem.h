@@ -23,6 +23,9 @@
 
 namespace Lizeral {
 
+    class VulkanModelComponent;
+    struct VulkanMaterialSlotOverride;
+
     struct GBufferAttachment {
         VkImage image = VK_NULL_HANDLE;
         VmaAllocation allocation = VK_NULL_HANDLE;
@@ -169,7 +172,16 @@ namespace Lizeral {
         std::unordered_map<std::string, VulkanModelResource> m_modelCache;
         std::vector<std::unique_ptr<VulkanTexture>> m_globalTextures;
         std::vector<VkDescriptorImageInfo> m_globalImageInfos;
+        std::unordered_map<std::string, uint32_t> m_globalTexturePathCache;
         VulkanFrameResource m_frameResource;
+
+        struct OverrideMaterialBufferCacheEntry {
+            std::string modelAssetPath;
+            uint32_t componentRevision = 0;
+            std::unique_ptr<VulkanBuffer> materialBuffer;
+            uint64_t materialBufferAddress = 0;
+        };
+        std::unordered_map<uint32_t, OverrideMaterialBufferCacheEntry> m_overrideMaterialBuffers;
 
         std::unique_ptr<VulkanBuffer> m_rtInstanceBuffer;
         std::unique_ptr<VulkanBuffer> m_globalInstanceBuffer;
@@ -206,6 +218,10 @@ namespace Lizeral {
         void UpdateDescriptorSets();
         void UpdateLightingAccelerationStructureDescriptor(uint32_t ping, VkAccelerationStructureKHR tlasHandle);
         VulkanModelResource& GetOrLoadModel(const std::string& path);
+        uint32_t GetOrLoadTextureIndex(const std::string& texturePath);
+        uint64_t ResolveMaterialBufferAddress(Entity entity, const VulkanModelComponent& modelComp, const VulkanModelResource& modelResource);
+        void ApplyMaterialOverride(MaterialData& targetMaterial, const VulkanMaterialSlotOverride& overrideData);
+        void UpdateBindlessTextureDescriptor(uint32_t textureIndex);
 
         void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspectMask);
         float CreateHaltonSequence(uint32_t index, uint32_t base);

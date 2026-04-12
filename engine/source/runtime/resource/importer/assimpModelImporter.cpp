@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
@@ -68,6 +69,42 @@ namespace Lizeral::Resource {
             material->pad1 = 0;
         }
 
+        void FillNodeTransform(const aiMatrix4x4& transform, NodeTransformData* outTransform) {
+            if (!outTransform) {
+                return;
+            }
+
+            aiVector3D scaling;
+            aiQuaternion rotation;
+            aiVector3D translation;
+            transform.Decompose(scaling, rotation, translation);
+
+            outTransform->translation[0] = translation.x;
+            outTransform->translation[1] = translation.y;
+            outTransform->translation[2] = translation.z;
+
+            outTransform->rotation[0] = rotation.x;
+            outTransform->rotation[1] = rotation.y;
+            outTransform->rotation[2] = rotation.z;
+            outTransform->rotation[3] = rotation.w;
+
+            outTransform->scale[0] = scaling.x;
+            outTransform->scale[1] = scaling.y;
+            outTransform->scale[2] = scaling.z;
+        }
+
+        std::string BuildMeshDisplayName(const aiMesh* mesh, const aiNode* ownerNode, unsigned int sourceMeshIndex) {
+            if (mesh && mesh->mName.length > 0) {
+                return mesh->mName.C_Str();
+            }
+
+            if (ownerNode && ownerNode->mName.length > 0) {
+                return std::string(ownerNode->mName.C_Str()) + "_mesh_" + std::to_string(sourceMeshIndex);
+            }
+
+            return "mesh_" + std::to_string(sourceMeshIndex);
+        }
+
     } // namespace
 
     bool AssimpModelImporter::ImportModel(const std::string& sourcePath, ImportedModelData* outModel, std::string* outError) const {
@@ -80,13 +117,19 @@ namespace Lizeral::Resource {
 
         outModel->Clear();
         outModel->sourcePath = sourcePath;
+        {
+            std::filesystem::path sourceFsPath(sourcePath);
+            outModel->modelName = sourceFsPath.stem().string();
+            if (outModel->modelName.empty()) {
+                outModel->modelName = "model";
+            }
+        }
 
         Assimp::Importer importer;
         const unsigned int processFlags =
             aiProcess_Triangulate
             | aiProcess_GenNormals
-            | aiProcess_FlipUVs
-            | aiProcess_PreTransformVertices;
+            | aiProcess_FlipUVs;
 
         const aiScene* scene = importer.ReadFile(sourcePath, processFlags);
         if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !scene->mRootNode) {
@@ -149,6 +192,7 @@ namespace Lizeral::Resource {
                 }
 
                 ImportedTextureData importedTexture;
+                importedTexture.name = "embedded_" + std::to_string(embeddedIndex);
                 importedTexture.sourceTag = "embedded:" + std::to_string(embeddedIndex);
                 importedTexture.encodedBytes.assign(rawData, rawData + byteCount);
 
@@ -179,6 +223,10 @@ namespace Lizeral::Resource {
             }
 
             ImportedTextureData importedTexture;
+            importedTexture.name = candidate.stem().string();
+            if (importedTexture.name.empty()) {
+                importedTexture.name = "texture_" + std::to_string(outModel->textures.size());
+            }
             importedTexture.sourceTag = key;
             if (!ReadBinaryFile(candidate, &importedTexture.encodedBytes)) {
                 return -1;
@@ -258,54 +306,96 @@ namespace Lizeral::Resource {
             outModel->materialAssets.push_back(MakeMaterialAssetFromGpuMaterial(fallbackMaterial, "material_0"));
         }
 
+        outModel->nodes.reserve(scene->mNumMeshes + 1);
         outModel->meshes.reserve(scene->mNumMeshes);
-        for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
-            aiMesh* mesh = scene->mMeshes[meshIndex];
-            if (!mesh || mesh->mNumVertices == 0 || mesh->mNumFaces == 0) {
-                continue;
-            }
 
-            ImportedMeshData importedMesh;
-            importedMesh.materialIndex = mesh->mMaterialIndex < outModel->materials.size()
-                ? mesh->mMaterialIndex
-                : 0;
+        std::function<uint32_t(aiNode*, int32_t, const aiMatrix4x4&)> processNode =
+            [&](aiNode* node, int32_t parentNodeIndex, const aiMatrix4x4& parentTransform) -> uint32_t {
+                const uint32_t nodeIndex = static_cast<uint32_t>(outModel->nodes.size());
+                outModel->nodes.emplace_back();
 
-            importedMesh.vertices.reserve(mesh->mNumVertices);
-            for (unsigned int vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex) {
-                MeshletVertex vertex{};
-                vertex.pos[0] = mesh->mVertices[vertexIndex].x;
-                vertex.pos[1] = mesh->mVertices[vertexIndex].y;
-                vertex.pos[2] = mesh->mVertices[vertexIndex].z;
+                ModelNodeData& nodeData = outModel->nodes.back();
+                nodeData.name = (node && node->mName.length > 0) ? node->mName.C_Str() : ("node_" + std::to_string(nodeIndex));
+                nodeData.parentIndex = parentNodeIndex;
+                FillNodeTransform(node->mTransformation, &nodeData.localTransform);
 
-                if (mesh->HasNormals()) {
-                    vertex.normal[0] = mesh->mNormals[vertexIndex].x;
-                    vertex.normal[1] = mesh->mNormals[vertexIndex].y;
-                    vertex.normal[2] = mesh->mNormals[vertexIndex].z;
+                if (parentNodeIndex >= 0) {
+                    outModel->nodes[static_cast<size_t>(parentNodeIndex)].childNodeIndices.push_back(nodeIndex);
                 }
 
-                if (mesh->mTextureCoords[0]) {
-                    vertex.uv[0] = mesh->mTextureCoords[0][vertexIndex].x;
-                    vertex.uv[1] = mesh->mTextureCoords[0][vertexIndex].y;
+                const aiMatrix4x4 accumulatedTransform = parentTransform * node->mTransformation;
+                aiMatrix3x3 normalTransform(accumulatedTransform);
+                normalTransform.Inverse();
+                normalTransform.Transpose();
+
+                for (unsigned int meshRefIndex = 0; meshRefIndex < node->mNumMeshes; ++meshRefIndex) {
+                    const unsigned int sourceMeshIndex = node->mMeshes[meshRefIndex];
+                    aiMesh* mesh = scene->mMeshes[sourceMeshIndex];
+                    if (!mesh || mesh->mNumVertices == 0 || mesh->mNumFaces == 0) {
+                        continue;
+                    }
+
+                    ImportedMeshData importedMesh;
+                    importedMesh.name = BuildMeshDisplayName(mesh, node, sourceMeshIndex);
+                    importedMesh.sourceMeshIndex = sourceMeshIndex;
+                    importedMesh.nodeIndex = nodeIndex;
+                    importedMesh.materialIndex = mesh->mMaterialIndex < outModel->materials.size()
+                        ? mesh->mMaterialIndex
+                        : 0;
+
+                    importedMesh.vertices.reserve(mesh->mNumVertices);
+                    for (unsigned int vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex) {
+                        MeshletVertex vertex{};
+
+                        const aiVector3D transformedPosition = accumulatedTransform * mesh->mVertices[vertexIndex];
+                        vertex.pos[0] = transformedPosition.x;
+                        vertex.pos[1] = transformedPosition.y;
+                        vertex.pos[2] = transformedPosition.z;
+
+                        if (mesh->HasNormals()) {
+                            aiVector3D transformedNormal = normalTransform * mesh->mNormals[vertexIndex];
+                            transformedNormal.Normalize();
+                            vertex.normal[0] = transformedNormal.x;
+                            vertex.normal[1] = transformedNormal.y;
+                            vertex.normal[2] = transformedNormal.z;
+                        }
+
+                        if (mesh->mTextureCoords[0]) {
+                            vertex.uv[0] = mesh->mTextureCoords[0][vertexIndex].x;
+                            vertex.uv[1] = mesh->mTextureCoords[0][vertexIndex].y;
+                        }
+
+                        importedMesh.vertices.push_back(vertex);
+                    }
+
+                    importedMesh.indices.reserve(static_cast<size_t>(mesh->mNumFaces) * 3);
+                    for (unsigned int faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex) {
+                        const aiFace& face = mesh->mFaces[faceIndex];
+                        if (face.mNumIndices != 3) {
+                            continue;
+                        }
+
+                        importedMesh.indices.push_back(face.mIndices[0]);
+                        importedMesh.indices.push_back(face.mIndices[1]);
+                        importedMesh.indices.push_back(face.mIndices[2]);
+                    }
+
+                    if (!importedMesh.indices.empty()) {
+                        const uint32_t meshIndex = static_cast<uint32_t>(outModel->meshes.size());
+                        outModel->meshes.push_back(std::move(importedMesh));
+                        nodeData.meshIndices.push_back(meshIndex);
+                    }
                 }
 
-                importedMesh.vertices.push_back(vertex);
-            }
-
-            importedMesh.indices.reserve(static_cast<size_t>(mesh->mNumFaces) * 3);
-            for (unsigned int faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex) {
-                const aiFace& face = mesh->mFaces[faceIndex];
-                if (face.mNumIndices != 3) {
-                    continue;
+                for (unsigned int childIndex = 0; childIndex < node->mNumChildren; ++childIndex) {
+                    processNode(node->mChildren[childIndex], static_cast<int32_t>(nodeIndex), accumulatedTransform);
                 }
-                importedMesh.indices.push_back(face.mIndices[0]);
-                importedMesh.indices.push_back(face.mIndices[1]);
-                importedMesh.indices.push_back(face.mIndices[2]);
-            }
 
-            if (!importedMesh.indices.empty()) {
-                outModel->meshes.push_back(std::move(importedMesh));
-            }
-        }
+                return nodeIndex;
+            };
+
+        aiMatrix4x4 identityTransform;
+        outModel->rootNodeIndex = static_cast<int32_t>(processNode(scene->mRootNode, -1, identityTransform));
 
         if (outModel->meshes.empty()) {
             if (outError) {
@@ -315,7 +405,9 @@ namespace Lizeral::Resource {
         }
 
         std::cout
-            << "[ResourceImporter] Imported model: meshes=" << outModel->meshes.size()
+            << "[ResourceImporter] Imported model '" << outModel->modelName << "'"
+            << ": nodes=" << outModel->nodes.size()
+            << ", meshes=" << outModel->meshes.size()
             << ", materials=" << outModel->materials.size()
             << ", textures=" << outModel->textures.size()
             << std::endl;

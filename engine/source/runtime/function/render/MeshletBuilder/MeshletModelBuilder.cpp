@@ -25,6 +25,7 @@ namespace Lizeral {
         m_allTextures = std::move(runtimeModelData.allTextures);
         m_materials = std::move(runtimeModelData.materials);
         m_materialAssets = std::move(runtimeModelData.materialAssets);
+        m_meshAssets = std::move(runtimeModelData.meshAssets);
 
         std::cout << "[MeshletBuilder] SUCCESS! Meshlets=" << m_meshlets.size()
                   << ", Vertices=" << m_vertices.size()

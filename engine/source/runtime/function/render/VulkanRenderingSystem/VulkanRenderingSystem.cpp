@@ -245,6 +245,9 @@ namespace Lizeral {
 
         m_modelCache.clear();      
         m_globalTextures.clear();  
+        m_globalImageInfos.clear();
+        m_globalTexturePathCache.clear();
+        m_overrideMaterialBuffers.clear();
 
         if (m_rtInstanceBuffer) m_rtInstanceBuffer.reset();
         if (m_globalInstanceBuffer) m_globalInstanceBuffer.reset(); 
@@ -374,6 +377,154 @@ namespace Lizeral {
         m_viewH = height;
     }
 
+    void VulkanRenderingSystem::UpdateBindlessTextureDescriptor(uint32_t textureIndex) {
+        if (m_device == nullptr || m_descriptorSet == VK_NULL_HANDLE || textureIndex >= m_globalImageInfos.size()) {
+            return;
+        }
+
+        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        write.dstSet = m_descriptorSet;
+        write.dstBinding = 0;
+        write.dstArrayElement = textureIndex;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.descriptorCount = 1;
+        write.pImageInfo = &m_globalImageInfos[textureIndex];
+        vkUpdateDescriptorSets(m_device->GetNativeDevice(), 1, &write, 0, nullptr);
+    }
+
+    uint32_t VulkanRenderingSystem::GetOrLoadTextureIndex(const std::string& texturePath) {
+        if (texturePath.empty()) {
+            return static_cast<uint32_t>(-1);
+        }
+
+        auto cached = m_globalTexturePathCache.find(texturePath);
+        if (cached != m_globalTexturePathCache.end()) {
+            return cached->second;
+        }
+
+        if (m_globalTextures.size() >= 1024) {
+            throw std::runtime_error("Bindless texture array is full.");
+        }
+
+        auto texture = std::make_unique<VulkanTexture>(m_device, m_resourceCommandPool.get(), texturePath);
+
+        VkDescriptorImageInfo info{};
+        info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        info.imageView = texture->GetImageView();
+        info.sampler = texture->GetSampler();
+
+        const uint32_t textureIndex = static_cast<uint32_t>(m_globalTextures.size());
+        m_globalTextures.push_back(std::move(texture));
+        m_globalImageInfos.push_back(info);
+        m_globalTexturePathCache[texturePath] = textureIndex;
+        UpdateBindlessTextureDescriptor(textureIndex);
+        return textureIndex;
+    }
+
+    void VulkanRenderingSystem::ApplyMaterialOverride(MaterialData& targetMaterial, const VulkanMaterialSlotOverride& overrideData) {
+        const uint32_t overrideMask = overrideData.materialInstance.overrideMask;
+        if ((overrideMask & Resource::MaterialOverride_BaseColor) != 0u) {
+            for (int channel = 0; channel < 4; ++channel) {
+                targetMaterial.baseColorFactor[channel] = overrideData.materialInstance.factors.baseColorFactor[channel];
+            }
+        }
+        if ((overrideMask & Resource::MaterialOverride_Metallic) != 0u) {
+            targetMaterial.metallicFactor = overrideData.materialInstance.factors.metallicFactor;
+        }
+        if ((overrideMask & Resource::MaterialOverride_Roughness) != 0u) {
+            targetMaterial.roughnessFactor = overrideData.materialInstance.factors.roughnessFactor;
+        }
+        if ((overrideMask & Resource::MaterialOverride_AlbedoTex) != 0u) {
+            targetMaterial.albedoTex = overrideData.materialInstance.textures.albedoTex;
+        }
+        if ((overrideMask & Resource::MaterialOverride_NormalTex) != 0u) {
+            targetMaterial.normalTex = overrideData.materialInstance.textures.normalTex;
+        }
+        if ((overrideMask & Resource::MaterialOverride_OrmTex) != 0u) {
+            targetMaterial.ormTex = overrideData.materialInstance.textures.ormTex;
+        }
+        if ((overrideMask & Resource::MaterialOverride_EmissiveTex) != 0u) {
+            targetMaterial.emissiveTex = overrideData.materialInstance.textures.emissiveTex;
+        }
+
+        auto applyTexturePath = [this](const std::string& path, int* targetIndex) {
+            if (targetIndex == nullptr) {
+                return;
+            }
+
+            if (path.empty()) {
+                *targetIndex = -1;
+                return;
+            }
+
+            try {
+                *targetIndex = static_cast<int>(GetOrLoadTextureIndex(path));
+            } catch (const std::exception& exception) {
+                std::cerr << "[VulkanRenderingSystem] WARNING: Failed to load override texture '" << path
+                          << "'. Reason: " << exception.what() << std::endl;
+            }
+        };
+
+        const VulkanTextureOverrideSet& textureOverrides = overrideData.textureOverrides;
+        if (!textureOverrides.albedoTexturePath.empty()) {
+            applyTexturePath(textureOverrides.albedoTexturePath, &targetMaterial.albedoTex);
+        }
+        if (!textureOverrides.normalTexturePath.empty()) {
+            applyTexturePath(textureOverrides.normalTexturePath, &targetMaterial.normalTex);
+        }
+        if (!textureOverrides.ormTexturePath.empty()) {
+            applyTexturePath(textureOverrides.ormTexturePath, &targetMaterial.ormTex);
+        }
+        if (!textureOverrides.emissiveTexturePath.empty()) {
+            applyTexturePath(textureOverrides.emissiveTexturePath, &targetMaterial.emissiveTex);
+        }
+    }
+
+    uint64_t VulkanRenderingSystem::ResolveMaterialBufferAddress(Entity entity, const VulkanModelComponent& modelComp, const VulkanModelResource& modelResource) {
+        if (modelComp.GetMaterialOverrides().empty() || modelResource.materialsCpu.empty()) {
+            return modelResource.matAddr;
+        }
+
+        const uint32_t entityId = static_cast<uint32_t>(entity);
+        OverrideMaterialBufferCacheEntry& cacheEntry = m_overrideMaterialBuffers[entityId];
+        if (cacheEntry.componentRevision == modelComp.GetResourceRevision()
+            && cacheEntry.modelAssetPath == modelComp.getModelAssetPath()
+            && cacheEntry.materialBufferAddress != 0) {
+            return cacheEntry.materialBufferAddress;
+        }
+
+        std::vector<MaterialData> resolvedMaterials = modelResource.materialsCpu;
+        for (const VulkanMaterialSlotOverride& overrideData : modelComp.GetMaterialOverrides()) {
+            if (!overrideData.enabled || resolvedMaterials.empty()) {
+                continue;
+            }
+
+            uint32_t targetMaterialIndex = overrideData.materialSlotIndex;
+            if (overrideData.meshAssetIndex < modelResource.meshAssets.size()) {
+                targetMaterialIndex = modelResource.meshAssets[overrideData.meshAssetIndex].materialIndex;
+            }
+
+            if (targetMaterialIndex >= resolvedMaterials.size()) {
+                continue;
+            }
+
+            MaterialData targetMaterial = resolvedMaterials[targetMaterialIndex];
+            if (overrideData.materialInstance.baseMaterialIndex < resolvedMaterials.size()
+                && (overrideData.materialInstance.baseMaterialIndex != 0u || targetMaterialIndex == 0u)) {
+                targetMaterial = resolvedMaterials[overrideData.materialInstance.baseMaterialIndex];
+            }
+
+            ApplyMaterialOverride(targetMaterial, overrideData);
+            resolvedMaterials[targetMaterialIndex] = targetMaterial;
+        }
+
+        cacheEntry.materialBuffer = CreateBDABuffer(resolvedMaterials);
+        cacheEntry.materialBufferAddress = cacheEntry.materialBuffer ? cacheEntry.materialBuffer->GetDeviceAddress() : modelResource.matAddr;
+        cacheEntry.componentRevision = modelComp.GetResourceRevision();
+        cacheEntry.modelAssetPath = modelComp.getModelAssetPath();
+        return cacheEntry.materialBufferAddress;
+    }
+
     VulkanModelResource& VulkanRenderingSystem::GetOrLoadModel(const std::string& path) {
         if (m_modelCache.find(path) != m_modelCache.end()) {
             return m_modelCache[path];
@@ -404,6 +555,9 @@ namespace Lizeral {
         res.textureOffset = currentTexOffset;
         res.textureCount = static_cast<uint32_t>(builder.GetAllTextures().size());
         res.materialCount = static_cast<uint32_t>(builder.GetMaterials().size());
+        res.materialsCpu = builder.GetMaterials();
+        res.materialAssets = builder.GetMaterialAssets();
+        res.meshAssets = builder.GetMeshAssets();
 
         res.vertexBuffer   = CreateBDABuffer(builder.GetVertices());
         res.meshletBuffer  = CreateBDABuffer(builder.GetMeshlets());
@@ -996,14 +1150,15 @@ namespace Lizeral {
             auto& transform = modelView.get<TransformComponent>(entity);
             auto& modelComp = modelView.get<VulkanModelComponent>(entity);
             
-            if (modelComp.getVulkanModelPath().empty()) continue;
+            if (!modelComp.IsVisible() || !modelComp.HasModelAsset()) continue;
 
-            auto& res = GetOrLoadModel(modelComp.getVulkanModelPath());
+            auto& res = GetOrLoadModel(modelComp.getModelAssetPath());
             if (!res.IsValid() || !res.blas) continue;
+            const uint64_t resolvedMaterialBuffer = ResolveMaterialBufferAddress(entity, modelComp, res);
 
             mappedDesc[customInstanceId].vertexBuffer = res.vAddr;
             mappedDesc[customInstanceId].indexBuffer  = res.globalIAddr;
-            mappedDesc[customInstanceId].materialBuffer = res.matAddr;
+            mappedDesc[customInstanceId].materialBuffer = resolvedMaterialBuffer;
             mappedDesc[customInstanceId].primitiveMaterialIdBuffer = res.primMatIdAddr;
             mappedDesc[customInstanceId].textureOffset  = res.textureOffset;
             mappedDesc[customInstanceId].materialCount = res.materialCount;
@@ -1083,10 +1238,11 @@ namespace Lizeral {
         for (auto entity : modelView) {
             auto& transform = modelView.get<TransformComponent>(entity);
             auto& modelComp = modelView.get<VulkanModelComponent>(entity);
-            if (modelComp.getVulkanModelPath().empty()) continue;
+            if (!modelComp.IsVisible() || !modelComp.HasModelAsset()) continue;
 
-            const auto& res = GetOrLoadModel(modelComp.getVulkanModelPath());
+            const auto& res = GetOrLoadModel(modelComp.getModelAssetPath());
             if (!res.IsValid()) continue;
+            const uint64_t resolvedMaterialBuffer = ResolveMaterialBufferAddress(entity, modelComp, res);
 
             Matrix4x4 currentModel = transform.getMatrix();
             uint32_t entityId = static_cast<uint32_t>(entity);
@@ -1105,7 +1261,7 @@ namespace Lizeral {
             pushData.frameDataAddr = m_frameResource.addr;
             pushData.modelDataAddr = baseInstanceAddr + (currentInstanceIndex * sizeof(GPUInstanceData));
             pushData.vertexBuffer = res.vAddr; pushData.meshletBuffer = res.mAddr; pushData.indexBuffer = res.iAddr; 
-            pushData.boundsBuffer = res.bAddr; pushData.materialBuffer = res.matAddr;
+            pushData.boundsBuffer = res.bAddr; pushData.materialBuffer = resolvedMaterialBuffer;
             pushData.totalMeshlets = res.totalMeshlets; pushData.textureOffset = 0; 
 
             vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushData);
@@ -1133,7 +1289,7 @@ namespace Lizeral {
             std::cerr << "[Warning] Point lights count exceeds capacity (1024), truncating!" << std::endl;
             lightCount = maxLightCapacity;
         }
-        if (lightCount > 0) {
+        if (lightCount > 0) { 
             m_pointLightBuffer->WriteData(activePointLights.data(), lightCount * sizeof(GPUPointLight));
         }
 

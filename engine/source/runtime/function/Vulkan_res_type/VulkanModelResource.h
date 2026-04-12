@@ -1,7 +1,11 @@
 #pragma once
 #include <cstdint>
 #include <memory>
+#include <vector>
 #include "runtime/function/render/rhi/vulkan/VulkanBuffer.h"
+#include "runtime/resource/material/materialAsset.h"
+#include "runtime/resource/modelResourceData.h"
+#include "runtime/resource/meshletAssetTypes.h"
 
 namespace Lizeral {
 
@@ -28,6 +32,9 @@ namespace Lizeral {
         uint32_t textureOffset = 0; 
         uint32_t textureCount = 0;  
         uint32_t materialCount = 0;
+        std::vector<MaterialData> materialsCpu;
+        std::vector<Resource::MaterialAsset> materialAssets;
+        std::vector<Resource::RuntimeMeshAssetData> meshAssets;
         std::shared_ptr<VulkanBLAS> blas;
 
         bool IsValid() const { return vAddr != 0; }

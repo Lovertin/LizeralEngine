@@ -39,6 +39,10 @@ namespace Lizeral::Resource {
         }
 
         outModel->Clear();
+        outModel->sourcePath = importedModel.sourcePath;
+        outModel->modelName = importedModel.modelName;
+        outModel->rootNodeIndex = importedModel.rootNodeIndex;
+        outModel->nodes = importedModel.nodes;
 
         outModel->materials = importedModel.materials;
         outModel->materialAssets = importedModel.materialAssets;
@@ -95,6 +99,15 @@ namespace Lizeral::Resource {
             if (mesh.vertices.empty() || mesh.indices.empty()) {
                 continue;
             }
+
+            RuntimeMeshAssetData runtimeMeshAsset{};
+            runtimeMeshAsset.name = mesh.name;
+            runtimeMeshAsset.sourceMeshIndex = mesh.sourceMeshIndex;
+            runtimeMeshAsset.nodeIndex = mesh.nodeIndex;
+            runtimeMeshAsset.materialIndex = mesh.materialIndex < outModel->materials.size() ? mesh.materialIndex : 0;
+            runtimeMeshAsset.meshletOffset = static_cast<uint32_t>(outModel->meshlets.size());
+            runtimeMeshAsset.vertexOffset = static_cast<uint32_t>(outModel->vertices.size());
+            runtimeMeshAsset.microIndexOffset = static_cast<uint32_t>(outModel->microIndices.size());
 
             const size_t maxMeshlets = meshopt_buildMeshletsBound(
                 mesh.indices.size(),
@@ -159,6 +172,11 @@ namespace Lizeral::Resource {
                     outModel->microIndices.push_back(static_cast<uint32_t>(meshletTriangles[rawMeshlet.triangle_offset + triIdx]));
                 }
             }
+
+            runtimeMeshAsset.meshletCount = static_cast<uint32_t>(outModel->meshlets.size()) - runtimeMeshAsset.meshletOffset;
+            runtimeMeshAsset.vertexCount = static_cast<uint32_t>(outModel->vertices.size()) - runtimeMeshAsset.vertexOffset;
+            runtimeMeshAsset.microIndexCount = static_cast<uint32_t>(outModel->microIndices.size()) - runtimeMeshAsset.microIndexOffset;
+            outModel->meshAssets.push_back(std::move(runtimeMeshAsset));
         }
 
         if (outModel->meshlets.empty()) {

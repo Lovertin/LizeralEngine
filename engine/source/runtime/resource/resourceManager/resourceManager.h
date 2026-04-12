@@ -17,7 +17,7 @@ namespace Lizeral {
         CRITICAL   
     };
     
-    using ResourceLoadedCallback = std::function<void(std::shared_ptr<Resource>)>;
+    using ResourceLoadedCallback = std::function<void(std::shared_ptr<ResourceAsset>)>;
     
     class ResourceManager {
     public:
@@ -146,7 +146,7 @@ namespace Lizeral {
         
     private:
         mutable std::mutex m_cacheMutex;
-        std::unordered_map<std::string, std::shared_ptr<Resource>> m_cache;
+        std::unordered_map<std::string, std::shared_ptr<ResourceAsset>> m_cache;
         std::unordered_map<std::string, ResourceLoadedCallback> m_callbacks;
         
         std::string m_rootPath = "assets";  

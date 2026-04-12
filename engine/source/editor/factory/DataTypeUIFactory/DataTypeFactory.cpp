@@ -376,6 +376,9 @@ namespace Lizeral {
                 [accessor, instance](Qt::CheckState state) mutable {
                     bool updated_value = (state == Qt::Checked);
                     accessor.set(instance, &updated_value);
+
+                    Entity currentEnt = EditorSelection::Get().GetSelected();
+                    emit EditorSelection::Get().OnEntityDataModified(currentEnt);
                 }
             );
             return checkBox;
@@ -612,7 +615,8 @@ namespace Lizeral {
                 std::string newStr = lineEdit->text().toStdString();
                 accessor.set(instance, &newStr);
 
-                // Lizeral::EditorSelection::Get().NotifyDataModified();
+                Entity currentEnt = EditorSelection::Get().GetSelected();
+                emit EditorSelection::Get().OnEntityDataModified(currentEnt);
             };
 
             QObject::connect(lineEdit, &QLineEdit::editingFinished, updateData);
