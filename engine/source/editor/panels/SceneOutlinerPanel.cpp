@@ -3,11 +3,22 @@
 #include <QTimer>
 
 #include "editor/selection/EditorSelection.h" 
+#include "editor/model/ModelEditorMetadata.h"
 #include "runtime/function/ecs/components/componentAll.h"
 
 #include <iostream>
 
 namespace Lizeral {
+
+    namespace {
+        constexpr int kItemTypeRole = Qt::UserRole + 1;
+        constexpr int kMeshAssetIndexRole = Qt::UserRole + 2;
+
+        enum class OutlinerItemType : int {
+            Entity = 0,
+            SubMesh = 1
+        };
+    }
 
     SceneOutlinerPanel::SceneOutlinerPanel(QWidget* parent) : QWidget(parent) {
         m_MainLayout = new QVBoxLayout(this);
@@ -30,14 +41,14 @@ namespace Lizeral {
     }
 
     void SceneOutlinerPanel::Refresh() {
-        // std::cout<<"start cleaning TreeWidget"<<std::endl;
+        const Entity selectedEntity = EditorSelection::Get().GetSelected();
+        const int32_t selectedMeshIndex = EditorSelection::Get().GetSelectedSubMeshIndex();
+
         m_TreeWidget->clear();
-        // std::cout<<"m_TreeWidget is cleared"<<std::endl;
         if (!m_Registry) return;
 
         auto view = m_Registry->view<NameComponent>();
         for (auto entity : view) {
-            // black field list
             if(m_Registry->has<EditorOnlyComponent>(entity)){
                 continue;
             }
@@ -46,8 +57,32 @@ namespace Lizeral {
             
             QTreeWidgetItem* item = new QTreeWidgetItem(m_TreeWidget);
             item->setText(0, QString::fromStdString(nameComp.getName()));
-            
             item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<uint32_t>(entity)));
+            item->setData(0, kItemTypeRole, static_cast<int>(OutlinerItemType::Entity));
+            item->setData(0, kMeshAssetIndexRole, -1);
+
+            if (entity == selectedEntity && selectedMeshIndex < 0) {
+                m_TreeWidget->setCurrentItem(item);
+            }
+
+            if (m_Registry->has<VulkanModelComponent>(entity)) {
+                auto& modelComponent = m_Registry->get<VulkanModelComponent>(entity);
+                const EditorModelMetadata* metadata = GetModelEditorMetadata(modelComponent.getModelAssetPath());
+                if (metadata != nullptr && metadata->valid) {
+                    for (const auto& meshEntry : metadata->meshEntries) {
+                        QTreeWidgetItem* childItem = new QTreeWidgetItem(item);
+                        childItem->setText(0, QString::fromStdString(meshEntry.displayName));
+                        childItem->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<uint32_t>(entity)));
+                        childItem->setData(0, kItemTypeRole, static_cast<int>(OutlinerItemType::SubMesh));
+                        childItem->setData(0, kMeshAssetIndexRole, static_cast<int>(meshEntry.meshAssetIndex));
+
+                        if (entity == selectedEntity && selectedMeshIndex == static_cast<int32_t>(meshEntry.meshAssetIndex)) {
+                            item->setExpanded(true);
+                            m_TreeWidget->setCurrentItem(childItem);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -56,8 +91,14 @@ namespace Lizeral {
 
         uint32_t entityId = item->data(0, Qt::UserRole).toUInt();
         Lizeral::Entity entity = static_cast<Lizeral::Entity>(entityId);
+        const OutlinerItemType itemType = static_cast<OutlinerItemType>(item->data(0, kItemTypeRole).toInt());
+        const int meshAssetIndex = item->data(0, kMeshAssetIndexRole).toInt();
 
-        EditorSelection::Get().SelectEntity(entity);
+        if (itemType == OutlinerItemType::SubMesh && meshAssetIndex >= 0) {
+            EditorSelection::Get().SelectSubMesh(entity, static_cast<uint32_t>(meshAssetIndex));
+        } else {
+            EditorSelection::Get().SelectEntity(entity);
+        }
     }
 
     void SceneOutlinerPanel::ShowContextMenu(const QPoint& pos) {

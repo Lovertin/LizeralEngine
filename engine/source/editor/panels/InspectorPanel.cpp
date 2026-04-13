@@ -1,5 +1,6 @@
 #include "InspectorPanel.h"
 #include "editor/factory/ComponentUIFactory/ComponentUIFactory.h"
+#include "editor/selection/EditorSelection.h"
 #include "runtime/function/ecs/components/componentAll.h"
 #include <iostream>
 
@@ -54,10 +55,12 @@ namespace Lizeral {
     }
 
     void InspectorPanel::BindEntity(Lizeral::Entity entity) {
-        if (entity == m_CurrentEntity) return;
+        const int32_t selectedMeshAssetIndex = EditorSelection::Get().GetSelectedSubMeshIndex();
+        if (entity == m_CurrentEntity && selectedMeshAssetIndex == m_CurrentMeshAssetIndex) return;
 
         ClearPanel();
         m_CurrentEntity = entity;
+        m_CurrentMeshAssetIndex = selectedMeshAssetIndex;
         
         if (entity == Lizeral::null_entity || !m_Registry) return;
 

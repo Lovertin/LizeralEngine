@@ -56,6 +56,7 @@ namespace Lizeral {
         QVBoxLayout* m_MainLayout;
         Registry* m_Registry { nullptr };
         Entity m_CurrentEntity { Lizeral::null_entity };
+        int32_t m_CurrentMeshAssetIndex { -1 };
 
         std::vector<ComponentAction> m_AvailableComponents;
     };

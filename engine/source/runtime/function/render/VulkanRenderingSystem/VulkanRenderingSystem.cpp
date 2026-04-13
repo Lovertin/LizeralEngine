@@ -435,16 +435,24 @@ namespace Lizeral {
             targetMaterial.roughnessFactor = overrideData.materialInstance.factors.roughnessFactor;
         }
         if ((overrideMask & Resource::MaterialOverride_AlbedoTex) != 0u) {
-            targetMaterial.albedoTex = overrideData.materialInstance.textures.albedoTex;
+            if (overrideData.materialInstance.textures.albedoTex >= 0) {
+                targetMaterial.albedoTex = overrideData.materialInstance.textures.albedoTex;
+            }
         }
         if ((overrideMask & Resource::MaterialOverride_NormalTex) != 0u) {
-            targetMaterial.normalTex = overrideData.materialInstance.textures.normalTex;
+            if (overrideData.materialInstance.textures.normalTex >= 0) {
+                targetMaterial.normalTex = overrideData.materialInstance.textures.normalTex;
+            }
         }
         if ((overrideMask & Resource::MaterialOverride_OrmTex) != 0u) {
-            targetMaterial.ormTex = overrideData.materialInstance.textures.ormTex;
+            if (overrideData.materialInstance.textures.ormTex >= 0) {
+                targetMaterial.ormTex = overrideData.materialInstance.textures.ormTex;
+            }
         }
         if ((overrideMask & Resource::MaterialOverride_EmissiveTex) != 0u) {
-            targetMaterial.emissiveTex = overrideData.materialInstance.textures.emissiveTex;
+            if (overrideData.materialInstance.textures.emissiveTex >= 0) {
+                targetMaterial.emissiveTex = overrideData.materialInstance.textures.emissiveTex;
+            }
         }
 
         auto applyTexturePath = [this](const std::string& path, int* targetIndex) {
@@ -453,7 +461,6 @@ namespace Lizeral {
             }
 
             if (path.empty()) {
-                *targetIndex = -1;
                 return;
             }
 

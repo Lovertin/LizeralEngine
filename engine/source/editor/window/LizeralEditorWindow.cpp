@@ -166,6 +166,13 @@ void LizeralEditorWindow::setupUI(){
     connect(&Lizeral::EditorSelection::Get(), &Lizeral::EditorSelection::OnEntitySelected,
             m_inspectorPanel, &Lizeral::InspectorPanel::BindEntity);
 
+    connect(&Lizeral::EditorSelection::Get(), &Lizeral::EditorSelection::OnSubMeshSelectionChanged,
+            this, [this](Lizeral::Entity entity, int32_t) {
+                if (this->m_inspectorPanel) {
+                    this->m_inspectorPanel->BindEntity(entity);
+                }
+            });
+
     connect(&Lizeral::EditorSelection::Get(), &Lizeral::EditorSelection::OnEntityDataModified,
             this, [this](Lizeral::Entity) {
                 if (this->m_outlinerPanel) {
