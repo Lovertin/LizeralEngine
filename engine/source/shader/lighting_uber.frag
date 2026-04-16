@@ -296,8 +296,6 @@ void main() {
         outDirectLight += vec4(indirectLight, 0.0);
         outNoisyGI = vec4(0.0, 0.0, 0.0, 1.0);
     }
-
-    outNoisyGI = vec4(indirectLight, 1.0);
 }
 
 

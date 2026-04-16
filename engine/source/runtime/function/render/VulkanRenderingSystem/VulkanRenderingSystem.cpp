@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 namespace Lizeral {
 
@@ -29,7 +30,9 @@ namespace Lizeral {
         if (m_renderPreset == preset) return;
 
         m_renderPreset = preset;
-        m_lightingProfile = ResolveLightingProfile(preset);
+        if (!m_useManualLightingProfile) {
+            m_lightingProfile = ResolveLightingProfile(preset);
+        }
 
         // Allow preset switch at runtime by rebuilding descriptor state and pipelines.
         if (m_device != nullptr) {
@@ -40,6 +43,32 @@ namespace Lizeral {
             BuildPipelines();
             InvalidateTemporalHistory();
         }
+    }
+
+    void VulkanRenderingSystem::SetLightingProfile(const LightingProfile& profile) {
+        const bool unchanged =
+            m_useManualLightingProfile &&
+            m_lightingProfile.giQualityLevel == profile.giQualityLevel &&
+            m_lightingProfile.shadowQualityLevel == profile.shadowQualityLevel;
+        if (unchanged) return;
+
+        m_useManualLightingProfile = true;
+        m_lightingProfile = profile;
+
+        if (m_device != nullptr) {
+            VkDevice device = m_device->GetNativeDevice();
+            vkDeviceWaitIdle(device);
+            DestroyPipelines(device);
+            DestroyDescriptors(device);
+            BuildPipelines();
+            InvalidateTemporalHistory();
+        }
+    }
+
+    void VulkanRenderingSystem::ResetLightingProfileToPreset() {
+        m_useManualLightingProfile = false;
+        SetLightingProfile(ResolveLightingProfile(m_renderPreset));
+        m_useManualLightingProfile = false;
     }
 
     template <typename T>
@@ -163,9 +192,16 @@ namespace Lizeral {
         m_renderer = renderer;
         m_width = width;
         m_height = height;
-        m_lightingProfile = ResolveLightingProfile(m_renderPreset);
+        if (!m_useManualLightingProfile) {
+            m_lightingProfile = ResolveLightingProfile(m_renderPreset);
+        }
 
         std::cout << "[VulkanRenderingSystem] Initializing..." << std::endl;
+        std::cout
+            << "[VulkanRenderingSystem] Lighting profile: GI=" << m_lightingProfile.giQualityLevel
+            << " Shadow=" << m_lightingProfile.shadowQualityLevel
+            << (m_useManualLightingProfile ? " (manual)" : " (preset)")
+            << std::endl;
 
         if (!m_tlas) {
             m_resourceCommandPool = std::make_unique<VulkanCommandPool>(m_device);
@@ -270,6 +306,9 @@ namespace Lizeral {
         if (m_blitPipeline)       vkDestroyPipeline(device, m_blitPipeline, nullptr);
         if (m_blitPipelineLayout) vkDestroyPipelineLayout(device, m_blitPipelineLayout, nullptr);
 
+        if (m_transparentPipeline)       vkDestroyPipeline(device, m_transparentPipeline, nullptr);
+        if (m_transparentPipelineLayout) vkDestroyPipelineLayout(device, m_transparentPipelineLayout, nullptr);
+
         if (m_taaPipeline)        vkDestroyPipeline(device, m_taaPipeline, nullptr);
         if (m_taaPipelineLayout)  vkDestroyPipelineLayout(device, m_taaPipelineLayout, nullptr);
 
@@ -291,6 +330,7 @@ namespace Lizeral {
 
     void VulkanRenderingSystem::DestroyDescriptors(VkDevice device){
         if (m_descriptorPool) vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
+        if (m_transparentPool) vkDestroyDescriptorPool(device, m_transparentPool, nullptr);
         for (int i = 0; i < 2; i++) {
             if (m_lightPools[i])   vkDestroyDescriptorPool(device, m_lightPools[i], nullptr);
             if (m_svgfTemporalPools[i]) vkDestroyDescriptorPool(device, m_svgfTemporalPools[i], nullptr);
@@ -300,6 +340,7 @@ namespace Lizeral {
         }
 
         if (m_descriptorSetLayout) vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
+        if (m_transparentSetLayout) vkDestroyDescriptorSetLayout(device, m_transparentSetLayout, nullptr);
         for (int i = 0; i < 2; i++) {
             if (m_lightingLayouts[i]) vkDestroyDescriptorSetLayout(device, m_lightingLayouts[i], nullptr);
             if (m_svgfTemporalLayouts[i])  vkDestroyDescriptorSetLayout(device, m_svgfTemporalLayouts[i], nullptr);
@@ -329,6 +370,7 @@ namespace Lizeral {
 
     void VulkanRenderingSystem::Resize(uint32_t width, uint32_t height) {
         if (width == 0 || height == 0) return;
+        if (width == m_width && height == m_height) return;
         vkDeviceWaitIdle(m_device->GetNativeDevice());
 
         m_width = width;
@@ -703,6 +745,30 @@ namespace Lizeral {
 
         bindlessBuilder.Build(m_device, m_descriptorSetLayout, m_descriptorPool, m_descriptorSet);
 
+        VkDescriptorSetLayoutBinding transparentBindings[1] = {};
+        transparentBindings[0].binding = 0;
+        transparentBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        transparentBindings[0].descriptorCount = 1;
+        transparentBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutCreateInfo transparentLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        transparentLayoutInfo.bindingCount = 1;
+        transparentLayoutInfo.pBindings = transparentBindings;
+        vkCreateDescriptorSetLayout(device, &transparentLayoutInfo, nullptr, &m_transparentSetLayout);
+
+        VkDescriptorPoolSize transparentPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
+        VkDescriptorPoolCreateInfo transparentPoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        transparentPoolInfo.poolSizeCount = 1;
+        transparentPoolInfo.pPoolSizes = &transparentPoolSize;
+        transparentPoolInfo.maxSets = 1;
+        vkCreateDescriptorPool(device, &transparentPoolInfo, nullptr, &m_transparentPool);
+
+        VkDescriptorSetAllocateInfo transparentAllocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        transparentAllocInfo.descriptorPool = m_transparentPool;
+        transparentAllocInfo.descriptorSetCount = 1;
+        transparentAllocInfo.pSetLayouts = &m_transparentSetLayout;
+        vkAllocateDescriptorSets(device, &transparentAllocInfo, &m_transparentSet);
+
         for (uint32_t ping = 0; ping < 2; ping++) {
             VkDevice dev = m_device->GetNativeDevice();
 
@@ -803,6 +869,7 @@ namespace Lizeral {
         VkShaderModule taskShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "car_task.spv"));
         VkShaderModule meshShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "car_mesh.spv"));
         VkShaderModule fragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "car_frag.spv"));
+        VkShaderModule transparentFragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "transparent_frag.spv"));
 
         // Fullscreen Quad 
         VkShaderModule fsVertShader    = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "lighting_vert.spv"));
@@ -831,6 +898,26 @@ namespace Lizeral {
             .DisableColorBlendAttachments(3) // Albedo, Normal, Velocity
             .SetPipelineLayout(m_graphicsPipelineLayout)
             .Build(m_device, { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16_SFLOAT }, VK_FORMAT_D32_SFLOAT); 
+
+        VkDescriptorSetLayout transparentSetLayouts[2] = { m_transparentSetLayout, m_descriptorSetLayout };
+        VkPipelineLayoutCreateInfo transparentPipeLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        transparentPipeLayoutInfo.setLayoutCount = 2;
+        transparentPipeLayoutInfo.pSetLayouts = transparentSetLayouts;
+        transparentPipeLayoutInfo.pushConstantRangeCount = 1;
+        transparentPipeLayoutInfo.pPushConstantRanges = &graphicsPushRange;
+        vkCreatePipelineLayout(device, &transparentPipeLayoutInfo, nullptr, &m_transparentPipelineLayout);
+
+        m_transparentPipeline = VulkanPipelineBuilder()
+            .AddShaderStage(VK_SHADER_STAGE_TASK_BIT_EXT, taskShader)
+            .AddShaderStage(VK_SHADER_STAGE_MESH_BIT_EXT, meshShader)
+            .AddShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, transparentFragShader)
+            .SetInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .SetRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+            .SetMultisampling(VK_SAMPLE_COUNT_1_BIT)
+            .SetDepthStencil(false, false, VK_COMPARE_OP_ALWAYS)
+            .AddColorBlendAttachment(true)
+            .SetPipelineLayout(m_transparentPipelineLayout)
+            .Build(m_device, { m_renderer->GetSwapchainFormat() }, VK_FORMAT_D32_SFLOAT);
 
 
         LightingSpecializationData specData{};
@@ -954,6 +1041,7 @@ namespace Lizeral {
         vkDestroyShaderModule(device, taskShader, nullptr);
         vkDestroyShaderModule(device, meshShader, nullptr);
         vkDestroyShaderModule(device, fragShader, nullptr);
+        vkDestroyShaderModule(device, transparentFragShader, nullptr);
         vkDestroyShaderModule(device, fsVertShader, nullptr);
         vkDestroyShaderModule(device, lightFragShader, nullptr);
         vkDestroyShaderModule(device, svgfTemporalFragShader, nullptr);
@@ -1153,6 +1241,22 @@ namespace Lizeral {
         uint32_t customInstanceId = 0;
 
         auto modelView = registry.view<TransformComponent, VulkanModelComponent>();
+        struct TransparentDrawItem {
+            Entity entity = null_entity;
+            float distanceSq = 0.0f;
+        };
+        std::vector<TransparentDrawItem> transparentDraws;
+        std::unordered_map<uint32_t, uint32_t> entityToInstanceIndex;
+
+        auto HasTransparentMaterial = [](const VulkanModelResource& resource) {
+            for (const auto& material : resource.materialsCpu) {
+                if (material.alphaMode == static_cast<int>(MaterialAlphaMode::Blend)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         for (auto entity : modelView) {
             auto& transform = modelView.get<TransformComponent>(entity);
             auto& modelComp = modelView.get<VulkanModelComponent>(entity);
@@ -1185,8 +1289,19 @@ namespace Lizeral {
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR; 
             instance.accelerationStructureReference = res.blas->GetDeviceAddress();
             tlasInstances.push_back(instance);
+
+            if (HasTransparentMaterial(res)) {
+                TransparentDrawItem item;
+                item.entity = entity;
+                item.distanceSq = transform.getPosition().squaredDistance(cameraPos);
+                transparentDraws.push_back(item);
+            }
         }
         m_rtInstanceBuffer->Unmap();
+
+        std::sort(transparentDraws.begin(), transparentDraws.end(), [](const TransparentDrawItem& lhs, const TransparentDrawItem& rhs) {
+            return lhs.distanceSq > rhs.distanceSq;
+        });
 
         if (!tlasInstances.empty()) {
             m_tlas->Build(cmd, ping, tlasInstances, false); 
@@ -1264,6 +1379,7 @@ namespace Lizeral {
 
             mappedInstanceData[currentInstanceIndex].Model = currentModel.transpose();
             mappedInstanceData[currentInstanceIndex].prevModel = prevModel.transpose();
+            entityToInstanceIndex[static_cast<uint32_t>(entity)] = currentInstanceIndex;
             
             pushData.frameDataAddr = m_frameResource.addr;
             pushData.modelDataAddr = baseInstanceAddr + (currentInstanceIndex * sizeof(GPUInstanceData));
@@ -1304,6 +1420,10 @@ namespace Lizeral {
 
         m_prevViewProj = currentViewProjUnjittered;
         if (m_isFirstFrameRun) {
+            TransitionImageLayout(cmd, m_gDirectLight.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gNoisyGI.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gDenoisedGI.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            TransitionImageLayout(cmd, m_gDenoisedGITemp.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
             TransitionImageLayout(cmd, m_gHistory[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
             TransitionImageLayout(cmd, m_gHistory[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
             TransitionImageLayout(cmd, m_gGIHistory[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1335,7 +1455,7 @@ namespace Lizeral {
         auto DrawFullscreenPass = [&](VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet set, GBufferAttachment* outputs, uint32_t outputCount, bool bindExtraSet = false) {
             VkRenderingAttachmentInfo attInfos[2] = {};
             for(uint32_t i=0; i<outputCount; i++) {
-                TransitionImageLayout(cmd, outputs[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                TransitionImageLayout(cmd, outputs[i].image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
                 attInfos[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
                 attInfos[i].imageView = outputs[i].view;
                 attInfos[i].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -1395,6 +1515,44 @@ namespace Lizeral {
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_blitPipelineLayout, 0, 1, &m_blitSets[ping], 0, nullptr);
         vkCmdDraw(cmd, 3, 1, 0, 0);
 
+        if (!transparentDraws.empty()) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_transparentPipeline);
+            VkDescriptorSet transparentSets[2] = { m_transparentSet, m_descriptorSet };
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_transparentPipelineLayout, 0, 2, transparentSets, 0, nullptr);
+
+            for (const TransparentDrawItem& draw : transparentDraws) {
+                auto instanceIt = entityToInstanceIndex.find(static_cast<uint32_t>(draw.entity));
+                if (instanceIt == entityToInstanceIndex.end()) {
+                    continue;
+                }
+
+                auto& transform = modelView.get<TransformComponent>(draw.entity);
+                auto& modelComp = modelView.get<VulkanModelComponent>(draw.entity);
+                if (!modelComp.IsVisible() || !modelComp.HasModelAsset()) {
+                    continue;
+                }
+
+                const auto& res = GetOrLoadModel(modelComp.getModelAssetPath());
+                if (!res.IsValid()) {
+                    continue;
+                }
+
+                PushConstants pushData{};
+                pushData.frameDataAddr = m_frameResource.addr;
+                pushData.modelDataAddr = baseInstanceAddr + (instanceIt->second * sizeof(GPUInstanceData));
+                pushData.vertexBuffer = res.vAddr;
+                pushData.meshletBuffer = res.mAddr;
+                pushData.indexBuffer = res.iAddr;
+                pushData.boundsBuffer = res.bAddr;
+                pushData.materialBuffer = ResolveMaterialBufferAddress(draw.entity, modelComp, res);
+                pushData.totalMeshlets = res.totalMeshlets;
+                pushData.textureOffset = 0;
+
+                vkCmdPushConstants(cmd, m_transparentPipelineLayout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushData);
+                m_CmdDrawMeshTasksEXT(cmd, (res.totalMeshlets + 63) / 64, 1, 1);
+            }
+        }
+
         // 6. Draw Lines
         if (!debugLines.empty()) {
             size_t bufferSize = debugLines.size() * sizeof(Lizeral::DebugLineVertex);
@@ -1423,6 +1581,19 @@ namespace Lizeral {
 
     void VulkanRenderingSystem::UpdateDescriptorSets() {
         VkDevice device = m_device->GetNativeDevice();
+
+        VkDescriptorImageInfo transparentDepthInfo {
+            m_gBufferSampler,
+            m_gDepth.view,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+        VkWriteDescriptorSet transparentWrite{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        transparentWrite.dstSet = m_transparentSet;
+        transparentWrite.dstBinding = 0;
+        transparentWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        transparentWrite.descriptorCount = 1;
+        transparentWrite.pImageInfo = &transparentDepthInfo;
+        vkUpdateDescriptorSets(device, 1, &transparentWrite, 0, nullptr);
 
         VkDescriptorImageInfo gInfos[4] = {
             { m_gBufferSampler, m_gAlbedoMetallic.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },

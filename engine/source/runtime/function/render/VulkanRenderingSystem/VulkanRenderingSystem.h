@@ -77,6 +77,11 @@ namespace Lizeral {
 
     class VulkanRenderingSystem {
     public:
+        struct LightingProfile {
+            int32_t giQualityLevel = 2;      // 0: off, 1: SSGI, 2: RTGI
+            int32_t shadowQualityLevel = 1;  // 0: hard, 1: soft
+        };
+
         enum class RenderPipelinePreset : uint8_t {
             Stable = 0,   // GI off, shadow hard
             SSGI = 1,     // GI SSGI, shadow hard
@@ -96,6 +101,9 @@ namespace Lizeral {
         void SetViewport(int x, int y, uint32_t width, uint32_t height);
         void SetRenderPipelinePreset(RenderPipelinePreset preset);
         RenderPipelinePreset GetRenderPipelinePreset() const { return m_renderPreset; }
+        void SetLightingProfile(const LightingProfile& profile);
+        LightingProfile GetLightingProfile() const { return m_lightingProfile; }
+        void ResetLightingProfileToPreset();
         void SetDefaultFBO(unsigned int fbo) { /* VulkanRenderer handles target */ }
 
         void WaitIdle() {
@@ -154,8 +162,14 @@ namespace Lizeral {
         VkDescriptorPool m_blitPools[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
         VkDescriptorSet m_blitSets[2] { VK_NULL_HANDLE, VK_NULL_HANDLE };
 
+        VkDescriptorSetLayout m_transparentSetLayout { VK_NULL_HANDLE };
+        VkDescriptorPool m_transparentPool { VK_NULL_HANDLE };
+        VkDescriptorSet m_transparentSet { VK_NULL_HANDLE };
+
         VkPipelineLayout m_graphicsPipelineLayout { VK_NULL_HANDLE };
         VkPipeline m_graphicsPipeline { VK_NULL_HANDLE };
+        VkPipelineLayout m_transparentPipelineLayout { VK_NULL_HANDLE };
+        VkPipeline m_transparentPipeline { VK_NULL_HANDLE };
         VkPipelineLayout m_lightingPipelineLayout { VK_NULL_HANDLE };
         VkPipeline m_lightingPipeline { VK_NULL_HANDLE };
         VkPipelineLayout m_taaPipelineLayout { VK_NULL_HANDLE };
@@ -193,12 +207,8 @@ namespace Lizeral {
         Matrix4x4 m_prevViewProj;
         std::unordered_map<uint32_t, Matrix4x4> m_prevModelMats;
         RenderPipelinePreset m_renderPreset = RenderPipelinePreset::Stable;
-
-        struct LightingProfile {
-            int32_t giQualityLevel = 0;     // 0: off, 1: SSGI, 2: RTGI
-            int32_t shadowQualityLevel = 0; // 0: hard, 1: soft
-        };
         LightingProfile m_lightingProfile{};
+        bool m_useManualLightingProfile = false;
 
         PFN_vkCmdDrawMeshTasksEXT m_CmdDrawMeshTasksEXT = nullptr;
         int m_viewX = 0, m_viewY = 0, m_viewW = 1280, m_viewH = 720;

@@ -3,11 +3,18 @@
 #include <QGuiApplication>
 
 #include <windows.h>
+#include <cmath>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan_win32.h>
 
 namespace Lizeral {
+
+    namespace {
+        uint32_t ToFramebufferPixels(int logicalPixels, double dpiScale) {
+            return static_cast<uint32_t>(std::lround(static_cast<double>(logicalPixels) * dpiScale));
+        }
+    }
 
     EngineViewportWidget::EngineViewportWidget(Lizeral::Registry* registry, Lizeral::VulkanRenderingSystem* renderSys, QWidget* parent) 
         : QWidget(parent), m_Registry(registry), m_RenderSystem(renderSys) 
@@ -61,8 +68,8 @@ namespace Lizeral {
         m_device = std::make_unique<VulkanDevice>(m_context.get(), m_surface);
 
         float dpiScale = this->devicePixelRatioF();
-        uint32_t w = static_cast<uint32_t>(this->width() * dpiScale);
-        uint32_t h = static_cast<uint32_t>(this->height() * dpiScale);
+        uint32_t w = ToFramebufferPixels(this->width(), dpiScale);
+        uint32_t h = ToFramebufferPixels(this->height(), dpiScale);
 
         m_renderer = std::make_unique<VulkanRenderer>(m_context.get(), m_device.get(), w, h);
         VkExtent2D actualExt = m_renderer->GetSwapchainExtent();
@@ -82,8 +89,8 @@ namespace Lizeral {
         if (!m_isVulkanInitialized || event->size().width() == 0 || event->size().height() == 0) return;
 
         float dpiScale = this->devicePixelRatioF();
-        uint32_t w = static_cast<uint32_t>(event->size().width() * dpiScale);
-        uint32_t h = static_cast<uint32_t>(event->size().height() * dpiScale);
+        uint32_t w = ToFramebufferPixels(event->size().width(), dpiScale);
+        uint32_t h = ToFramebufferPixels(event->size().height(), dpiScale);
         
         if (w > 0 && h > 0) {
             VkExtent2D currentExt = m_renderer->GetSwapchainExtent();
@@ -92,7 +99,9 @@ namespace Lizeral {
             }
             m_renderer->RecreateSwapchain(w, h);
             VkExtent2D actualExt = m_renderer->GetSwapchainExtent();
-            m_RenderSystem->Resize(actualExt.width, actualExt.height);
+            if (actualExt.width != currentExt.width || actualExt.height != currentExt.height) {
+                m_RenderSystem->Resize(actualExt.width, actualExt.height);
+            }
         }
     }
 
@@ -101,12 +110,15 @@ namespace Lizeral {
 
         if (m_renderer->IsSwapchainOutdated()) {
             float dpiScale = this->devicePixelRatioF();
-            uint32_t w = static_cast<uint32_t>(this->width() * dpiScale);
-            uint32_t h = static_cast<uint32_t>(this->height() * dpiScale);
+            uint32_t w = ToFramebufferPixels(this->width(), dpiScale);
+            uint32_t h = ToFramebufferPixels(this->height(), dpiScale);
             if (w > 0 && h > 0) {
+                VkExtent2D currentExt = m_renderer->GetSwapchainExtent();
                 m_renderer->RecreateSwapchain(w, h);
                 VkExtent2D actualExt = m_renderer->GetSwapchainExtent();
-                m_RenderSystem->Resize(actualExt.width, actualExt.height);
+                if (actualExt.width != currentExt.width || actualExt.height != currentExt.height) {
+                    m_RenderSystem->Resize(actualExt.width, actualExt.height);
+                }
             }
         }
 

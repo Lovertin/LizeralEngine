@@ -60,7 +60,10 @@ struct Material {
     int normalTex;
     int ormTex;
     int emissiveTex;
-    int pad0, pad1;
+    int alphaMode;
+    float alphaCutoff;
+    int pad0;
+    int pad1;
 };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
 layout(buffer_reference, scalar) readonly buffer InstanceDescBuffer { RTInstanceDesc instances[]; };

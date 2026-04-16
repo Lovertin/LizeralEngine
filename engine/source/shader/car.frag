@@ -25,7 +25,10 @@ struct Material {
     int normalTex;
     int ormTex;
     int emissiveTex;
-    int pad0, pad1;
+    int alphaMode;
+    float alphaCutoff;
+    int pad0;
+    int pad1;
 };
 
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer MaterialBuffer { Material m[]; };
@@ -89,6 +92,13 @@ void main() {
     vec4 albedo = mat.baseColorFactor;
     if (mat.albedoTex >= 0) {
         albedo *= texture(GlobalTextures[nonuniformEXT(mat.albedoTex)], fragUV);
+    }
+
+    if (mat.alphaMode == 2) {
+        discard;
+    }
+    if (mat.alphaMode == 1 && albedo.a < mat.alphaCutoff) {
+        discard;
     }
 
     float ao = 1.0;

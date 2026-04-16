@@ -1,6 +1,7 @@
 #include "runtime/resource/importer/assimpModelImporter.h"
 
 #include <assimp/Importer.hpp>
+#include <assimp/GltfMaterial.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
@@ -65,6 +66,8 @@ namespace Lizeral::Resource {
             material->normalTex = -1;
             material->ormTex = -1;
             material->emissiveTex = -1;
+            material->alphaMode = static_cast<int>(MaterialAlphaMode::Opaque);
+            material->alphaCutoff = 0.5f;
             material->pad0 = 0;
             material->pad1 = 0;
         }
@@ -260,6 +263,26 @@ namespace Lizeral::Resource {
 
             material->Get(AI_MATKEY_METALLIC_FACTOR, importedMaterial.metallicFactor);
             material->Get(AI_MATKEY_ROUGHNESS_FACTOR, importedMaterial.roughnessFactor);
+
+            aiString alphaModeStr;
+            if (AI_SUCCESS == material->Get(AI_MATKEY_GLTF_ALPHAMODE, alphaModeStr) && alphaModeStr.length > 0) {
+                const std::string mode = alphaModeStr.C_Str();
+                if (mode == "MASK") {
+                    importedMaterial.alphaMode = static_cast<int>(MaterialAlphaMode::Mask);
+                } else if (mode == "BLEND") {
+                    importedMaterial.alphaMode = static_cast<int>(MaterialAlphaMode::Blend);
+                }
+            }
+
+            material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, importedMaterial.alphaCutoff);
+
+            float opacity = 1.0f;
+            if (AI_SUCCESS == material->Get(AI_MATKEY_OPACITY, opacity)) {
+                importedMaterial.baseColorFactor[3] *= opacity;
+                if (opacity < 0.999f && importedMaterial.alphaMode == static_cast<int>(MaterialAlphaMode::Opaque)) {
+                    importedMaterial.alphaMode = static_cast<int>(MaterialAlphaMode::Blend);
+                }
+            }
 
             importedMaterial.albedoTex = loadTextureRef(material, aiTextureType_BASE_COLOR);
             if (importedMaterial.albedoTex < 0) {

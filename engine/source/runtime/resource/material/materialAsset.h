@@ -31,6 +31,8 @@ namespace Lizeral::Resource {
         std::string name;
         std::string shaderTag {"pbr_metallic_roughness"};
         MaterialShadingModel shadingModel {MaterialShadingModel::PBRMetallicRoughness};
+        MaterialAlphaMode alphaMode {MaterialAlphaMode::Opaque};
+        float alphaCutoff {0.5f};
         MaterialFactors factors {};
         MaterialTextureSlots textures {};
     };
@@ -62,6 +64,8 @@ namespace Lizeral::Resource {
         out.factors.baseColorFactor[3] = material.baseColorFactor[3];
         out.factors.metallicFactor = material.metallicFactor;
         out.factors.roughnessFactor = material.roughnessFactor;
+        out.alphaMode = static_cast<MaterialAlphaMode>(material.alphaMode);
+        out.alphaCutoff = material.alphaCutoff;
 
         out.textures.albedoTex = material.albedoTex;
         out.textures.normalTex = material.normalTex;
@@ -71,4 +75,3 @@ namespace Lizeral::Resource {
     }
 
 } // namespace Lizeral::Resource
-

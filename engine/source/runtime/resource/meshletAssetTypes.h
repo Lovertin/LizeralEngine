@@ -4,6 +4,12 @@
 
 namespace Lizeral {
 
+    enum class MaterialAlphaMode : int32_t {
+        Opaque = 0,
+        Mask = 1,
+        Blend = 2
+    };
+
     struct MeshletVertex {
         float pos[3];
         float normal[3];
@@ -31,6 +37,8 @@ namespace Lizeral {
         int normalTex;
         int ormTex;
         int emissiveTex;
+        int alphaMode;
+        float alphaCutoff;
         int pad0;
         int pad1;
     };
