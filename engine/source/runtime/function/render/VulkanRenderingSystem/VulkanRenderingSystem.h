@@ -1,5 +1,6 @@
 #pragma once
 
+#include "editor/overlay/EditorViewportOverlayTypes.h"
 #include "runtime/function/ecs/registry.h"
 #include "runtime/function/render/rhi/vulkan/VulkanContext.h"
 #include "runtime/function/render/rhi/vulkan/VulkanDevice.h"
@@ -99,6 +100,7 @@ namespace Lizeral {
         void Resize(uint32_t width, uint32_t height);
         void InvalidateTemporalHistory();
         void SetViewport(int x, int y, uint32_t width, uint32_t height);
+        void SetEditorOverlayData(const EditorViewportOverlayData& overlayData);
         void SetRenderPipelinePreset(RenderPipelinePreset preset);
         RenderPipelinePreset GetRenderPipelinePreset() const { return m_renderPreset; }
         void SetLightingProfile(const LightingProfile& profile);
@@ -181,7 +183,10 @@ namespace Lizeral {
         VkPipeline m_debugLinePipeline { VK_NULL_HANDLE };
         std::unique_ptr<VulkanBuffer> m_debugLineBuffer;
         size_t m_maxDebugLineBufferSize = 2 * 1024 * 1024; // 2MB volume
+        VkPipelineLayout m_editorGridPipelineLayout { VK_NULL_HANDLE };
+        VkPipeline m_editorGridPipeline { VK_NULL_HANDLE };
         void CreateDebugLinePipeline();
+        void CreateEditorGridPipeline();
 
         std::unordered_map<std::string, VulkanModelResource> m_modelCache;
         std::vector<std::unique_ptr<VulkanTexture>> m_globalTextures;
@@ -206,6 +211,8 @@ namespace Lizeral {
         bool m_firstFrame = true, m_isFirstFrameRun = true;
         Matrix4x4 m_prevViewProj;
         std::unordered_map<uint32_t, Matrix4x4> m_prevModelMats;
+        EditorViewportOverlayData m_editorOverlayData {};
+        bool m_hasEditorOverlayData = false;
         RenderPipelinePreset m_renderPreset = RenderPipelinePreset::Stable;
         LightingProfile m_lightingProfile{};
         bool m_useManualLightingProfile = false;

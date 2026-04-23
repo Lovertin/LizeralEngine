@@ -1,5 +1,6 @@
 #pragma once
 #include "editor/EditorHeader.h"
+#include "editor/overlay/EditorViewportOverlay.h"
 #include "runtime/function/render/VulkanRenderingSystem/VulkanRenderingSystem.h"
 #include "runtime/function/render/rhi/vulkan/VulkanContext.h"
 #include "runtime/function/render/rhi/vulkan/VulkanDevice.h"
@@ -24,8 +25,12 @@ public:
 
     void SetPhysicsSystem(Lizeral::PhysicsSystem* physSys) { m_physicsSystem = physSys; }
 
+    void SetPhysicsDebugLines(const std::vector<DebugLineVertex>& lines) {
+        m_viewportOverlay.SetPhysicsDebugLines(lines);
+    }
+
     void SetDebugLines(const std::vector<DebugLineVertex>& lines) {
-            m_debugLines = lines;
+        SetPhysicsDebugLines(lines);
     }
 
 protected:
@@ -54,7 +59,7 @@ private:
     std::unique_ptr<VulkanRenderer> m_renderer;
     VkSurfaceKHR m_surface { VK_NULL_HANDLE };
 
-    std::vector<DebugLineVertex> m_debugLines;
+    Lizeral::EditorViewportOverlay m_viewportOverlay;
 
     bool m_isVulkanInitialized { false };
     bool m_isRoaming { false };

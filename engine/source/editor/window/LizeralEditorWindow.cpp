@@ -225,7 +225,7 @@ void LizeralEditorWindow::populateTestData(){
     // Lizeral::ResourceManager::GetInstance().SetRootPath("");
 
     Lizeral::Entity camEntity = m_globalRegistry->create();
-    m_globalRegistry->emplace<Lizeral::NameComponent>(camEntity, "Main Camera");
+    m_globalRegistry->emplace<Lizeral::NameComponent>(camEntity, "Camera");
     auto& camTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(camEntity);
     camTrans.setPosition(Lizeral::Vector3(0.0f, 2.0f, 15.0f)); 
     camTrans.setForward(Lizeral::Vector3(0.0f, 0.0f, -1.0f)); 
@@ -235,33 +235,8 @@ void LizeralEditorWindow::populateTestData(){
     camCtrl.setYaw(0.0f); camCtrl.setPitch(0.0f); 
     camCtrl.setMoveSpeed(5.0f);
 
-    Lizeral::Entity lightEntity = m_globalRegistry->create();
-    m_globalRegistry->emplace<Lizeral::NameComponent>(lightEntity, "Directional Light");
-    auto& lightTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(lightEntity);
-    lightTrans.setForward(Lizeral::Vector3(1.0f, 1.0f, 1.0f)); 
-    auto& lighttype=m_globalRegistry->emplace<Lizeral::DirectionLightComponent>(lightEntity);
-    lighttype.setIntensity(3.0f);
-
-    Lizeral::Entity boxEntity = m_globalRegistry->create();
-    m_globalRegistry->emplace<Lizeral::NameComponent>(boxEntity, "Test Box");
-    m_globalRegistry->emplace<Lizeral::TransformComponent>(boxEntity); 
-
-    Lizeral::Entity roomEntity = m_globalRegistry->create();
-    m_globalRegistry->emplace<Lizeral::NameComponent>(roomEntity,"classroom");
-    auto& roomTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(roomEntity);
-    roomTrans.setPosition(Lizeral::Vector3(0.0f, -1.0f, 10.0f));
-    roomTrans.setScale(Lizeral::Vector3(0.05f, 0.05f, 0.05f)); 
-    m_globalRegistry->emplace<Lizeral::VulkanModelComponent>(roomEntity).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/scene_without_window.glb"); 
-
-    Lizeral::Entity maserati = m_globalRegistry->create();
-    m_globalRegistry->emplace<Lizeral::NameComponent>(maserati,"Maserati");
-    auto& carTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(maserati);
-    carTrans.setPosition(Lizeral::Vector3(80.0f,0.0f,0.0f));
-    carTrans.setScale(Lizeral::Vector3(1.0f,1.0f,1.0f));
-    m_globalRegistry->emplace<Lizeral::VulkanModelComponent>(maserati).setVulkanModelPath("C:/Lizeral Engine/LizeralEngine0.0.1/asset/maserati_withoutwindow.glb");
-
     m_outlinerPanel->Refresh();
-    Lizeral::EditorSelection::Get().SelectEntity(boxEntity);
+    Lizeral::EditorSelection::Get().SelectEntity(camEntity);
 }
 
 void LizeralEditorWindow::initEngineSystems(){

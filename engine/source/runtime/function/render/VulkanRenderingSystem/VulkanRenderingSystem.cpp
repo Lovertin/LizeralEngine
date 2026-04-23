@@ -14,6 +14,15 @@
 
 namespace Lizeral {
 
+    namespace {
+        struct EditorGridPushConstants {
+            Matrix4x4 invViewProj;
+            Vector4 cameraPosAndPlaneHeight;
+            Vector4 viewportSizeAndSpacing;
+            Vector4 fadeAndOpacity;
+        };
+    } // namespace
+
     VulkanRenderingSystem::LightingProfile VulkanRenderingSystem::ResolveLightingProfile(RenderPipelinePreset preset) const {
         switch (preset) {
             case RenderPipelinePreset::SSGI:
@@ -324,6 +333,9 @@ namespace Lizeral {
         if (m_graphicsPipeline)       vkDestroyPipeline(device, m_graphicsPipeline, nullptr);
         if (m_graphicsPipelineLayout) vkDestroyPipelineLayout(device, m_graphicsPipelineLayout, nullptr);
 
+        if (m_editorGridPipeline) vkDestroyPipeline(device, m_editorGridPipeline, nullptr);
+        if (m_editorGridPipelineLayout) vkDestroyPipelineLayout(device, m_editorGridPipelineLayout, nullptr);
+
         if (m_debugLinePipeline) vkDestroyPipeline(device, m_debugLinePipeline, nullptr);
         if (m_debugLinePipelineLayout) vkDestroyPipelineLayout(device, m_debugLinePipelineLayout, nullptr);
     }
@@ -417,6 +429,11 @@ namespace Lizeral {
         m_viewY = y;
         m_viewW = width;
         m_viewH = height;
+    }
+
+    void VulkanRenderingSystem::SetEditorOverlayData(const EditorViewportOverlayData& overlayData) {
+        m_editorOverlayData = overlayData;
+        m_hasEditorOverlayData = true;
     }
 
     void VulkanRenderingSystem::UpdateBindlessTextureDescriptor(uint32_t textureIndex) {
@@ -1049,8 +1066,101 @@ namespace Lizeral {
         vkDestroyShaderModule(device, taaFragShader, nullptr);
         vkDestroyShaderModule(device, blitFragShader, nullptr);
 
+        CreateEditorGridPipeline();
         CreateDebugLinePipeline();
         std::cout << "[RenderingSystem] Pipelines Built Successfully." << std::endl;
+    }
+
+    void VulkanRenderingSystem::CreateEditorGridPipeline() {
+        VkDevice device = m_device->GetNativeDevice();
+        const std::string SHADER_DIR = "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/shader/";
+
+        VkShaderModule vertShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "editor_grid_vert.spv"));
+        VkShaderModule fragShader = CreateShaderModule(device, ReadShaderFile(SHADER_DIR + "editor_grid_frag.spv"));
+
+        VkPipelineShaderStageCreateInfo shaderStages[] = {
+            {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vertShader, "main", nullptr},
+            {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragShader, "main", nullptr}
+        };
+
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+        VkPipelineViewportStateCreateInfo viewportState{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+        viewportState.viewportCount = 1;
+        viewportState.scissorCount = 1;
+
+        VkPipelineRasterizationStateCreateInfo rasterizer{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = 1.0f;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+        VkPipelineMultisampleStateCreateInfo multisampling{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+        VkPipelineDepthStencilStateCreateInfo depthStencil{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+        depthStencil.depthTestEnable = VK_FALSE;
+        depthStencil.depthWriteEnable = VK_FALSE;
+
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+        colorBlendAttachment.colorWriteMask = 0xF;
+        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+        VkPipelineColorBlendStateCreateInfo colorBlending{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+        colorBlending.attachmentCount = 1;
+        colorBlending.pAttachments = &colorBlendAttachment;
+
+        VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+        VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        dynamicState.dynamicStateCount = 2;
+        dynamicState.pDynamicStates = dynamicStates;
+
+        VkPushConstantRange pushRange{};
+        pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        pushRange.offset = 0;
+        pushRange.size = sizeof(EditorGridPushConstants);
+
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushRange;
+        vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &m_editorGridPipelineLayout);
+
+        VkFormat colorFormat = m_renderer->GetSwapchainFormat();
+        VkPipelineRenderingCreateInfo renderingInfo{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachmentFormats = &colorFormat;
+        renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+
+        VkGraphicsPipelineCreateInfo pipelineInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+        pipelineInfo.pNext = &renderingInfo;
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = &depthStencil;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+        pipelineInfo.layout = m_editorGridPipelineLayout;
+
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_editorGridPipeline) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create editor grid pipeline!");
+        }
+
+        vkDestroyShaderModule(device, vertShader, nullptr);
+        vkDestroyShaderModule(device, fragShader, nullptr);
     }
 
     void VulkanRenderingSystem::CreateDebugLinePipeline() {
@@ -1142,6 +1252,10 @@ namespace Lizeral {
         if (!m_CmdDrawMeshTasksEXT) {
             m_CmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(m_device->GetNativeDevice(), "vkCmdDrawMeshTasksEXT");
         }
+
+        const EditorViewportOverlayData* activeOverlay = m_hasEditorOverlayData ? &m_editorOverlayData : nullptr;
+        const std::vector<DebugLineVertex>& activeDebugLines =
+            activeOverlay ? activeOverlay->worldLines : debugLines;
 
         // Keep render targets in sync with the real swapchain size.
         // Some fullscreen / HiDPI transitions may bypass widget resize callbacks.
@@ -1515,6 +1629,26 @@ namespace Lizeral {
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_blitPipelineLayout, 0, 1, &m_blitSets[ping], 0, nullptr);
         vkCmdDraw(cmd, 3, 1, 0, 0);
 
+        if (activeOverlay && activeOverlay->enabled && activeOverlay->grid.enabled && m_editorGridPipeline != VK_NULL_HANDLE) {
+            const float minorSpacing = std::max(activeOverlay->grid.minorSpacing, 0.001f);
+            const float majorSpacing = std::max(activeOverlay->grid.majorSpacing, minorSpacing);
+
+            EditorGridPushConstants gridPc{};
+            gridPc.invViewProj = currentVP.inverse().transpose();
+            gridPc.cameraPosAndPlaneHeight = Vector4(cameraPos, activeOverlay->grid.planeHeight);
+            gridPc.viewportSizeAndSpacing =
+                Vector4(static_cast<float>(m_width), static_cast<float>(m_height), minorSpacing, majorSpacing);
+            gridPc.fadeAndOpacity =
+                Vector4(std::max(activeOverlay->grid.fadeDistance, 1.0f),
+                        activeOverlay->grid.majorOpacity,
+                        activeOverlay->grid.minorOpacity,
+                        activeOverlay->grid.axisOpacity);
+
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_editorGridPipeline);
+            vkCmdPushConstants(cmd, m_editorGridPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(EditorGridPushConstants), &gridPc);
+            vkCmdDraw(cmd, 3, 1, 0, 0);
+        }
+
         if (!transparentDraws.empty()) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_transparentPipeline);
             VkDescriptorSet transparentSets[2] = { m_transparentSet, m_descriptorSet };
@@ -1554,11 +1688,11 @@ namespace Lizeral {
         }
 
         // 6. Draw Lines
-        if (!debugLines.empty()) {
-            size_t bufferSize = debugLines.size() * sizeof(Lizeral::DebugLineVertex);
+        if (!activeDebugLines.empty()) {
+            size_t bufferSize = activeDebugLines.size() * sizeof(Lizeral::DebugLineVertex);
             if (bufferSize > m_maxDebugLineBufferSize) bufferSize = m_maxDebugLineBufferSize;
 
-            m_debugLineBuffer->WriteData((void*)debugLines.data(), bufferSize);
+            m_debugLineBuffer->WriteData((void*)activeDebugLines.data(), bufferSize);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_debugLinePipeline);
             Matrix4x4 lineVP = currentVP.transpose(); 

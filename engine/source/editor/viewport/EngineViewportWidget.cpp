@@ -124,9 +124,10 @@ namespace Lizeral {
 
         VkExtent2D currentExt = m_renderer->GetSwapchainExtent();
         m_RenderSystem->SetViewport(0, 0, currentExt.width, currentExt.height);
+        m_RenderSystem->SetEditorOverlayData(m_viewportOverlay.BuildFrameData());
 
-        // Invoke the black box mechanism
-        m_RenderSystem->Tick(*m_Registry, 0.016f,m_debugLines); 
+        // Invoke the black box mechanism.
+        m_RenderSystem->Tick(*m_Registry, 0.016f); 
     }
 
     void EngineViewportWidget::mousePressEvent(QMouseEvent *event){
