@@ -185,8 +185,11 @@ namespace Lizeral {
         size_t m_maxDebugLineBufferSize = 2 * 1024 * 1024; // 2MB volume
         VkPipelineLayout m_editorGridPipelineLayout { VK_NULL_HANDLE };
         VkPipeline m_editorGridPipeline { VK_NULL_HANDLE };
+        VkPipelineLayout m_editorAxisPipelineLayout { VK_NULL_HANDLE };
+        VkPipeline m_editorAxisPipeline { VK_NULL_HANDLE };
         void CreateDebugLinePipeline();
         void CreateEditorGridPipeline();
+        void CreateEditorAxisPipeline();
 
         std::unordered_map<std::string, VulkanModelResource> m_modelCache;
         std::vector<std::unique_ptr<VulkanTexture>> m_globalTextures;

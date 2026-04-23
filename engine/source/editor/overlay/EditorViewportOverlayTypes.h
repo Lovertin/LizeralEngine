@@ -30,13 +30,19 @@ namespace Lizeral {
         float axisOpacity { 0.95f };
     };
 
+    struct EditorOverlayAxisSettings {
+        bool showAxes { true };
+        float axisHalfExtent { 100.0f };
+    };
+
     struct EditorViewportOverlayData {
         bool enabled { true };
         EditorOverlayGridSettings grid {};
+        EditorOverlayAxisSettings axes {};
         std::vector<DebugLineVertex> worldLines;
 
         bool HasVisibleContent() const {
-            return enabled && (grid.enabled || !worldLines.empty());
+            return enabled && (grid.enabled || axes.showAxes || !worldLines.empty());
         }
     };
 
