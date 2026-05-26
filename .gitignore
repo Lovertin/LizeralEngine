@@ -9,10 +9,14 @@
 # 忽略编译输出目录
 out/
 build/
+engine/build*/
 cmake-build-*/
 x64/
 Debug/
 Release/
+
+# 忽略本地便携工具链
+.tools/
 
 # 忽略构建产物
 *.obj

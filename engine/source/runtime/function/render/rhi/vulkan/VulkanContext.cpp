@@ -52,8 +52,9 @@ namespace Lizeral {
     }
 
     void VulkanContext::Shutdown() {
-        if (enableValidationLayers) {
+        if (m_validationLayersEnabled && m_debugMessenger != VK_NULL_HANDLE) {
             DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+            m_debugMessenger = VK_NULL_HANDLE;
         }
         if (m_instance != VK_NULL_HANDLE) {
             std::cout << "[VulkanContext] Destroying Vulkan Instance..." << std::endl;
@@ -63,8 +64,9 @@ namespace Lizeral {
     }
 
     void VulkanContext::createInstance(const std::string& appName, const std::vector<const char*>& windowExtensions) {
-        if (enableValidationLayers && !checkValidationLayerSupport()) {
-            throw std::runtime_error("Validation layers requested, but not available!");
+        m_validationLayersEnabled = enableValidationLayers && checkValidationLayerSupport();
+        if (enableValidationLayers && !m_validationLayersEnabled) {
+            std::cerr << "[VulkanContext] Validation layers requested, but not available. Continuing without validation layers." << std::endl;
         }
 
         VkApplicationInfo appInfo{};
@@ -90,7 +92,7 @@ namespace Lizeral {
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
 
-        if (enableValidationLayers) {
+        if (m_validationLayersEnabled) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
             std::cout << "[VulkanContext] Validation Layers ENABLED." << std::endl;
@@ -105,7 +107,7 @@ namespace Lizeral {
     }
 
     void VulkanContext::setupDebugMessenger() {
-        if (!enableValidationLayers) return;
+        if (!m_validationLayersEnabled) return;
 
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -170,7 +172,7 @@ namespace Lizeral {
 
     std::vector<const char*> VulkanContext::getRequiredExtensions() {
         std::vector<const char*> extensions;
-        if (enableValidationLayers) {
+        if (m_validationLayersEnabled) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
         return extensions;

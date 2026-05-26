@@ -120,6 +120,12 @@ set(EDITOR_SOURCES
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE) 
 
 add_subdirectory(source/runtime/core/vendor/assimp)
@@ -131,6 +137,8 @@ if(MINGW OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION
         target_compile_options(assimp PRIVATE 
             -Wno-error=maybe-uninitialized
             -Wno-maybe-uninitialized
+            -Wno-error=unknown-pragmas
+            -Wno-unknown-pragmas
         )
         message(STATUS "Applied GCC 13+ compatibility fixes to assimp")
     elseif(TARGET assimp::assimp)
@@ -149,6 +157,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+add_compile_definitions(
+    LIZERAL_ENGINE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    LIZERAL_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+    LIZERAL_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/source/shader/"
+)
+
 # build qt6
 add_executable(LizeralEditor ${EDITOR_SOURCES})
 target_include_directories(LizeralEditor PRIVATE
@@ -156,6 +170,7 @@ target_include_directories(LizeralEditor PRIVATE
     source/runtime              
     3rdparty/glfw/include       
     3rdparty/json11   
+    3rdparty/vma/include
     ${Vulkan_INCLUDE_DIRS}      
 )
 
@@ -183,6 +198,7 @@ target_include_directories(LizeralPhysicsSandbox PRIVATE
     source/runtime             
     3rdparty/glfw/include      
     3rdparty/json11           
+    3rdparty/vma/include
     ${Vulkan_INCLUDE_DIRS}
 )
 

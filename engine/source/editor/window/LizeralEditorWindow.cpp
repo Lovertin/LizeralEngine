@@ -13,7 +13,7 @@ LizeralEditorWindow::LizeralEditorWindow(){
     setWindowTitle("Lizeral Engine");
     resize(1366, 768);
 
-    setWindowIcon(QIcon("C:/Lizeral Engine/LizeralEngine0.0.1/asset/logos/Lizeral_Engine.jpg"));
+    setWindowIcon(QIcon(QString::fromUtf8(LIZERAL_PROJECT_ROOT) + "/asset/logos/Lizeral_Engine.jpg"));
 
     Lizeral::Reflection::TypeMetaRegister::Register();
     Lizeral::DataTypeUIFactory::Initialize();
@@ -59,9 +59,7 @@ void LizeralEditorWindow::setupUI(){
     m_controlPanel = new Lizeral::EditorControlPanel(this);
     addToolBar(Qt::TopToolBarArea, m_controlPanel);
 
-    loadStyleSheet("C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/editor/style/UE5_Dark.qss");
-
-    QString qssPath = "C:/Lizeral Engine/LizeralEngine0.0.1/engine/source/editor/style/UE5_Dark.qss";
+    QString qssPath = QString::fromUtf8(LIZERAL_ENGINE_ROOT) + "/source/editor/style/UE5_Dark.qss";
     loadStyleSheet(qssPath);
 
     QFileSystemWatcher* watcher = new QFileSystemWatcher(this);
@@ -228,11 +226,11 @@ void LizeralEditorWindow::populateTestData(){
     m_globalRegistry->emplace<Lizeral::NameComponent>(camEntity, "Camera");
     auto& camTrans = m_globalRegistry->emplace<Lizeral::TransformComponent>(camEntity);
     camTrans.setPosition(Lizeral::Vector3(0.0f, 2.0f, 15.0f)); 
-    camTrans.setForward(Lizeral::Vector3(0.0f, 0.0f, -1.0f)); 
+    camTrans.setForward(Lizeral::Vector3(0.0f, 0.0f, 1.0f));
     auto& cam = m_globalRegistry->emplace<Lizeral::CameraComponent>(camEntity);
     cam.setFov(45.0f); cam.setAspect(16.0f / 9.0f); cam.setzNear(0.1f); cam.setzFar(1000.0f); cam.setMain(true); 
     auto& camCtrl = m_globalRegistry->emplace<Lizeral::CameraControlComponent>(camEntity);
-    camCtrl.setYaw(0.0f); camCtrl.setPitch(0.0f); 
+    camCtrl.setYaw(180.0f); camCtrl.setPitch(0.0f);
     camCtrl.setMoveSpeed(5.0f);
 
     m_outlinerPanel->Refresh();
